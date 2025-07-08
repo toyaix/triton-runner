@@ -2,15 +2,22 @@ import triton
 import json
 from triton.backends.nvidia.driver import make_launcher, compile_module_from_src
 from collections import namedtuple
+import warnings
 
 metadata = {}
 device = triton.runtime.driver.active.get_current_device()
 stream = triton.runtime.driver.active.get_current_stream(device)
 
 
+def check_triton_version():
+    if metadata['triton_version'] != "3.3.1":
+        warnings.warn("This runner is only support Triton v3.3.1.")
+
+
 def get_cufunction(json_path, cubin_path, kernel_name):
     global metadata
     metadata = json.loads(open(json_path, "r").read())
+    check_triton_version()
     kernel = open(cubin_path, "rb").read()
     module, function, n_regs, n_spills = triton.runtime.driver.active.utils.load_binary(
         kernel_name, kernel, metadata["shared"], device)
@@ -30,8 +37,10 @@ def get_packed_metadata():
     metadata["cluster_dims"] = tuple(metadata["cluster_dims"])
     # JSON serialization dumps the target as a dict. Restore it to a GPUTarget.
     target = metadata["target"]
-    metadata["target"] = triton.backends.compiler.GPUTarget(target["backend"], target["arch"], target["warp_size"])
-    KernelMetadata = namedtuple("KernelMetadata", sorted(list(metadata.keys())))
+    metadata["target"] = triton.backends.compiler.GPUTarget(
+        target["backend"], target["arch"], target["warp_size"])
+    KernelMetadata = namedtuple(
+        "KernelMetadata", sorted(list(metadata.keys())))
     compile_metadata = KernelMetadata(**metadata)
     backend = triton.compiler.make_backend(compile_metadata.target)
     return backend.pack_metadata(compile_metadata)
@@ -53,5 +62,6 @@ def cubin_launch(function, signature_str, bound_args, grid):
     global_scratch = get_global_scratch(grid)
     packed_metadata = get_packed_metadata()
     launch_metadata, launch_enter_hook, launch_exit_hook = None, None, None
-    mod.launch(*get_grid_xyz(grid), stream, function, metadata["launch_cooperative_grid"], global_scratch,
+    mod.launch(*get_grid_xyz(grid), stream, function,
+               metadata["launch_cooperative_grid"], global_scratch,
                packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, *bound_args)
