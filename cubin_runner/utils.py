@@ -22,7 +22,12 @@ warnings.showwarning = colored_warning
 
 
 def check_triton_version():
-    if metadata['triton_version'] != "3.3.1":
+    kernel_version = metadata['triton_version']
+    installed_version = triton.__version__
+    if kernel_version != installed_version:
+        warnings.warn(
+            f"This kernel Triton v{kernel_version} is different with intstalled v{installed_version}")
+    if installed_version != "3.3.1":
         warnings.warn("This runner is only support Triton v3.3.1.")
 
 
@@ -32,7 +37,7 @@ def check_cuda_arch():
     kernel_arch = metadata["target"]["arch"]
     if kernel_arch != capability:
         warnings.warn(
-            f"This kernel capability={kernel_arch} is different with device={capability}")
+            f"This kernel capability={kernel_arch} is different with device capability={capability}")
 
 
 def check_triton():
