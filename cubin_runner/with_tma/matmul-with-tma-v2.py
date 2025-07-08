@@ -1,6 +1,9 @@
 # The use of PyTorch in Triton programs is not allowed for the purposes of fair benchmarking.
 import triton
 import triton.language as tl
+import torch
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 @triton.jit
 def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
@@ -8,9 +11,6 @@ def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
                                         BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr,
                                         BLOCK_SIZE_K: tl.constexpr,  #
                                         ):
-    a_ptr = a_ptr.to(tl.pointer_type(tl.float32))
-    b_ptr = b_ptr.to(tl.pointer_type(tl.float32))
-    c_ptr = c_ptr.to(tl.pointer_type(tl.float32))
     pid_m = tl.program_id(axis=0)
     pid_k = tl.program_id(axis=1)
 
@@ -43,37 +43,55 @@ def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
     c_desc.store([pid_m * BLOCK_SIZE_M, pid_k * BLOCK_SIZE_K], accumulator)
 
 # a_ptr, b_ptr, c_ptr are raw device pointers
-def solve(a_ptr: int, b_ptr: int, c_ptr: int, M: int, N: int, K: int):
-    grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']), triton.cdiv(K, META['BLOCK_SIZE_K']), )
+def matmul(a, b):
+    M, N = a.shape
+    N, K = b.shape
+
     # Leading dimensions must be multiples of 16-byte strides
     # if M % 4 == 0 and N % 4 == 0 and K % 4 == 0:
 
-    import torch
+    # Allocates output.
+    c = torch.empty((M, K), device=a.device, dtype=torch.float16)
+
     # TMA descriptors require a global memory allocation
     def alloc_fn(size, alignment, stream):
         return torch.empty(size, device="cuda", dtype=torch.int8)
 
     triton.set_allocator(alloc_fn)
-    matmul_kernel_make_tensor_desciptor[grid](
-        a_ptr, b_ptr, c_ptr,
-        M, N, K,
-        BLOCK_SIZE_M=128,
-        BLOCK_SIZE_K=64,
-        BLOCK_SIZE_N=64,
-    )
 
-M, N, K = 8192, 6144, 4096
+    import sys
+    sys.path.append('..')
 
-import torch
+    from utils import get_cufunction, cubin_launch
+    kernel_name = "matmul_kernel_make_tensor_desciptor"
+    function = get_cufunction(f"{kernel_name}.json", f"{kernel_name}.cubin", f"{kernel_name}")
+    bound_args = (a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1),
+                  c.stride(0), c.stride(1), 128, 64, 64)
+    signature_str = "* * * i32 i32 i32 i32 constexpr i32 constexpr i32 constexpr constexpr constexpr constexpr"
+    grid = (triton.cdiv(M, 128), triton.cdiv(K, 64), )
+    cubin_launch(function, signature_str, bound_args, grid)
+
+    # grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']), triton.cdiv(K, META['BLOCK_SIZE_K']), )
+    # matmul_kernel_make_tensor_desciptor[grid](
+    #     a, b, c,
+    #     M, N, K,
+    #     BLOCK_SIZE_M=128,
+    #     BLOCK_SIZE_K=64,
+    #     BLOCK_SIZE_N=64,
+    # )
+
+    return c
+
+M, N, K = 1024, 512, 256
+
 device = torch.cuda.current_device()
 
-A = torch.randn(M, N, device=device)
-B = torch.randn(N, K, device=device)
-C = torch.randn(M, K, device=device)
-solve(A[None], B[None], C[None], M, N, K)
-torch_output = torch.matmul(A, B)
+a = torch.randn(M, N, device=DEVICE, dtype=torch.float16)
+b = torch.randn(N, K, device=DEVICE, dtype=torch.float16)
+torch_output = torch.matmul(a, b)
+triton_output = matmul(a, b)
 
-if torch.allclose(C, torch_output, atol=0.125, rtol=0):
+if torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0):
     print("✅ Triton and Torch match")
 else:
     print("❌ Triton and Torch differ")
