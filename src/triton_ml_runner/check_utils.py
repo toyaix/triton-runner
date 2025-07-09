@@ -1,5 +1,6 @@
 import warnings
 import torch
+import triton
 
 metadata = {}
 
