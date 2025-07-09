@@ -28,16 +28,22 @@ def get_grid_xyz(grid):
     return grid_0, grid_1, grid_2
 
 
-def get_packed_metadata():
+def get_compile_metadata():
     metadata["cluster_dims"] = tuple(metadata["cluster_dims"])
     # JSON serialization dumps the target as a dict. Restore it to a GPUTarget.
     target = metadata["target"]
-    metadata["target"] = triton.backends.compiler.GPUTarget(
-        target["backend"], target["arch"], target["warp_size"])
-    KernelMetadata = namedtuple(
-        "KernelMetadata", sorted(list(metadata.keys())))
-    compile_metadata = KernelMetadata(**metadata)
-    backend = triton.compiler.make_backend(compile_metadata.target)
+    metadata["target"] = triton.backends.compiler.GPUTarget(target["backend"], target["arch"], target["warp_size"])
+    KernelMetadata = namedtuple("KernelMetadata", sorted(list(metadata.keys())))
+    return KernelMetadata(**metadata)
+
+
+def get_backend(compile_metadata_target):
+    return triton.compiler.make_backend(compile_metadata_target)
+
+
+def get_packed_metadata():
+    compile_metadata = get_compile_metadata()
+    backend = get_backend(compile_metadata.target)
     return backend.pack_metadata(compile_metadata)
 
 
@@ -57,6 +63,5 @@ def cubin_launch(function, signature_str, bound_args, grid):
     global_scratch = get_global_scratch(grid)
     packed_metadata = get_packed_metadata()
     launch_metadata, launch_enter_hook, launch_exit_hook = None, None, None
-    mod.launch(*get_grid_xyz(grid), stream, function,
-               metadata["launch_cooperative_grid"], global_scratch,
+    mod.launch(*get_grid_xyz(grid), stream, function, metadata["launch_cooperative_grid"], global_scratch,
                packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, *bound_args)
