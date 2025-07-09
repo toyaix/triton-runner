@@ -12,7 +12,7 @@ stream = triton.runtime.driver.active.get_current_stream(device)
 def get_cufunction(json_path, cubin_path, kernel_name):
     global metadata
     metadata = json.loads(open(json_path, "r").read())
-    check_triton(metadata, device)
+    check_triton(kernel_name, metadata, device)
     kernel = open(cubin_path, "rb").read()
     module, function, n_regs, n_spills = triton.runtime.driver.active.utils.load_binary(
         kernel_name, kernel, metadata["shared"], device)

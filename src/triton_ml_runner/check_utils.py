@@ -15,6 +15,11 @@ def colored_warning(message, category, filename, lineno, file=None, line=None):
 warnings.showwarning = colored_warning
 
 
+def check_kernel_name(kernel_name):
+    if metadata['name'] != kernel_name:
+        warnings.warn(
+            f"This kernel name {kernel_name} is different with metadata {metadata['name']}")
+
 def check_triton_version():
     kernel_version = metadata['triton_version']
     installed_version = triton.__version__
@@ -34,8 +39,9 @@ def check_cuda_arch(device):
             f"This kernel capability={kernel_arch} is different with device capability={capability}")
 
 
-def check_triton(t_metadata, device):
+def check_triton(kernel_name, t_metadata, device):
     global metadata
     metadata = t_metadata
+    check_kernel_name(kernel_name)
     check_triton_version()
     check_cuda_arch(device)

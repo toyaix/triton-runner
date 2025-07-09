@@ -62,7 +62,7 @@ def matmul(a, b):
     triton.set_allocator(alloc_fn)
 
     from triton_ml_runner.utils import get_cufunction, cubin_launch
-    kernel_name = "matmul_kernel"
+    kernel_name = "matmul_kernel_make_tensor_desciptor"
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
     metadata_path = os.path.join(current_dir, f"{kernel_name}.json")
