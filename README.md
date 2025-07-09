@@ -4,6 +4,24 @@
 
 This project is built specifically for **Triton v3.3.1** and is not guaranteed to work with other versions.
 
+## Installation
+
+install the package as a standard Python package
+
+```bash
+git clone https://github.com/OpenMLIR/triton-ml-runner
+cd triton-ml-runner
+pip install .
+```
+
+### Development Installation (Editable Mode)
+
+If you are actively developing or modifying the source code, install the package in editable mode. This allows changes in the source files to take effect immediately without reinstalling:
+
+```bash
+pip install -e .
+```
+
 ## ⚠️ Version Compatibility
 
 This runner is built against **Triton v3.3.1**.
