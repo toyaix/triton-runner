@@ -5,6 +5,7 @@ import torch
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
+
 @triton.jit
 def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
                                         M, N, K,  #
@@ -42,6 +43,7 @@ def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
     accumulator = accumulator.to(a_desc.dtype)
     c_desc.store([pid_m * BLOCK_SIZE_M, pid_k * BLOCK_SIZE_K], accumulator)
 
+
 # a_ptr, b_ptr, c_ptr are raw device pointers
 def matmul(a, b):
     M, N = a.shape
@@ -59,16 +61,21 @@ def matmul(a, b):
 
     triton.set_allocator(alloc_fn)
 
-    import sys
-    sys.path.append('..')
-
-    from utils import get_cufunction, cubin_launch
+    from triton_ml_runner.utils import get_cufunction, cubin_launch
     kernel_name = "matmul_kernel_make_tensor_desciptor"
-    function = get_cufunction(f"{kernel_name}.json", f"{kernel_name}.cubin", f"{kernel_name}")
-    bound_args = (a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1),
-                  c.stride(0), c.stride(1), 128, 64, 64)
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    metadata_path = os.path.join(current_dir, f"{kernel_name}.json")
+    cubin_path = os.path.join(current_dir, f"{kernel_name}.cubin")
+    function = get_cufunction(metadata_path, cubin_path, f"{kernel_name}")
+
+    bound_args = (a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1), 128,
+                  64, 64)
     signature_str = "* * * i32 i32 i32 i32 constexpr i32 constexpr i32 constexpr constexpr constexpr constexpr"
-    grid = (triton.cdiv(M, 128), triton.cdiv(K, 64), )
+    grid = (
+        triton.cdiv(M, 128),
+        triton.cdiv(K, 64),
+    )
     cubin_launch(function, signature_str, bound_args, grid)
 
     # grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']), triton.cdiv(K, META['BLOCK_SIZE_K']), )
@@ -81,6 +88,7 @@ def matmul(a, b):
     # )
 
     return c
+
 
 M, N, K = 1024, 512, 256
 
