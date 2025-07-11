@@ -57,8 +57,8 @@ def matmul(a, b):
     ttir_path = os.path.join(current_dir, f"{kernel_name}.ttir")
     save_path = current_dir
 
-    from triton_ml_runner.compile_utils import compile_ir
-    compile_ir(ttir_path, kernel_name, save_path)
+    from triton_ml_runner.compile_utils import save_cubin_from_ttir
+    save_cubin_from_ttir(ttir_path, kernel_name, save_path)
 
     metadata_path = os.path.join(save_path, f"{kernel_name}.json")
     cubin_path = os.path.join(save_path, f"{kernel_name}.cubin")

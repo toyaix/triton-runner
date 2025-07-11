@@ -56,8 +56,8 @@ def matmul(a, b):
     cubin_path = os.path.join(current_dir, f"{kernel_name}.cubin")
     ptx_path = os.path.join(current_dir, f"{kernel_name}.ptx")
     save_path = current_dir
-    from triton_ml_runner.make_cubin_utils import get_cubin
-    get_cubin(ptx_path, kernel_name, save_path)
+    from triton_ml_runner.compile_utils import save_cubin_from_ptx
+    save_cubin_from_ptx(ptx_path, kernel_name, save_path)
 
     from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch
 

@@ -3,8 +3,6 @@ import subprocess
 import os
 import triton
 import signal
-import re
-from .check_utils import check_cuda_arch_with_capability
 from triton.backends.nvidia.compiler import get_ptxas, sm_arch_from_capability
 
 
@@ -50,17 +48,3 @@ def runner_make_cubin(src, opt, capability):
         if os.path.exists(fbin):
             os.remove(fbin)
     return cubin
-
-
-def save_cubin_from_ptx(full_path, kernel_name, save_path):
-    target = triton.runtime.driver.active.get_current_target()
-    backend = triton.compiler.make_backend(target)
-    options = backend.parse_options(dict())
-    src = open(full_path, 'r').read()
-    target_match = re.search(r"\.target\s+sm_(\d+)", src)
-    ptx_capability = target_match.group(1)
-    check_cuda_arch_with_capability(int(ptx_capability), target.arch)
-    cubin = runner_make_cubin(src, options, target.arch)
-    cubin_path = os.path.join(save_path, f"{kernel_name}.cubin")
-    with open(cubin_path, "wb") as cubin_file:
-        cubin_file.write(cubin)
