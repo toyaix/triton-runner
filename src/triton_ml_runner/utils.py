@@ -3,7 +3,6 @@ import json
 from triton.backends.nvidia.driver import make_launcher, compile_module_from_src
 from collections import namedtuple
 from .check_utils import check_triton
-from .compile_utils import triton_compile
 
 metadata = {}
 device = triton.runtime.driver.active.get_current_device()
@@ -66,7 +65,3 @@ def cubin_launch(function, signature_str, bound_args, grid):
     launch_metadata, launch_enter_hook, launch_exit_hook = None, None, None
     mod.launch(*get_grid_xyz(grid), stream, function, metadata["launch_cooperative_grid"], global_scratch,
                packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, *bound_args)
-
-
-def compile_launch(full_name):
-    return triton_compile(full_name)

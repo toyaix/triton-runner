@@ -50,22 +50,20 @@ def matmul(a, b):
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=torch.float32)
 
-    from triton_ml_runner.utils import get_cufunction, cubin_launch, compile_launch
-    kernel_name = "matmul_kernel"
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
+    kernel_name = "matmul_kernel"
     ttir_path = os.path.join(current_dir, f"{kernel_name}.ttir")
+    save_path = current_dir
 
-    cubin, metadata = compile_launch(ttir_path)
-    cubin_path = os.path.join(current_dir, f"{kernel_name}.cubin")
-    metadata_path = os.path.join(current_dir, f"{kernel_name}.json")
+    from triton_ml_runner.compile_utils import compile_ir
+    compile_ir(ttir_path, kernel_name, save_path)
 
-    with open(cubin_path, "wb") as cubin_file, open(metadata_path, "w") as metadata_file:
-        cubin_file.write(cubin)
-        import json
-        metadata_file.write(json.dumps(metadata, default=vars))
+    metadata_path = os.path.join(save_path, f"{kernel_name}.json")
+    cubin_path = os.path.join(save_path, f"{kernel_name}.cubin")
 
+    from triton_ml_runner.utils import get_cufunction, cubin_launch
     function = get_cufunction(metadata_path, cubin_path, f"{kernel_name}")
     bound_args = (a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1), 16,
                   16)
