@@ -1,8 +1,8 @@
 import warnings
-import torch
 import triton
 
-metadata = {}
+_metadata = {}
+
 
 def colored_warning(message, category, filename, lineno, file=None, line=None):
     if file is None:
@@ -16,32 +16,33 @@ warnings.showwarning = colored_warning
 
 
 def check_kernel_name(kernel_name):
-    if metadata['name'] != kernel_name:
-        warnings.warn(
-            f"This kernel name {kernel_name} is different with metadata {metadata['name']}")
+    if _metadata['name'] != kernel_name:
+        warnings.warn(f"This kernel name {kernel_name} is different with metadata {_metadata['name']}")
+
 
 def check_triton_version():
-    kernel_version = metadata['triton_version']
+    kernel_version = _metadata['triton_version']
     installed_version = triton.__version__
     if kernel_version != installed_version:
-        warnings.warn(
-            f"This kernel Triton v{kernel_version} is different with intstalled v{installed_version}")
+        warnings.warn(f"This kernel Triton v{kernel_version} is different with intstalled v{installed_version}")
     if installed_version != "3.3.1":
         warnings.warn("This runner is only support Triton v3.3.1.")
 
 
+def check_cuda_arch_with_capability(kernel_arch, target_arch):
+    if kernel_arch != target_arch:
+        warnings.warn(f"This kernel capability={kernel_arch} is different with device capability={target_arch}")
+
+
 def check_cuda_arch(device):
-    capability = torch.cuda.get_device_capability(device)
-    capability = capability[0] * 10 + capability[1]
-    kernel_arch = metadata["target"]["arch"]
-    if kernel_arch != capability:
-        warnings.warn(
-            f"This kernel capability={kernel_arch} is different with device capability={capability}")
+    target = triton.runtime.driver.active.get_current_target()
+    kernel_arch = _metadata["target"]["arch"]
+    check_cuda_arch_with_capability(target.arch, kernel_arch)
 
 
-def check_triton(kernel_name, t_metadata, device):
-    global metadata
-    metadata = t_metadata
+def check_triton(kernel_name, metadata, device):
+    global _metadata
+    _metadata = metadata
     check_kernel_name(kernel_name)
     check_triton_version()
     check_cuda_arch(device)
