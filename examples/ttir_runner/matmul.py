@@ -63,7 +63,7 @@ def matmul(a, b):
     metadata_path = os.path.join(save_path, f"{kernel_name}.json")
     cubin_path = os.path.join(save_path, f"{kernel_name}.cubin")
 
-    from triton_ml_runner.utils import get_cufunction, cubin_launch
+    from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch
     function = get_cufunction(metadata_path, cubin_path, f"{kernel_name}")
     bound_args = (a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1), 16,
                   16)
