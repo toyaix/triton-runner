@@ -2,38 +2,41 @@ import triton
 import hashlib
 import os
 
-context = triton._C.libtriton.ir.context()
-target = triton.runtime.driver.active.get_current_target()
-backend = triton.compiler.make_backend(target)
-src = None
+_context = triton._C.libtriton.ir.context()
+_target = triton.runtime.driver.active.get_current_target()
+_backend = triton.compiler.make_backend(_target)
+_src = None
 
 
-def get_options(full_path):
-    global src
-    src = triton.compiler.IRSource(full_path, context, backend)
-    extra_options = src.parse_options()
-    options = backend.parse_options(dict(None or dict(), **extra_options))
+def update_src(full_path):
+    global _src
+    _src = triton.compiler.IRSource(full_path, _context, _backend)
+
+
+def get_options():
+    extra_options = _src.parse_options()
+    options = _backend.parse_options(dict(None or dict(), **extra_options))
     return options
 
 
 def get_satges(options):
     stages = {}
-    backend.add_stages(stages, options)
+    _backend.add_stages(stages, options)
     return stages
 
 
 def load_context():
-    triton._C.libtriton.ir.load_dialects(context)
-    backend.load_dialects(context)
+    triton._C.libtriton.ir.load_dialects(_context)
+    _backend.load_dialects(_context)
 
 
 def get_metadata(options):
     env_vars = triton._C.libtriton.get_cache_invalidating_env_vars()
-    key = f"{src.hash()}-{backend.hash()}-{options.hash()}-{str(sorted(env_vars.items()))}"
+    key = f"{_src.hash()}-{_backend.hash()}-{options.hash()}-{str(sorted(env_vars.items()))}"
     hash = "mlir_runner-" + hashlib.sha256(key.encode("utf-8")).hexdigest()
     metadata = {
         "hash": hash,
-        "target": target,
+        "target": _target,
         **options.__dict__,
         **env_vars,
     }
@@ -43,14 +46,15 @@ def get_metadata(options):
 
 def get_module(options):
     # module = triton._C.libtriton.ir.parse_mlir_module(full_path, context)
-    codegen_fns = backend.get_codegen_implementation(options)
-    module_map = backend.get_module_map()
-    module = src.make_ir(options, codegen_fns, module_map, context)
+    codegen_fns = _backend.get_codegen_implementation(options)
+    module_map = _backend.get_module_map()
+    module = _src.make_ir(options, codegen_fns, module_map, _context)
     return module
 
 
 def compile_ir(full_path, kernel_name, save_path):
-    options = get_options(full_path)
+    update_src(full_path)
+    options = get_options()
     stages = get_satges(options)
     metadata = get_metadata(options)
     first_stage = 1
