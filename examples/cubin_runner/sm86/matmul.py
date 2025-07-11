@@ -49,7 +49,7 @@ def matmul(a, b):
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=torch.float32)
 
-    from triton_ml_runner.utils import get_cufunction, cubin_launch
+    from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch
     kernel_name = "matmul_kernel"
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
