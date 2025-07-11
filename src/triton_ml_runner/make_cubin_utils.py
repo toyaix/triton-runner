@@ -52,16 +52,15 @@ def runner_make_cubin(src, opt, capability):
     return cubin
 
 
-def get_cubin(full_path, kernel_name, save_path):
+def save_cubin_from_ptx(full_path, kernel_name, save_path):
     target = triton.runtime.driver.active.get_current_target()
     backend = triton.compiler.make_backend(target)
     options = backend.parse_options(dict())
     src = open(full_path, 'r').read()
     target_match = re.search(r"\.target\s+sm_(\d+)", src)
     ptx_capability = target_match.group(1)
-    check_cuda_arch_with_capability(ptx_capability, target.arch)
+    check_cuda_arch_with_capability(int(ptx_capability), target.arch)
     cubin = runner_make_cubin(src, options, target.arch)
     cubin_path = os.path.join(save_path, f"{kernel_name}.cubin")
-    print(cubin_path)
     with open(cubin_path, "wb") as cubin_file:
         cubin_file.write(cubin)
