@@ -1,14 +1,7 @@
 from triton.runtime.driver import driver
-from triton.runtime.jit import serialize_specialization_data, create_function_from_signature
-from triton.runtime.jit import JITFunction, KernelInterface, T, KernelParam, DependenciesFinder, MockTensor
-from triton._utils import find_paths_if, get_iterable_path
-from typing import Callable, Generic, Iterable, Optional, TypeVar, Union, overload, Dict, Any, Tuple
-import inspect
-import textwrap
-from collections import defaultdict
-import re
+from triton.runtime.jit import JITFunction, KernelInterface, T
+from typing import Callable, Iterable, Optional, Union, overload
 import os
-import ast
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
@@ -17,13 +10,14 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         assert grid is not None
         if callable(grid):
             grid = grid(bound_args)
-        for k in kwargs:
-            if k not in options.__dict__ and k not in sigkeys:
-                if k.lower() in ["cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"]:
-                    from .jit_utils import jit_launch
-                    jit_launch(k.lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid)
-                else:
-                    raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+        filtered_keys = [k for k in kwargs if k not in options.__dict__ and k not in sigkeys]
+        runner_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
+        for k in filtered_keys:
+            if k.lower() in runner_dir_set:
+                from .jit_utils import jit_launch
+                jit_launch(k.lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid)
+            else:
+                raise KeyError("Keyword argument %s was specified but unrecognised" % k)
 
     def run(self, *args, grid, warmup, **kwargs):
         kwargs["debug"] = kwargs.get("debug", self.debug) or os.environ.get("TRITON_DEBUG", "0") == "1"
