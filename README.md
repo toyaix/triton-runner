@@ -2,7 +2,7 @@
 
 **Triton-ML-Runner** is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
-This project is built specifically for **Triton v3.3.1** and is not guaranteed to work with other versions.
+This project is built specifically for **Triton v3.3.x** and is not guaranteed to work with other versions.
 
 ## Example
 
@@ -69,8 +69,8 @@ pip install -e .
 
 ## ⚠️ Version Compatibility
 
-This runner is built against **Triton v3.3.1**.
-Compatibility with other versions of Triton is **not guaranteed** and may lead to unexpected behavior or build failures.
+This runner is built against **Triton v3.3.x**.
+Compatibility with other versions of Triton is **not guaranteed** and may lead to unexpected behavior or run failures.
 
 ## 📄 License
 
