@@ -25,8 +25,8 @@ def check_triton_version():
     installed_version = triton.__version__
     if kernel_version != installed_version:
         warnings.warn(f"This kernel Triton v{kernel_version} is different with intstalled v{installed_version}")
-    if installed_version != "3.3.1":
-        warnings.warn("This runner is only support Triton v3.3.1.")
+    if installed_version not in ["3.3.0", "3.3.1"]:
+        warnings.warn("This runner is only support Triton v3.3.x.")
 
 
 def check_cuda_arch_with_capability(kernel_arch, target_arch):
