@@ -54,14 +54,14 @@ def matmul(a, b):
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     kernel_name = "matmul_kernel"
-    ttir_path = os.path.join(current_dir, f"{kernel_name}.ttir")
+    ttir_path = os.path.join(current_dir, f"{kernel_name}.ttgir")
     save_path = current_dir
 
-    from triton_ml_runner.compile_utils import save_cubin_from_ttir
+    from triton_ml_runner.compile_utils import save_cubin_from_ttgir
     options = {
-        "num_warps": 4, "num_ctas": 1, "num_stages": 3, "enable_fp_fusion": True, "launch_cooperative_grid": False
+        "num_stages": 8, "enable_fp_fusion": True, "launch_cooperative_grid": False
     }
-    save_cubin_from_ttir(ttir_path, options, kernel_name, save_path)
+    save_cubin_from_ttgir(ttir_path, options, kernel_name, save_path)
 
     metadata_path = os.path.join(save_path, f"{kernel_name}.json")
     cubin_path = os.path.join(save_path, f"{kernel_name}.cubin")

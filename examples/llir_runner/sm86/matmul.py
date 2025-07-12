@@ -4,7 +4,6 @@ import torch
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
-
 @triton.jit
 def matmul_kernel(
     a_ptr, b_ptr, c_ptr,
@@ -50,23 +49,19 @@ def matmul(a, b):
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=torch.float32)
 
+    kernel_name = "matmul_kernel"
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
-
-    kernel_name = "matmul_kernel"
-    ttir_path = os.path.join(current_dir, f"{kernel_name}.ttir")
+    metadata_path = os.path.join(current_dir, f"{kernel_name}.json")
+    cubin_path = os.path.join(current_dir, f"{kernel_name}.cubin")
+    ptx_path = os.path.join(current_dir, f"{kernel_name}.llir")
     save_path = current_dir
 
-    from triton_ml_runner.compile_utils import save_cubin_from_ttir
-    options = {
-        "num_warps": 4, "num_ctas": 1, "num_stages": 3, "enable_fp_fusion": True, "launch_cooperative_grid": False
-    }
-    save_cubin_from_ttir(ttir_path, options, kernel_name, save_path)
-
-    metadata_path = os.path.join(save_path, f"{kernel_name}.json")
-    cubin_path = os.path.join(save_path, f"{kernel_name}.cubin")
+    from triton_ml_runner.compile_utils import save_cubin_from_llir
+    save_cubin_from_llir(ptx_path, kernel_name, save_path)
 
     from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch
+
     function = get_cufunction(metadata_path, cubin_path, f"{kernel_name}")
     bound_args = (a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1), 16,
                   16)
