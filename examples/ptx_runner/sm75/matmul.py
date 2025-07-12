@@ -1,10 +1,13 @@
 import triton
 import triton.language as tl
 import torch
+import triton_ml_runner
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
-@triton.jit
+
+# @triton.jit
+@triton_ml_runner.jit
 def matmul_kernel(
     a_ptr, b_ptr, c_ptr,
     M, N, K,
@@ -49,34 +52,13 @@ def matmul(a, b):
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=torch.float32)
 
-    kernel_name = "matmul_kernel"
-    import os
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    metadata_path = os.path.join(current_dir, f"{kernel_name}.json")
-    cubin_path = os.path.join(current_dir, f"{kernel_name}.cubin")
-    ptx_path = os.path.join(current_dir, f"{kernel_name}.ptx")
-    save_path = current_dir
-    from triton_ml_runner.compile_utils import save_cubin_from_ptx
-    save_cubin_from_ptx(ptx_path, kernel_name, save_path)
-
-    from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch
-
-    function = get_cufunction(metadata_path, cubin_path, f"{kernel_name}")
-    bound_args = (a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1), 16,
-                  16)
-    signature_str = "* * * i32 i32 i32 i32 constexpr i32 constexpr i32 constexpr constexpr constexpr"
-    grid = (
-        triton.cdiv(N, 16),
-        triton.cdiv(M, 16),
-    )
-    cubin_launch(function, signature_str, bound_args, grid)
-    return c
-
     # 1D launch kernel where each block gets its own program.
     grid = lambda META: (
         triton.cdiv(N, META['BLOCK_SIZE_N']),
         triton.cdiv(M, META['BLOCK_SIZE_M']),
     )
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
     matmul_kernel[grid](
         a,
         b,
@@ -92,6 +74,7 @@ def matmul(a, b):
         c.stride(1),
         BLOCK_SIZE_M=16,
         BLOCK_SIZE_N=16,
+        ptx_dir=current_dir
     )
     return c
 
