@@ -56,12 +56,11 @@ def get_module(options):
     return module
 
 
-def save_cubin_from_ttir(full_path, t_options, kernel_name, save_path):
+def save_cubin_from_ir_with_first_stage(full_path, t_options, kernel_name, save_path, first_stage):
     update_src(full_path)
     options = get_options(t_options)
     stages = get_satges(options)
     metadata = get_metadata(options)
-    first_stage = 1
     module = get_module(options)
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
@@ -72,6 +71,14 @@ def save_cubin_from_ttir(full_path, t_options, kernel_name, save_path):
         cubin_file.write(module)
         import json
         metadata_file.write(json.dumps(metadata, default=vars))
+
+
+def save_cubin_from_ttir(full_path, t_options, kernel_name, save_path):
+    save_cubin_from_ir_with_first_stage(full_path, t_options, kernel_name, save_path, 1)
+
+
+def save_cubin_from_ttgir(full_path, t_options, kernel_name, save_path):
+    save_cubin_from_ir_with_first_stage(full_path, t_options, kernel_name, save_path, 2)
 
 
 def save_cubin_from_ptx(full_path, kernel_name, save_path):
