@@ -17,9 +17,9 @@ def update_src(full_path):
     _src = triton.compiler.IRSource(full_path, _context, _backend)
 
 
-def get_options():
+def get_options(options=None):
     extra_options = _src.parse_options()
-    options = _backend.parse_options(dict(None or dict(), **extra_options))
+    options = _backend.parse_options(dict(options or dict(), **extra_options))
     return options
 
 
@@ -56,9 +56,9 @@ def get_module(options):
     return module
 
 
-def save_cubin_from_ttir(full_path, kernel_name, save_path):
+def save_cubin_from_ttir(full_path, t_options, kernel_name, save_path):
     update_src(full_path)
-    options = get_options()
+    options = get_options(t_options)
     stages = get_satges(options)
     metadata = get_metadata(options)
     first_stage = 1

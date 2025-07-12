@@ -2,8 +2,8 @@ import triton
 import triton.language as tl
 import torch
 
-
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
+
 
 @triton.jit
 def matmul_kernel(
@@ -58,7 +58,10 @@ def matmul(a, b):
     save_path = current_dir
 
     from triton_ml_runner.compile_utils import save_cubin_from_ttir
-    save_cubin_from_ttir(ttir_path, kernel_name, save_path)
+    options = {
+        "num_warps": 4, "num_ctas": 1, "num_stages": 3, "enable_fp_fusion": True, "launch_cooperative_grid": False
+    }
+    save_cubin_from_ttir(ttir_path, options, kernel_name, save_path)
 
     metadata_path = os.path.join(save_path, f"{kernel_name}.json")
     cubin_path = os.path.join(save_path, f"{kernel_name}.cubin")
