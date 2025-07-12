@@ -1,6 +1,7 @@
 from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch
-from triton_ml_runner.compile_utils import save_cubin_from_ttir, save_cubin_from_ttgir
+from triton_ml_runner.compile_utils import save_cubin_from_ttir, save_cubin_from_ttgir, save_cubin_from_llir
 import os
+
 
 def jit_cubin_launch(cubin_dir, kernel_name, bound_args, signature_str, grid):
     metadata_path = os.path.join(cubin_dir, f"{kernel_name}.json")
@@ -21,10 +22,18 @@ def jit_ttgir_launch(file_dir, kernel_name, bound_args, signature_str, grid, opt
     jit_cubin_launch(file_dir, kernel_name, bound_args, signature_str, grid)
 
 
+def jit_llir_launch(file_dir, kernel_name, bound_args, signature_str, grid):
+    llir_path = os.path.join(file_dir, f"{kernel_name}.llir")
+    save_cubin_from_llir(llir_path, kernel_name, file_dir)
+    jit_cubin_launch(file_dir, kernel_name, bound_args, signature_str, grid)
+
+
 def jit_launch(type_str, file_dir, kernel_name, bound_args, signature_str, grid, options):
-    if type_str == "cubin_dir":
+    if type_str == "cubin":
         jit_cubin_launch(file_dir, kernel_name, bound_args, signature_str, grid)
-    elif type_str == "ttir_dir":
+    elif type_str == "ttir":
         jit_ttir_launch(file_dir, kernel_name, bound_args, signature_str, grid, options)
-    elif type_str == "ttgir_dir":
+    elif type_str == "ttgir":
         jit_ttgir_launch(file_dir, kernel_name, bound_args, signature_str, grid, options)
+    elif type_str == "llir":
+        jit_llir_launch(file_dir, kernel_name, bound_args, signature_str, grid)

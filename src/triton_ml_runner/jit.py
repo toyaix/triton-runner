@@ -15,7 +15,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         for k in filtered_keys:
             if k.lower() in runner_dir_set:
                 from .jit_utils import jit_launch
-                jit_launch(k.lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid, options)
+                jit_launch(k[:-4].lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid, options)
             else:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
 
