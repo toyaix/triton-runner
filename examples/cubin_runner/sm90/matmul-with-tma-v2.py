@@ -2,11 +2,13 @@
 import triton
 import triton.language as tl
 import torch
+import triton_ml_runner
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
-@triton.jit
+# @triton.jit
+@triton_ml_runner.jit
 def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
                                         M, N, K,  #
                                         BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr,
@@ -61,31 +63,17 @@ def matmul(a, b):
 
     triton.set_allocator(alloc_fn)
 
-    from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch
-    kernel_name = "matmul_kernel_make_tensor_desciptor"
+    grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']), triton.cdiv(K, META['BLOCK_SIZE_K']), )
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    metadata_path = os.path.join(current_dir, f"{kernel_name}.json")
-    cubin_path = os.path.join(current_dir, f"{kernel_name}.cubin")
-    function = get_cufunction(metadata_path, cubin_path, f"{kernel_name}")
-
-    bound_args = (a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1), 128,
-                  64, 64)
-    signature_str = "* * * i32 i32 i32 i32 constexpr i32 constexpr i32 constexpr constexpr constexpr constexpr"
-    grid = (
-        triton.cdiv(M, 128),
-        triton.cdiv(K, 64),
+    matmul_kernel_make_tensor_desciptor[grid](
+        a, b, c,
+        M, N, K,
+        BLOCK_SIZE_M=128,
+        BLOCK_SIZE_K=64,
+        BLOCK_SIZE_N=64,
+        cubin_dir=current_dir
     )
-    cubin_launch(function, signature_str, bound_args, grid)
-
-    # grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']), triton.cdiv(K, META['BLOCK_SIZE_K']), )
-    # matmul_kernel_make_tensor_desciptor[grid](
-    #     a, b, c,
-    #     M, N, K,
-    #     BLOCK_SIZE_M=128,
-    #     BLOCK_SIZE_K=64,
-    #     BLOCK_SIZE_N=64,
-    # )
 
     return c
 
