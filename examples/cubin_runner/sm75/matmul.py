@@ -74,7 +74,7 @@ def matmul(a, b):
         c.stride(1),
         BLOCK_SIZE_M=16,
         BLOCK_SIZE_N=16,
-        CUBIN_DIR=current_dir
+        cubin_dir=current_dir
     )
     return c
 

@@ -142,9 +142,9 @@ class JITFunction(KernelInterface[T]):
                 grid = grid(bound_args)
             for k in kwargs:
                 if k not in options.__dict__ and k not in sigkeys:
-                    if k == "CUBIN_DIR":
-                        from .jit_utils import jit_cubin_launch
-                        jit_cubin_launch(kwargs[k], self.__name__, bound_args.values(), signature_str, grid)
+                    if k.lower() in ["cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"]:
+                        from .jit_utils import jit_launch
+                        jit_launch(k.lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid)
                     else:
                         raise KeyError("Keyword argument %s was specified but unrecognised" % k)
 
