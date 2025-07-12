@@ -16,13 +16,6 @@ def update_src(full_path):
     global _src
     _src = triton.compiler.IRSource(full_path, _context, _backend)
 
-
-def get_options(options=None):
-    extra_options = _src.parse_options()
-    options = _backend.parse_options(dict(options or dict(), **extra_options))
-    return options
-
-
 def get_satges(options):
     stages = {}
     _backend.add_stages(stages, options)
@@ -56,9 +49,8 @@ def get_module(options):
     return module
 
 
-def save_cubin_from_ir_with_first_stage(full_path, t_options, kernel_name, save_path, first_stage):
+def save_cubin_from_ir_with_first_stage(full_path, options, kernel_name, save_path, first_stage):
     update_src(full_path)
-    options = get_options(t_options)
     stages = get_satges(options)
     metadata = get_metadata(options)
     module = get_module(options)
