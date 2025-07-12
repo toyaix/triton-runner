@@ -52,28 +52,15 @@ def matmul(a, b):
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=torch.float32)
 
-    # 1D launch kernel where each block gets its own program.
-    grid = lambda META: (
-        triton.cdiv(N, META['BLOCK_SIZE_N']),
-        triton.cdiv(M, META['BLOCK_SIZE_M']),
-    )
-
+    grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE_N']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
-
     matmul_kernel[grid](
-        a,
-        b,
-        c,
-        M,
-        N,
-        K,
-        a.stride(0),
-        a.stride(1),
-        b.stride(0),
-        b.stride(1),
-        c.stride(0),
-        c.stride(1),
+        a, b, c,
+        M, N, K,
+        a.stride(0), a.stride(1),
+        b.stride(0), b.stride(1),
+        c.stride(0), c.stride(1),
         BLOCK_SIZE_M=16,
         BLOCK_SIZE_N=16,
         llir_dir=current_dir
