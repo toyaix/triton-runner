@@ -1,6 +1,6 @@
-# Triton-ML-Runner
+# triton-ml-runner
 
-**Triton-ML-Runner** is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
+triton-ml-runner(Triton multi-level runner, TMLR) is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
 This project is built specifically for **Triton v3.3.x** and is not guaranteed to work with other versions.
 
