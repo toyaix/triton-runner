@@ -1,14 +1,11 @@
-# The use of PyTorch in Triton programs is not allowed for the purposes of fair benchmarking.
 import triton
 import triton.language as tl
 import torch
-import triton_ml_runner
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
-# @triton.jit
-@triton_ml_runner.jit
+@triton.jit
 def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
                                         M, N, K,  #
                                         BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr,
@@ -42,7 +39,7 @@ def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
         b = b_desc.load([n * BLOCK_SIZE_N, pid_k * BLOCK_SIZE_K])
         accumulator = tl.dot(a, b, acc=accumulator)
 
-    accumulator = accumulator.to(a_desc.dtype)
+    accumulator = accumulator.to(tl.float16)
     c_desc.store([pid_m * BLOCK_SIZE_M, pid_k * BLOCK_SIZE_K], accumulator)
 
 
@@ -63,15 +60,13 @@ def matmul(a, b):
     triton.set_allocator(alloc_fn)
 
     grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']), triton.cdiv(K, META['BLOCK_SIZE_K']), )
-    import os
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+
     matmul_kernel_make_tensor_desciptor[grid](
         a, b, c,
         M, N, K,
         BLOCK_SIZE_M=128,
         BLOCK_SIZE_K=64,
         BLOCK_SIZE_N=64,
-        cubin_dir=current_dir
     )
 
     return c
@@ -81,12 +76,17 @@ M, N, K = 1024, 512, 256
 
 device = torch.cuda.current_device()
 
-a = torch.randn(M, N, device=DEVICE, dtype=torch.float16)
-b = torch.randn(N, K, device=DEVICE, dtype=torch.float16)
-torch_output = torch.matmul(a, b)
+a = torch.randn((M, N), device=DEVICE, dtype=torch.float16)
+b = torch.randn((N, K), device=DEVICE, dtype=torch.float16)
+a = a.to(torch.float8_e5m2)
+# pre-transpose b for efficiency.
+b = b.T
+b = b.to(torch.float8_e5m2)
 triton_output = matmul(a, b)
-
-if torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0):
+torch_output = torch.matmul(a.to(torch.float16), b.to(torch.float16))
+print(f"triton_output_with_fp8_inputs={triton_output}")
+print(f"torch_output_with_fp8_inputs={torch_output}")
+if torch.allclose(triton_output, torch_output, atol=0.125, rtol=0):
     print("✅ Triton and Torch match")
 else:
     print("❌ Triton and Torch differ")
