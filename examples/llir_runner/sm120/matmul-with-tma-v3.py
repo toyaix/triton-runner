@@ -90,7 +90,7 @@ triton_output = matmul(a, b)
 torch_output = torch.matmul(a.to(torch.float16), b.to(torch.float16))
 print(f"triton_output_with_fp8_inputs={triton_output}")
 print(f"torch_output_with_fp8_inputs={torch_output}")
-if torch.allclose(triton_output, torch_output, atol=0.125, rtol=0):
+if torch.allclose(triton_output.float(), torch_output.float(), atol=0.125, rtol=0):
     print("✅ Triton and Torch match")
 else:
     print("❌ Triton and Torch differ")

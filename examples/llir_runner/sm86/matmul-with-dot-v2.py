@@ -71,7 +71,7 @@ B = torch.randn(N, K, device=device, dtype=torch.float16)
 triton_output = matmul(A, B)
 torch_output = torch.matmul(A, B)
 
-if torch.allclose(triton_output, torch_output, atol=0.125, rtol=0):
+if torch.allclose(triton_output.float(), torch_output.float(), atol=0.125, rtol=0):
     print("✅ Triton and Torch match")
 else:
     print("❌ Triton and Torch differ")
