@@ -667,13 +667,13 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	add.s32 	%r463, %r171, %r476;
 	bar.sync 	0;
 	// begin inline asm
-	{                                                           
-	.reg .pred P1;                                              
-	waitLoop:                                                   
-	mbarrier.try_wait.parity.shared.b64 P1, [%r463], %r599;           
-	@!P1 bra.uni waitLoop;                                      
-	}                                                           
-	
+	{
+	.reg .pred P1;
+	waitLoop:
+	mbarrier.try_wait.parity.shared.b64 P1, [%r463], %r599;
+	@!P1 bra.uni waitLoop;
+	}
+
 	// end inline asm
 	.loc	1 39 24                         // matmul-with-tma-v3.py:39:24
 	shl.b32 	%r479, %r600, 12;
@@ -1021,7 +1021,7 @@ $L__tmp3:
 $L__func_end0:
                                         // -- End function
 }
-	.file	1 "/home/ubuntu/Triton-ML-Runner/examples/cubin_runner/sm120/matmul-with-tma-v3.py"
+	.file	1 "/home/ubuntu/triton-ml-runner/examples/cubin_runner/sm120/matmul-with-tma-v3.py"
 	.file	2 "/home/ubuntu/anaconda3/envs/triton/lib/python3.12/site-packages/triton/language/standard.py"
 	.section	.debug_abbrev
 	{

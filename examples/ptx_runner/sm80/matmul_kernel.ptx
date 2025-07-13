@@ -1347,7 +1347,7 @@ $L__tmp5:
 $L__func_end0:
                                         // -- End function
 }
-	.file	1 "/home/ubuntu/Triton-ML-Runner/examples/cubin_runner/sm80/matmul-with-dot-v2.py"
+	.file	1 "/home/ubuntu/triton-ml-runner/examples/cubin_runner/sm80/matmul-with-dot-v2.py"
 	.file	2 "/home/ubuntu/anaconda3/envs/triton/lib/python3.12/site-packages/triton/language/standard.py"
 	.section	.debug_abbrev
 	{
