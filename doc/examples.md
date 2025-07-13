@@ -39,15 +39,15 @@ python examples/cubin_runner/sm120/matmul-with-tma-v3.py
 
 ### sm86 (A10, RTX 3090, etc.)
 ```bash
-python examples/ttir_runner/matmul.py
+python examples/ttir_runner/matmul-with-dot-v2.py
 
-python examples/ttgir_runner/sm86/matmul.py
+python examples/ttgir_runner/sm86/matmul-with-dot-v2.py
 
-python examples/llir_runner/sm86/matmul.py
+python examples/llir_runner/sm86/matmul-with-dot-v2.py
 
-python examples/ptx_runner/sm86/matmul.py
+python examples/ptx_runner/sm86/matmul-with-dot-v2.py
 
-python examples/cubin_runner/sm86/matmul.py
+python examples/cubin_runner/sm86/matmul-with-dot-v2.py
 ```
 
 ### sm75 (T4, RTX 2080, etc.)

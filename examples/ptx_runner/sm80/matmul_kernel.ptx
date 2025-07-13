@@ -27,9 +27,9 @@
 	.reg .b32 	%r<1179>;
 	.reg .f32 	%f<706>;
 	.reg .b64 	%rd<136>;
-	.loc	1 5 0                           // matmul-with-dot-v2.py:5:0
+	.loc	1 8 0                           // matmul-with-dot-v2.py:8:0
 $L__func_begin0:
-	.loc	1 5 0                           // matmul-with-dot-v2.py:5:0
+	.loc	1 8 0                           // matmul-with-dot-v2.py:8:0
 
 // %bb.0:
 	ld.param.u32 	%r180, [matmul_kernel_param_8];
@@ -41,13 +41,13 @@ $L__func_begin0:
 	ld.param.u64 	%rd42, [matmul_kernel_param_0];
 	ld.param.u64 	%rd43, [matmul_kernel_param_1];
 $L__tmp0:
-	.loc	1 14 26                         // matmul-with-dot-v2.py:14:26
+	.loc	1 17 26                         // matmul-with-dot-v2.py:17:26
 	mov.u32 	%r229, %ctaid.x;
-	.loc	1 15 26                         // matmul-with-dot-v2.py:15:26
+	.loc	1 18 26                         // matmul-with-dot-v2.py:18:26
 	mov.u32 	%r230, %ctaid.y;
-	.loc	1 17 21                         // matmul-with-dot-v2.py:17:21
+	.loc	1 20 21                         // matmul-with-dot-v2.py:20:21
 	shl.b32 	%r1, %r230, 7;
-	.loc	1 17 49                         // matmul-with-dot-v2.py:17:49
+	.loc	1 20 49                         // matmul-with-dot-v2.py:20:49
 	mov.u32 	%r2, %tid.x;
 	and.b32  	%r3, %r2, 16;
 	and.b32  	%r4, %r2, 32;
@@ -57,19 +57,19 @@ $L__tmp0:
 	or.b32  	%r7, %r6, 16;
 	or.b32  	%r8, %r6, 32;
 	or.b32  	%r9, %r6, 48;
-	.loc	1 17 36                         // matmul-with-dot-v2.py:17:36
+	.loc	1 20 36                         // matmul-with-dot-v2.py:20:36
 	or.b32  	%r232, %r6, %r1;
 	or.b32  	%r233, %r7, %r1;
 	or.b32  	%r234, %r8, %r1;
 	or.b32  	%r235, %r9, %r1;
-	.loc	1 18 21                         // matmul-with-dot-v2.py:18:21
+	.loc	1 21 21                         // matmul-with-dot-v2.py:21:21
 	shl.b32 	%r10, %r229, 6;
-	.loc	1 18 49                         // matmul-with-dot-v2.py:18:49
+	.loc	1 21 49                         // matmul-with-dot-v2.py:21:49
 	shl.b32 	%r11, %r2, 3;
 	and.b32  	%r12, %r11, 56;
-	.loc	1 18 36                         // matmul-with-dot-v2.py:18:36
+	.loc	1 21 36                         // matmul-with-dot-v2.py:21:36
 	or.b32  	%r236, %r12, %r10;
-	.loc	1 21 39                         // matmul-with-dot-v2.py:21:39
+	.loc	1 24 39                         // matmul-with-dot-v2.py:24:39
 	mul.lo.s32 	%r237, %r231, %r232;
 	mul.lo.s32 	%r238, %r231, %r233;
 	mul.lo.s32 	%r239, %r231, %r234;
@@ -80,7 +80,7 @@ $L__tmp0:
 	add.s32 	%r244, %r242, %r243;
 	add.s32 	%r245, %r244, %r243;
 	add.s32 	%r246, %r245, %r243;
-	.loc	1 21 21                         // matmul-with-dot-v2.py:21:21
+	.loc	1 24 21                         // matmul-with-dot-v2.py:24:21
 	mul.wide.s32 	%rd44, %r237, 2;
 	add.s64 	%rd45, %rd42, %rd44;
 	mul.wide.s32 	%rd46, %r238, 2;
@@ -97,7 +97,7 @@ $L__tmp0:
 	add.s64 	%rd57, %rd42, %rd56;
 	mul.wide.s32 	%rd58, %r246, 2;
 	add.s64 	%rd59, %rd42, %rd58;
-	.loc	1 21 51                         // matmul-with-dot-v2.py:21:51
+	.loc	1 24 51                         // matmul-with-dot-v2.py:24:51
 	mul.wide.u32 	%rd60, %r12, 2;
 	add.s64 	%rd18, %rd45, %rd60;
 	add.s64 	%rd19, %rd47, %rd60;
@@ -107,13 +107,13 @@ $L__tmp0:
 	add.s64 	%rd23, %rd55, %rd60;
 	add.s64 	%rd24, %rd57, %rd60;
 	add.s64 	%rd25, %rd59, %rd60;
-	.loc	1 22 39                         // matmul-with-dot-v2.py:22:39
+	.loc	1 25 39                         // matmul-with-dot-v2.py:25:39
 	mul.lo.s32 	%r247, %r179, %r6;
 	shl.b32 	%r248, %r179, 4;
 	add.s32 	%r249, %r247, %r248;
 	add.s32 	%r250, %r249, %r248;
 	add.s32 	%r251, %r250, %r248;
-	.loc	1 22 21                         // matmul-with-dot-v2.py:22:21
+	.loc	1 25 21                         // matmul-with-dot-v2.py:25:21
 	mul.wide.s32 	%rd61, %r247, 2;
 	add.s64 	%rd62, %rd43, %rd61;
 	mul.wide.s32 	%rd63, %r249, 2;
@@ -122,7 +122,7 @@ $L__tmp0:
 	add.s64 	%rd66, %rd43, %rd65;
 	mul.wide.s32 	%rd67, %r251, 2;
 	add.s64 	%rd68, %rd43, %rd67;
-	.loc	1 22 51                         // matmul-with-dot-v2.py:22:51
+	.loc	1 25 51                         // matmul-with-dot-v2.py:25:51
 	mul.wide.s32 	%rd69, %r236, 2;
 	add.s64 	%rd26, %rd62, %rd69;
 	add.s64 	%rd27, %rd64, %rd69;
@@ -132,11 +132,11 @@ $L__tmp1:
 	.loc	2 40 22                         // standard.py:40:22
 	add.s32 	%r13, %r177, 63;
 $L__tmp2:
-	.loc	1 26 22                         // matmul-with-dot-v2.py:26:22
+	.loc	1 29 22                         // matmul-with-dot-v2.py:29:22
 	setp.gt.s32 	%p1, %r13, 63;
-	.loc	1 28 82                         // matmul-with-dot-v2.py:28:82
+	.loc	1 31 82                         // matmul-with-dot-v2.py:31:82
 	setp.lt.s32 	%p2, %r12, %r177;
-	.loc	1 28 20                         // matmul-with-dot-v2.py:28:20
+	.loc	1 31 20                         // matmul-with-dot-v2.py:31:20
 	xor.b32  	%r252, %r11, %r2;
 	and.b32  	%r253, %r252, 56;
 	shl.b32 	%r254, %r6, 6;
@@ -178,12 +178,12 @@ $L__tmp2:
 	cp.async.cg.shared.global [ %r195 + 0 ], [ %rd25 + 0 ], 0x10, %r184;
 	// end inline asm
 	cp.async.commit_group;
-	.loc	1 29 82                         // matmul-with-dot-v2.py:29:82
+	.loc	1 32 82                         // matmul-with-dot-v2.py:32:82
 	setp.lt.s32 	%p3, %r6, %r177;
 	setp.lt.s32 	%p4, %r7, %r177;
 	setp.lt.s32 	%p5, %r8, %r177;
 	setp.lt.s32 	%p6, %r9, %r177;
-	.loc	1 29 20                         // matmul-with-dot-v2.py:29:20
+	.loc	1 32 20                         // matmul-with-dot-v2.py:32:20
 	add.s32 	%r197, %r181, 32768;
 	add.s32 	%r199, %r181, 34816;
 	add.s32 	%r201, %r181, 36864;
@@ -205,13 +205,13 @@ $L__tmp2:
 	cp.async.cg.shared.global [ %r203 + 0 ], [ %rd29 + 0 ], 0x10, %r204;
 	// end inline asm
 	cp.async.commit_group;
-	.loc	1 26 22                         // matmul-with-dot-v2.py:26:22
+	.loc	1 29 22                         // matmul-with-dot-v2.py:29:22
 	setp.gt.s32 	%p7, %r13, 127;
-	.loc	1 27 22                         // matmul-with-dot-v2.py:27:22
+	.loc	1 30 22                         // matmul-with-dot-v2.py:30:22
 	add.s32 	%r258, %r177, -64;
-	.loc	1 28 82                         // matmul-with-dot-v2.py:28:82
+	.loc	1 31 82                         // matmul-with-dot-v2.py:31:82
 	setp.lt.s32 	%p8, %r12, %r258;
-	.loc	1 28 29                         // matmul-with-dot-v2.py:28:29
+	.loc	1 31 29                         // matmul-with-dot-v2.py:31:29
 	add.s64 	%rd30, %rd18, 128;
 	add.s64 	%rd31, %rd19, 128;
 	add.s64 	%rd32, %rd20, 128;
@@ -220,7 +220,7 @@ $L__tmp2:
 	add.s64 	%rd35, %rd23, 128;
 	add.s64 	%rd36, %rd24, 128;
 	add.s64 	%rd37, %rd25, 128;
-	.loc	1 28 20                         // matmul-with-dot-v2.py:28:20
+	.loc	1 31 20                         // matmul-with-dot-v2.py:31:20
 	bar.sync 	0;
 	add.s32 	%r205, %r181, 16384;
 	add.s32 	%r207, %r181, 18432;
@@ -257,20 +257,20 @@ $L__tmp2:
 	cp.async.cg.shared.global [ %r219 + 0 ], [ %rd37 + 0 ], 0x10, %r208;
 	// end inline asm
 	cp.async.commit_group;
-	.loc	1 29 82                         // matmul-with-dot-v2.py:29:82
+	.loc	1 32 82                         // matmul-with-dot-v2.py:32:82
 	setp.lt.s32 	%p9, %r6, %r258;
 	setp.lt.s32 	%p10, %r7, %r258;
 	setp.lt.s32 	%p11, %r8, %r258;
 	setp.lt.s32 	%p12, %r9, %r258;
-	.loc	1 29 48                         // matmul-with-dot-v2.py:29:48
+	.loc	1 32 48                         // matmul-with-dot-v2.py:32:48
 	shl.b32 	%r15, %r179, 6;
-	.loc	1 29 29                         // matmul-with-dot-v2.py:29:29
+	.loc	1 32 29                         // matmul-with-dot-v2.py:32:29
 	mul.wide.s32 	%rd70, %r15, 2;
 	add.s64 	%rd38, %rd26, %rd70;
 	add.s64 	%rd39, %rd27, %rd70;
 	add.s64 	%rd40, %rd28, %rd70;
 	add.s64 	%rd41, %rd29, %rd70;
-	.loc	1 29 20                         // matmul-with-dot-v2.py:29:20
+	.loc	1 32 20                         // matmul-with-dot-v2.py:32:20
 	add.s32 	%r221, %r181, 40960;
 	add.s32 	%r223, %r181, 43008;
 	add.s32 	%r225, %r181, 45056;
@@ -296,7 +296,7 @@ $L__tmp2:
 	cp.async.cg.shared.global [ %r227 + 0 ], [ %rd41 + 0 ], 0x10, %r228;
 	// end inline asm
 	cp.async.commit_group;
-	.loc	1 26 22                         // matmul-with-dot-v2.py:26:22
+	.loc	1 29 22                         // matmul-with-dot-v2.py:29:22
 	@%p1 bra 	$L__BB0_2;
 	bra.uni 	$L__BB0_1;
 $L__BB0_2:                              // %.lr.ph
@@ -305,9 +305,9 @@ $L__tmp3:
 	shr.u32 	%r268, %r13, 6;
 	and.b32  	%r269, %r2, 15;
 $L__tmp4:
-	.loc	1 26 22                         // matmul-with-dot-v2.py:26:22
+	.loc	1 29 22                         // matmul-with-dot-v2.py:29:22
 	or.b32  	%r270, %r3, %r269;
-	.loc	1 18 49                         // matmul-with-dot-v2.py:18:49
+	.loc	1 21 49                         // matmul-with-dot-v2.py:21:49
 	and.b32  	%r271, %r11, 32;
 	and.b32  	%r272, %r11, 24;
 	and.b32  	%r273, %r11, 16;
@@ -350,7 +350,7 @@ $L__tmp4:
 	xor.b32  	%r294, %r286, %r1114;
 	or.b32  	%r33, %r294, %r289;
 	or.b32  	%r34, %r294, %r291;
-	.loc	1 26 22                         // matmul-with-dot-v2.py:26:22
+	.loc	1 29 22                         // matmul-with-dot-v2.py:29:22
 	cvt.s64.s32 	%rd13, %r275;
 	cvt.u64.u32 	%rd14, %r268;
 	shl.b32 	%r1111, %r179, 7;
@@ -440,7 +440,7 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	add.s32 	%r823, %r1112, 1;
 	setp.lt.s32 	%p14, %r823, 2;
 	selp.b32 	%r1112, %r823, 0, %p14;
-	.loc	1 28 20                         // matmul-with-dot-v2.py:28:20
+	.loc	1 31 20                         // matmul-with-dot-v2.py:31:20
 	cp.async.wait_group 2;
 	bar.sync 	0;
 	shl.b32 	%r824, %r1112, 13;
@@ -522,7 +522,7 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%r775, %r776, %r777, %r778}, [%r374];
 	// end inline asm
-	.loc	1 29 20                         // matmul-with-dot-v2.py:29:20
+	.loc	1 32 20                         // matmul-with-dot-v2.py:32:20
 	add.s32 	%r844, %r256, 32768;
 	add.s32 	%r845, %r844, %r824;
 	add.s32 	%r379, %r845, %r846;
@@ -557,7 +557,7 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	ldmatrix.sync.aligned.m8n8.x4.trans.shared.b16 {%r629, %r630, %r725, %r726}, [%r414];
 	// end inline asm
-	.loc	1 30 32                         // matmul-with-dot-v2.py:30:32
+	.loc	1 33 32                         // matmul-with-dot-v2.py:33:32
 	// begin inline asm
 	mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 { %f642, %f643, %f644, %f645 }, { %r415, %r416, %r417, %r418 }, { %r419, %r420 }, { %f642, %f643, %f644, %f645 };
 	// end inline asm
@@ -750,13 +750,13 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 { %f702, %f703, %f704, %f705 }, { %r775, %r776, %r777, %r778 }, { %r725, %r726 }, { %f702, %f703, %f704, %f705 };
 	// end inline asm
-	.loc	1 26 22                         // matmul-with-dot-v2.py:26:22
+	.loc	1 29 22                         // matmul-with-dot-v2.py:29:22
 	add.s32 	%r854, %r1113, 1;
 	setp.lt.s32 	%p15, %r854, 2;
 	selp.b32 	%r1113, %r854, 0, %p15;
-	.loc	1 28 82                         // matmul-with-dot-v2.py:28:82
+	.loc	1 31 82                         // matmul-with-dot-v2.py:31:82
 	setp.lt.s32 	%p16, %r12, %r1109;
-	.loc	1 28 29                         // matmul-with-dot-v2.py:28:29
+	.loc	1 31 29                         // matmul-with-dot-v2.py:31:29
 	mul.wide.s32 	%rd84, %r1110, 2;
 	add.s64 	%rd72, %rd18, %rd84;
 	add.s64 	%rd73, %rd19, %rd84;
@@ -766,7 +766,7 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	add.s64 	%rd77, %rd23, %rd84;
 	add.s64 	%rd78, %rd24, %rd84;
 	add.s64 	%rd79, %rd25, %rd84;
-	.loc	1 28 20                         // matmul-with-dot-v2.py:28:20
+	.loc	1 31 20                         // matmul-with-dot-v2.py:31:20
 	shl.b32 	%r855, %r1113, 13;
 	shl.b32 	%r856, %r1113, 14;
 	add.s32 	%r857, %r256, %r856;
@@ -806,18 +806,18 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	cp.async.cg.shared.global [ %r813 + 0 ], [ %rd79 + 0 ], 0x10, %r802;
 	// end inline asm
 	cp.async.commit_group;
-	.loc	1 29 82                         // matmul-with-dot-v2.py:29:82
+	.loc	1 32 82                         // matmul-with-dot-v2.py:32:82
 	setp.lt.s32 	%p17, %r6, %r1109;
 	setp.lt.s32 	%p18, %r7, %r1109;
 	setp.lt.s32 	%p19, %r8, %r1109;
 	setp.lt.s32 	%p20, %r9, %r1109;
-	.loc	1 29 29                         // matmul-with-dot-v2.py:29:29
+	.loc	1 32 29                         // matmul-with-dot-v2.py:32:29
 	mul.wide.s32 	%rd85, %r1111, 2;
 	add.s64 	%rd80, %rd26, %rd85;
 	add.s64 	%rd81, %rd27, %rd85;
 	add.s64 	%rd82, %rd28, %rd85;
 	add.s64 	%rd83, %rd29, %rd85;
-	.loc	1 29 20                         // matmul-with-dot-v2.py:29:20
+	.loc	1 32 20                         // matmul-with-dot-v2.py:32:20
 	add.s32 	%r860, %r844, %r855;
 	add.s32 	%r815, %r860, %r255;
 	add.s32 	%r817, %r815, 2048;
@@ -844,7 +844,7 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	cp.async.cg.shared.global [ %r821 + 0 ], [ %rd83 + 0 ], 0x10, %r822;
 	// end inline asm
 	cp.async.commit_group;
-	.loc	1 26 22                         // matmul-with-dot-v2.py:26:22
+	.loc	1 29 22                         // matmul-with-dot-v2.py:29:22
 	add.s64 	%rd135, %rd135, 1;
 	add.s32 	%r1111, %r1111, %r15;
 	add.s32 	%r1110, %r1110, 64;
@@ -852,7 +852,7 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	setp.ne.s64 	%p21, %rd14, %rd135;
 	@%p21 bra 	$L__BB0_3;
 // %bb.4:                               // %._crit_edge.loopexit
-	.loc	1 36 21                         // matmul-with-dot-v2.py:36:21
+	.loc	1 39 21                         // matmul-with-dot-v2.py:39:21
 	mov.b32 	%r1115, %f642;
 	mov.b32 	%r1116, %f643;
 	mov.b32 	%r1117, %f644;
@@ -919,7 +919,7 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	mov.b32 	%r1178, %f705;
 	bra.uni 	$L__BB0_5;
 $L__BB0_1:                              // %.._crit_edge_crit_edge
-	.loc	1 36 21                         // matmul-with-dot-v2.py:36:21
+	.loc	1 39 21                         // matmul-with-dot-v2.py:39:21
 	shr.u32 	%r1114, %r4, 2;
 	mov.b32 	%r1115, 0;
 	mov.u32 	%r1116, %r1115;
@@ -986,14 +986,14 @@ $L__BB0_1:                              // %.._crit_edge_crit_edge
 	mov.u32 	%r1177, %r1115;
 	mov.u32 	%r1178, %r1115;
 $L__BB0_5:                              // %._crit_edge
-	.loc	1 18 49                         // matmul-with-dot-v2.py:18:49
+	.loc	1 21 49                         // matmul-with-dot-v2.py:21:49
 	shl.b32 	%r1025, %r2, 2;
 	and.b32  	%r1026, %r1025, 60;
-	.loc	1 18 36                         // matmul-with-dot-v2.py:18:36
+	.loc	1 21 36                         // matmul-with-dot-v2.py:21:36
 	or.b32  	%r1027, %r1026, %r10;
-	.loc	1 17 49                         // matmul-with-dot-v2.py:17:49
+	.loc	1 20 49                         // matmul-with-dot-v2.py:20:49
 	bfe.u32 	%r1028, %r2, 4, 3;
-	.loc	1 17 36                         // matmul-with-dot-v2.py:17:36
+	.loc	1 20 36                         // matmul-with-dot-v2.py:20:36
 	or.b32  	%r1029, %r1, %r1028;
 	or.b32  	%r1030, %r1029, 120;
 	or.b32  	%r1031, %r1029, 112;
@@ -1010,10 +1010,10 @@ $L__BB0_5:                              // %._crit_edge
 	or.b32  	%r1042, %r1029, 24;
 	or.b32  	%r1043, %r1029, 16;
 	or.b32  	%r1044, %r1029, 8;
-	.loc	1 26 22                         // matmul-with-dot-v2.py:26:22
+	.loc	1 29 22                         // matmul-with-dot-v2.py:29:22
 	cp.async.wait_group 0;
 	bar.sync 	0;
-	.loc	1 32 39                         // matmul-with-dot-v2.py:32:39
+	.loc	1 35 39                         // matmul-with-dot-v2.py:35:39
 	mul.lo.s32 	%r1045, %r180, %r1029;
 	shl.b32 	%r1046, %r180, 3;
 	add.s32 	%r1047, %r1045, %r1046;
@@ -1031,7 +1031,7 @@ $L__BB0_5:                              // %._crit_edge
 	add.s32 	%r1059, %r1058, %r1046;
 	add.s32 	%r1060, %r1059, %r1046;
 	add.s32 	%r1061, %r1060, %r1046;
-	.loc	1 32 21                         // matmul-with-dot-v2.py:32:21
+	.loc	1 35 21                         // matmul-with-dot-v2.py:35:21
 	mul.wide.s32 	%rd102, %r1045, 4;
 	add.s64 	%rd103, %rd17, %rd102;
 	mul.wide.s32 	%rd104, %r1047, 4;
@@ -1064,7 +1064,7 @@ $L__BB0_5:                              // %._crit_edge
 	add.s64 	%rd131, %rd17, %rd130;
 	mul.wide.s32 	%rd132, %r1061, 4;
 	add.s64 	%rd133, %rd17, %rd132;
-	.loc	1 32 51                         // matmul-with-dot-v2.py:32:51
+	.loc	1 35 51                         // matmul-with-dot-v2.py:35:51
 	mul.wide.s32 	%rd134, %r1027, 4;
 	add.s64 	%rd86, %rd103, %rd134;
 	add.s64 	%rd87, %rd105, %rd134;
@@ -1082,7 +1082,7 @@ $L__BB0_5:                              // %._crit_edge
 	add.s64 	%rd99, %rd129, %rd134;
 	add.s64 	%rd100, %rd131, %rd134;
 	add.s64 	%rd101, %rd133, %rd134;
-	.loc	1 35 33                         // matmul-with-dot-v2.py:35:33
+	.loc	1 38 33                         // matmul-with-dot-v2.py:38:33
 	setp.lt.s32 	%p70, %r1029, %r176;
 	setp.lt.s32 	%p71, %r1044, %r176;
 	setp.lt.s32 	%p72, %r1043, %r176;
@@ -1099,9 +1099,9 @@ $L__BB0_5:                              // %._crit_edge
 	setp.lt.s32 	%p83, %r1032, %r176;
 	setp.lt.s32 	%p84, %r1031, %r176;
 	setp.lt.s32 	%p85, %r1030, %r176;
-	.loc	1 35 58                         // matmul-with-dot-v2.py:35:58
+	.loc	1 38 58                         // matmul-with-dot-v2.py:38:58
 	setp.lt.s32 	%p86, %r1027, %r178;
-	.loc	1 35 39                         // matmul-with-dot-v2.py:35:39
+	.loc	1 38 39                         // matmul-with-dot-v2.py:38:39
 	and.pred  	%p54, %p70, %p86;
 	and.pred  	%p55, %p71, %p86;
 	and.pred  	%p56, %p72, %p86;
@@ -1118,7 +1118,7 @@ $L__BB0_5:                              // %._crit_edge
 	and.pred  	%p67, %p83, %p86;
 	and.pred  	%p68, %p84, %p86;
 	and.pred  	%p69, %p85, %p86;
-	.loc	1 36 21                         // matmul-with-dot-v2.py:36:21
+	.loc	1 39 21                         // matmul-with-dot-v2.py:39:21
 	shl.b32 	%r1062, %r2, 1;
 	and.b32  	%r1063, %r1062, 6;
 	shl.b32 	%r1064, %r2, 4;
@@ -1341,7 +1341,7 @@ $L__BB0_5:                              // %._crit_edge
 	// begin inline asm
 	@%p69 st.global.v4.b32 [ %rd101 + 0 ], { %r1021, %r1022, %r1023, %r1024 };
 	// end inline asm
-	.loc	1 36 4                          // matmul-with-dot-v2.py:36:4
+	.loc	1 39 4                          // matmul-with-dot-v2.py:39:4
 	ret;
 $L__tmp5:
 $L__func_end0:
@@ -1458,17 +1458,17 @@ $L__func_end0:
 .b8 116
 .b8 117
 .b8 47
-.b8 84
+.b8 116
 .b8 114
 .b8 105
 .b8 116
 .b8 111
 .b8 110
 .b8 45
-.b8 77
-.b8 76
+.b8 109
+.b8 108
 .b8 45
-.b8 82
+.b8 114
 .b8 117
 .b8 110
 .b8 110
@@ -1527,7 +1527,7 @@ $L__func_end0:
 .b64 $L__tmp1                           // DW_AT_low_pc
 .b64 $L__tmp4                           // DW_AT_high_pc
 .b8 1                                   // DW_AT_call_file
-.b8 26                                  // DW_AT_call_line
+.b8 29                                  // DW_AT_call_line
 .b8 33                                  // DW_AT_call_column
 .b8 0                                   // End Of Children Mark
 .b8 0                                   // End Of Children Mark
