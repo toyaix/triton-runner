@@ -82,12 +82,11 @@ device = torch.cuda.current_device()
 
 a = torch.randn((M, N), device=DEVICE, dtype=torch.float16)
 b = torch.randn((N, K), device=DEVICE, dtype=torch.float16)
-a = a.to(torch.float8_e5m2)
+a_fp8 = a.to(torch.float8_e5m2)
 # pre-transpose b for efficiency.
-b = b.T
-b = b.to(torch.float8_e5m2)
-triton_output = matmul(a, b)
-torch_output = torch.matmul(a.to(torch.float16), b.to(torch.float16))
+b_fp8 = b.T.to(torch.float8_e5m2)
+triton_output = matmul(a_fp8, b_fp8)
+torch_output = torch.matmul(a, b)
 print(f"triton_output_with_fp8_inputs={triton_output}")
 print(f"torch_output_with_fp8_inputs={torch_output}")
 if torch.allclose(triton_output.float(), torch_output.float(), atol=0.125, rtol=0):
