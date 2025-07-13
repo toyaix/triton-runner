@@ -5,7 +5,10 @@ import torch
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
-@triton.jit
+import triton_ml_runner
+
+# @triton.jit
+@triton_ml_runner.jit
 def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
                                         M, N, K,  #
                                         BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr,
@@ -67,6 +70,7 @@ def matmul(a, b):
         BLOCK_SIZE_M=128,
         BLOCK_SIZE_K=64,
         BLOCK_SIZE_N=64,
+        llir_dir=triton_ml_runner.get_file_dir(__file__)
     )
 
     return c
