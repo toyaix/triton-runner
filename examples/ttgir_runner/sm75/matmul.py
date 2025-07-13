@@ -53,8 +53,6 @@ def matmul(a, b):
     c = torch.empty((M, N), device=a.device, dtype=torch.float32)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE_N']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
-    import os
-    current_dir = os.path.dirname(os.path.abspath(__file__))
     matmul_kernel[grid](
         a, b, c,
         M, N, K,
@@ -63,7 +61,7 @@ def matmul(a, b):
         c.stride(0), c.stride(1),
         BLOCK_SIZE_M=16,
         BLOCK_SIZE_N=16,
-        ttgir_dir=current_dir
+        ttgir_dir=triton_ml_runner.get_file_dir(__file__)
     )
     return c
 
