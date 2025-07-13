@@ -38,10 +38,10 @@ cmake-build-*
 # macOS
 .DS_Store
 
-# *.ttir
-# *.ttgir
-# *.llir
-# *.ptx
-# *.cubin
-# *.json
-# .gitignore
+*.ttir
+*.ttgir
+*.llir
+*.ptx
+*.cubin
+*.json
+.gitignore
