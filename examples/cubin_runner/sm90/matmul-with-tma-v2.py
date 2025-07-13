@@ -46,7 +46,6 @@ def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
     c_desc.store([pid_m * BLOCK_SIZE_M, pid_k * BLOCK_SIZE_K], accumulator)
 
 
-# a_ptr, b_ptr, c_ptr are raw device pointers
 def matmul(a, b):
     M, N = a.shape
     N, K = b.shape
