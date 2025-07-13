@@ -176,7 +176,7 @@ $L__tmp1:
 $L__func_end0:
                                         // -- End function
 }
-	.file	1 "/home/ubuntu/Triton-ML-Runner/examples/cubin_runner/sm75/matmul.py"
+	.file	1 "/home/ubuntu/triton-ml-runner/examples/cubin_runner/sm75/matmul.py"
 	.section	.debug_abbrev
 	{
 .b8 1                                   // Abbreviation Code

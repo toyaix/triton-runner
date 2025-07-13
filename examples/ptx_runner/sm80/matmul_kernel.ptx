@@ -3,7 +3,7 @@
 //
 
 .version 8.4
-.target sm_86
+.target sm_80
 .address_size 64
 
 	// .globl	matmul_kernel           // -- Begin function matmul_kernel
@@ -1347,7 +1347,7 @@ $L__tmp5:
 $L__func_end0:
                                         // -- End function
 }
-	.file	1 "/home/ubuntu/triton-ml-runner/examples/cubin_runner/sm86/matmul-with-dot-v2.py"
+	.file	1 "/home/ubuntu/triton-ml-runner/examples/cubin_runner/sm80/matmul-with-dot-v2.py"
 	.file	2 "/home/ubuntu/anaconda3/envs/triton/lib/python3.12/site-packages/triton/language/standard.py"
 	.section	.debug_abbrev
 	{
@@ -1458,17 +1458,17 @@ $L__func_end0:
 .b8 116
 .b8 117
 .b8 47
-.b8 84
+.b8 116
 .b8 114
 .b8 105
 .b8 116
 .b8 111
 .b8 110
 .b8 45
-.b8 77
-.b8 76
+.b8 109
+.b8 108
 .b8 45
-.b8 82
+.b8 114
 .b8 117
 .b8 110
 .b8 110
@@ -1500,7 +1500,7 @@ $L__func_end0:
 .b8 115
 .b8 109
 .b8 56
-.b8 54
+.b8 48
 .b8 0
 .b8 2                                   // Abbrev [2] 0x68:0x10 DW_TAG_subprogram
 .b8 109                                 // DW_AT_name
