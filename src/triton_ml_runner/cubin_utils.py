@@ -56,7 +56,7 @@ def get_global_scratch(grid):
     return None
 
 
-def cubin_launch(function, signature_str, bound_args, grid):
+def cubin_launch_config(function, signature_str, bound_args, grid):
     signature = dict(enumerate(signature_str.split()))
     src = make_launcher(None, signature)
     mod = compile_module_from_src(src, "__triton_launcher")
@@ -64,11 +64,5 @@ def cubin_launch(function, signature_str, bound_args, grid):
     packed_metadata = get_packed_metadata()
     launch_metadata, launch_enter_hook, launch_exit_hook = None, None, None
     launch_cooperative_grid = _metadata["launch_cooperative_grid"]
-    mod_launch(mod, *get_grid_xyz(grid), _stream, function, launch_cooperative_grid , global_scratch,
+    return (mod, *get_grid_xyz(grid), _stream, function, launch_cooperative_grid , global_scratch,
                packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, bound_args)
-
-
-def mod_launch(mod, grid_x, grid_y, grid_z, _stream, function, launch_cooperative_grid, global_scratch,
-               packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, bound_args):
-    mod.launch(grid_x, grid_y, grid_z, _stream, function, launch_cooperative_grid, global_scratch,
-               packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, *bound_args)

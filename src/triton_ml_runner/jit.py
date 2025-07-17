@@ -15,7 +15,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         for k in filtered_keys:
             if k.lower() in runner_dir_set:
                 from .jit_utils import jit_launch
-                jit_launch(k[:-4].lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid, options)
+                return jit_launch(k[:-4].lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid, options)
             else:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
 
@@ -33,23 +33,17 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         kernel_cache, target, backend, binder = self.device_caches[device]
         bound_args, specialization, options = binder(*args, **kwargs)
 
-        # compute cache key
-        key = str(specialization) + str(options)
-        kernel = kernel_cache.get(key, None)
+        options = backend.parse_options(kwargs)
+        # signature
+        sigkeys = [x.name for x in self.params]
+        sigvals = [x[0] for x in specialization]
+        signature_str = " ".join(sigvals)
+        # check arguments
+        assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
+        assert "device" not in kwargs, "device option is deprecated; current device will be used"
+        assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
+        return self.runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
 
-        # Kernel is not cached; we have to compile.
-        if kernel is None:
-            # options
-            options = backend.parse_options(kwargs)
-            # signature
-            sigkeys = [x.name for x in self.params]
-            sigvals = [x[0] for x in specialization]
-            signature_str = " ".join(sigvals)
-            # check arguments
-            assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
-            assert "device" not in kwargs, "device option is deprecated; current device will be used"
-            assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
-            self.runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
 
     def __init__(self, fn, version=None, do_not_specialize=None, do_not_specialize_on_alignment=None, debug=None,
                  noinline=None, repr=None, launch_metadata=None):
@@ -108,6 +102,5 @@ def jit(
 
     if fn is not None:
         return decorator(fn)
-
     else:
         return decorator
