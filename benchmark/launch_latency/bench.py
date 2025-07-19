@@ -7,7 +7,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from triton.compiler import CompiledKernel
-from triton_ml_runner.bench.launch_latency.kernels import get_trivial_add_kernel, nop_kernel, nop_with_args_kernel
+from triton_ml_runner.bench.launch_latency.kernels import get_trivial_add_kernel, nop_kernel, nop_with_args_kernel, runner_nop_kernel, runner_nop_with_args_kernel
 from triton_ml_runner.bench.utils import benchmark
 from torch import zeros
 
@@ -51,6 +51,21 @@ class Operator:
         else:
             return lambda: bin.run(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, function, None, None, metadata, *args)
 
+
+    @benchmark("triton_runner", "us")
+    def nop_triton_runner_kernel_run(self, *args):
+        if len(args) == 0:
+            bin = runner_nop_kernel[
+                1,
+            ]()
+
+        else:
+            bin = runner_nop_with_args_kernel[
+                1,
+            ](*args)
+        return lambda: bin.run()
+
+
     @benchmark("inductor", "us")
     def nop_inductor_kernel(self, *args):
         trivial_add_kernel = get_trivial_add_kernel()
@@ -70,3 +85,4 @@ if __name__ == "__main__":
     op.nop_python_function()
     op.nop_triton_kernel()
     op.nop_triton_compiled_kernel_run()
+    op.nop_triton_runner_kernel_run()

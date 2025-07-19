@@ -1,3 +1,5 @@
+import functools
+
 class KernelLauncher:
     def __init__(
         self,
@@ -39,6 +41,7 @@ class KernelLauncher:
             f"bound_args={self.bound_args})"
         )
 
+    @functools.lru_cache()
     def run(self):
         self.mod.launch(
             self.grid_x,
