@@ -1,4 +1,4 @@
-from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch_config
+from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch_config, kernel_launch_config
 from triton_ml_runner.compile_utils import *
 from triton_ml_runner.components import KernelLauncher
 import os
@@ -11,8 +11,11 @@ def jit_cubin_launch(cubin_dir, kernel_name, bound_args, signature_str, grid):
     cubin_path = os.path.join(cubin_dir, f"{kernel_name}.cubin")
     function = get_cufunction(metadata_path, cubin_path, f"{kernel_name}")
     global _kernel_launcher
-    _kernel_launcher = KernelLauncher(
-        *cubin_launch_config(function, signature_str, bound_args, grid))
+    _kernel_launcher = KernelLauncher(*cubin_launch_config(function, signature_str, bound_args, grid))
+
+
+def jit_kerel_launch(kernel, signature_str, bound_args, grid):
+    return KernelLauncher(*kernel_launch_config(kernel, signature_str, bound_args, grid))
 
 
 def jit_ttir_launch(file_dir, kernel_name, bound_args, signature_str, grid, options):

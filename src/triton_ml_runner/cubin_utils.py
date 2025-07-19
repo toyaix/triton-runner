@@ -59,6 +59,13 @@ def get_global_scratch(grid):
     return None
 
 
+def get_kernel_global_scratch(grid, metadata):
+    if metadata.global_scratch_size > 0:
+        alloc_size = get_grid_size(grid) * metadata.global_scratch_size
+        return _allocation._allocator(alloc_size, metadata.global_scratch_align, _stream)
+    return None
+
+
 def get_mod(signature_str):
     signature = dict(enumerate(signature_str.split()))
     src = make_launcher(None, signature)
@@ -72,3 +79,13 @@ def cubin_launch_config(function, signature_str, bound_args, grid):
     launch_cooperative_grid = _metadata["launch_cooperative_grid"]
     return (get_mod(signature_str), *get_grid_xyz(grid), _stream, function, launch_cooperative_grid, global_scratch,
             packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, bound_args)
+
+
+def kernel_launch_config(kernel, signature_str, bound_args, grid):
+    kernel._init_handles()
+    launch_metadata = kernel.launch_metadata(grid, _stream, *bound_args)
+    global_scratch = get_kernel_global_scratch(grid, kernel.metadata)
+    launch_enter_hook, launch_exit_hook = None, None
+    return (get_mod(signature_str), *get_grid_xyz(grid), _stream, kernel.function,
+            kernel.metadata.launch_cooperative_grid, global_scratch, kernel.packed_metadata, launch_metadata,
+            launch_enter_hook, launch_exit_hook, bound_args)

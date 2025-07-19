@@ -1,5 +1,6 @@
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
+from triton._utils import find_paths_if, get_iterable_path
 from typing import Callable, Iterable, Optional, Union, overload
 import os
 
@@ -7,9 +8,6 @@ import os
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def ml_runner(self, grid, bound_args, kwargs, options, sigkeys, signature_str):
-        assert grid is not None
-        if callable(grid):
-            grid = grid(bound_args)
         filtered_keys = [k for k in kwargs if k not in options.__dict__ and k not in sigkeys]
         runner_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
         for k in filtered_keys:
@@ -43,7 +41,37 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
         assert "device" not in kwargs, "device option is deprecated; current device will be used"
         assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
+        assert grid is not None
+        if callable(grid):
+            grid = grid(bound_args)
         kernel_launcher = self.ml_runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
+
+        if kernel_launcher is None:
+            key = str(specialization) + str(options)
+            signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
+            # constexprs
+            constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
+            constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
+            # attributes
+            attrvals = [x[1] for x in specialization]
+            attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
+            attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
+            if self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=True):
+                return None
+            # compile the kernel
+            src = self.ASTSource(self, signature, constexprs, attrs)
+            kernel = self.compile(src, target=target, options=options.__dict__)
+            kernel_cache[key] = kernel
+            self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
+            from .jit_utils import jit_kerel_launch
+            kernel_launcher = jit_kerel_launch(kernel, signature_str, bound_args.values(), grid)
+
+        # Check that used global values have not changed.
+        not_present = object()
+        for (name, _), (val, globals_dict) in self.used_global_vals.items():
+            if (newVal := globals_dict.get(name, not_present)) != val:
+                raise RuntimeError(
+                    f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
 
         if not warmup:
             kernel_launcher.run()
