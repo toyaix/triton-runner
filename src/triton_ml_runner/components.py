@@ -42,11 +42,11 @@ class KernelLauncher:
         )
 
     @functools.lru_cache()
-    def run(self):
+    def run(self, grid_x=None, grid_y=None, grid_z=None, bound_args=None):
         self.mod.launch(
-            self.grid_x,
-            self.grid_y,
-            self.grid_z,
+            grid_x or self.grid_x,
+            grid_y or self.grid_y,
+            grid_z or self.grid_z,
             self._stream,
             self.function,
             self.launch_cooperative_grid,
@@ -55,5 +55,5 @@ class KernelLauncher:
             self.launch_metadata,
             self.launch_enter_hook,
             self.launch_exit_hook,
-            *self.bound_args
+            *(bound_args if bound_args is not None else self.bound_args)
         )
