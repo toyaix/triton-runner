@@ -11,7 +11,7 @@ import triton
 
 import triton.language as tl
 
-import triton_ml_runner
+import triton_runner
 
 @triton.jit
 def nop_kernel():
@@ -43,12 +43,12 @@ def nop_with_args_kernel(
     pass
 
 
-@triton_ml_runner.jit
+@triton_runner.jit
 def runner_nop_kernel():
     pass
 
 
-@triton_ml_runner.jit
+@triton_runner.jit
 def runner_nop_with_args_kernel(
     t1,
     t2,

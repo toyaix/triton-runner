@@ -1,12 +1,12 @@
 import triton
 import triton.language as tl
 import torch
-import triton_ml_runner
+import triton_runner
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
-@triton_ml_runner.jit
+@triton_runner.jit
 def matmul_kernel(
     a_ptr, b_ptr, c_ptr,
     M, N, K,

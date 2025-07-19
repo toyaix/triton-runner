@@ -1,13 +1,13 @@
 import triton
 import triton.language as tl
 import torch
-import triton_ml_runner
+import triton_runner
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
 # @triton.jit
-@triton_ml_runner.jit
+@triton_runner.jit
 def matmul_kernel(
     a_ptr, b_ptr, c_ptr,
     M, N, K,
@@ -61,7 +61,7 @@ def matmul(a, b):
         c.stride(0), c.stride(1),
         BLOCK_SIZE_M=16,
         BLOCK_SIZE_N=16,
-        ptx_dir=triton_ml_runner.get_file_dir(__file__)
+        ptx_dir=triton_runner.get_file_dir(__file__)
     )
     return c
 

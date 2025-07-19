@@ -1,6 +1,6 @@
-from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch_config, kernel_launch_config
-from triton_ml_runner.compile_utils import *
-from triton_ml_runner.components import KernelLauncher
+from .cubin_utils import get_cufunction, cubin_launch_config, kernel_launch_config
+from .compile_utils import *
+from .components import KernelLauncher
 import os
 
 _kernel_launcher = None

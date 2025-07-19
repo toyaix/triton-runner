@@ -1,6 +1,6 @@
-# triton-ml-runner
+# triton_runner
 
-triton-ml-runner(Triton multi-level runner, TMLR) is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
+triton_runner(Triton multi-level runner) is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
 This project is built specifically for **Triton v3.3.x** and is not guaranteed to work with other versions.
 
@@ -30,8 +30,8 @@ python examples/cubin_runner/sm90/matmul-with-tma-v3.py
 install the package as a standard Python package
 
 ```bash
-git clone https://github.com/OpenMLIR/triton-ml-runner
-cd triton-ml-runner
+git clone https://github.com/OpenMLIR/triton_runner
+cd triton_runner
 pip install .
 ```
 

@@ -7,8 +7,8 @@
 # LICENSE file in the root directory of this source tree.
 
 from triton.compiler import CompiledKernel
-from triton_ml_runner.bench.launch_latency.kernels import get_trivial_add_kernel, nop_kernel, nop_with_args_kernel, runner_nop_kernel, runner_nop_with_args_kernel
-from triton_ml_runner.bench.utils import benchmark
+from triton_runner.bench.launch_latency.kernels import get_trivial_add_kernel, nop_kernel, nop_with_args_kernel, runner_nop_kernel, runner_nop_with_args_kernel
+from triton_runner.bench.utils import benchmark
 from torch import zeros
 
 

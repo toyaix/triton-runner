@@ -7,7 +7,7 @@ import os
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
-    def ml_runner(self, grid, bound_args, kwargs, options, sigkeys, signature_str):
+    def runner(self, grid, bound_args, kwargs, options, sigkeys, signature_str):
         filtered_keys = [k for k in kwargs if k not in options.__dict__ and k not in sigkeys]
         runner_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
         for k in filtered_keys:
@@ -44,7 +44,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         assert grid is not None
         if callable(grid):
             grid = grid(bound_args)
-        kernel_launcher = self.ml_runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
+        kernel_launcher = self.runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
 
         if kernel_launcher is None:
             key = str(specialization) + str(options)

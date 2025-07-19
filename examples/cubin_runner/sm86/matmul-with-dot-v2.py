@@ -1,10 +1,10 @@
 import triton
 import triton.language as tl
 
-import triton_ml_runner
+import triton_runner
 
 # @triton.jit
-@triton_ml_runner.jit
+@triton_runner.jit
 def matmul_kernel(
     a_ptr, b_ptr, c_ptr,
     M, N, K,
@@ -56,7 +56,7 @@ def matmul(a, b):
         BLOCK_SIZE_M=128,
         BLOCK_SIZE_K=64,
         BLOCK_SIZE_N=64,
-        cubin_dir=triton_ml_runner.get_file_dir(__file__)
+        cubin_dir=triton_runner.get_file_dir(__file__)
     )
     return c
 

@@ -1,14 +1,14 @@
 import triton
 import triton.language as tl
 import torch
-import triton_ml_runner
+import triton_runner
 import time
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
 # @triton.jit
-@triton_ml_runner.jit
+@triton_runner.jit
 def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
                   BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr):
     # pass
@@ -53,15 +53,8 @@ def matmul(a, b):
         triton.cdiv(M, META['BLOCK_SIZE_M']),
     )
 
-    bin = matmul_kernel[grid](a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0),
-                              c.stride(1), BLOCK_SIZE_M=16, BLOCK_SIZE_N=16,
-                              cubin_dir=triton_ml_runner.get_file_dir(__file__))
-    torch.cuda.synchronize()
-    begin_time = time.perf_counter()
-    bin.run()
-    torch.cuda.synchronize()
-    elapsed_time = (time.perf_counter() - begin_time) * 1_000_000
-    print(f"elapsed time: {elapsed_time:.3f} us")
+    matmul_kernel[grid](a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1),
+                        BLOCK_SIZE_M=16, BLOCK_SIZE_N=16, cubin_dir=triton_runner.get_file_dir(__file__))
     return c
 
 
