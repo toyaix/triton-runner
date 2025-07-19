@@ -2,10 +2,10 @@ import setuptools
 
 setuptools.setup(
     name="triton_runner",
-    version="0.0.1",
+    version="0.1.5",
     author="Bob Huang",
     author_email="git@bobhuang.xyz",
-    description="A multi-level Triton kernel launcher",
+    description="Triton multi-level runner, include cubin, ptx, ttgir etc.",
     package_dir={"": "src"},
     packages=setuptools.find_packages("src"),
     include_package_data=True,

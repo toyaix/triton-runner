@@ -14,6 +14,8 @@ Here is an example command for `sm90`. For more examples, please refer to [examp
 
 ### sm90 (H100, H200, H20, etc.)
 ```bash
+python examples/python_runner/matmul.py
+
 python examples/ttir_runner/matmul.py
 
 python examples/ttgir_runner/sm90/matmul-with-tma-v3.py
