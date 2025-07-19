@@ -6,7 +6,7 @@ import os
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
-    def runner(self, grid, bound_args, kwargs, options, sigkeys, signature_str):
+    def ml_runner(self, grid, bound_args, kwargs, options, sigkeys, signature_str):
         assert grid is not None
         if callable(grid):
             grid = grid(bound_args)
@@ -15,7 +15,8 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         for k in filtered_keys:
             if k.lower() in runner_dir_set:
                 from .jit_utils import jit_launch
-                return jit_launch(k[:-4].lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid, options)
+                return jit_launch(k[:-4].lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid,
+                                  options)
             else:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
 
@@ -42,8 +43,12 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
         assert "device" not in kwargs, "device option is deprecated; current device will be used"
         assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
-        return self.runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
+        kernel_launcher = self.ml_runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
 
+        if not warmup:
+            kernel_launcher.run()
+
+        return kernel_launcher
 
     def __init__(self, fn, version=None, do_not_specialize=None, do_not_specialize_on_alignment=None, debug=None,
                  noinline=None, repr=None, launch_metadata=None):

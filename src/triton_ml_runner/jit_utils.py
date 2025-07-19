@@ -13,7 +13,6 @@ def jit_cubin_launch(cubin_dir, kernel_name, bound_args, signature_str, grid):
     global _kernel_launcher
     _kernel_launcher = KernelLauncher(
         *cubin_launch_config(function, signature_str, bound_args, grid))
-    # _kernel_launcher.run()
 
 
 def jit_ttir_launch(file_dir, kernel_name, bound_args, signature_str, grid, options):
