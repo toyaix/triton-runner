@@ -31,20 +31,21 @@ def benchmark(name, unit_name="ms"):
 
     def decorator(method):
 
-        def wrapper(self):
-            input_iter = list(self.get_input_iter())
-            # sum_time = 0
-            input_len = len(input_iter)
-            for idx, args in enumerate(input_iter):
-                fn = method(self, *args)
-                elapsed_time = do_bench_walltime(fn)
-                elapsed_time_str = f"{elapsed_time:8.3f} ms"
-                if unit_name == "us":
-                    elapsed_time_str = f"{elapsed_time * 1e3:8.3f} us"
-                if idx == input_len - 1:
-                    print(f"[{name:<30}|] time: {elapsed_time_str}")
-                # sum_time += elapsed_time
-            # print(f"[{name + " average":<30}|] time: {sum_time/input_len:.6f} ms")
+        def wrapper(self, *args, **kwargs):
+            if kwargs.pop("enable_benchmark", True) is not False:
+                input_iter = list(self.get_input_iter())
+                # sum_time = 0
+                input_len = len(input_iter)
+                for idx, args in enumerate(input_iter):
+                    fn = method(self, *args)
+                    elapsed_time = do_bench_walltime(fn)
+                    elapsed_time_str = f"{elapsed_time:8.3f} ms"
+                    if unit_name == "us":
+                        elapsed_time_str = f"{elapsed_time * 1e3:8.3f} us"
+                    if idx == input_len - 1:
+                        print(f"[{name:<30}|] time: {elapsed_time_str}")
+                    # sum_time += elapsed_time
+                # print(f"[{name + " average":<30}|] time: {sum_time/input_len:.6f} ms")
 
         return wrapper
 
