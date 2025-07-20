@@ -47,24 +47,31 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         kernel_launcher = self.runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
 
         if kernel_launcher is None:
+            # compute cache key
             key = str(specialization) + str(options)
-            signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
-            # constexprs
-            constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
-            constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
-            # attributes
-            attrvals = [x[1] for x in specialization]
-            attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
-            attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
-            if self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=True):
-                return None
-            # compile the kernel
-            src = self.ASTSource(self, signature, constexprs, attrs)
-            kernel = self.compile(src, target=target, options=options.__dict__)
-            kernel_cache[key] = kernel
-            self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
-            from .jit_utils import jit_kerel_launch
-            kernel_launcher = jit_kerel_launch(kernel, signature_str, bound_args.values(), grid)
+            kernel = kernel_cache.get(key, None)
+            if kernel is None:
+                key = str(specialization) + str(options)
+                signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
+                # constexprs
+                constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
+                constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
+                # attributes
+                attrvals = [x[1] for x in specialization]
+                attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
+                attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
+                if self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=True):
+                    return None
+                # compile the kernel
+                src = self.ASTSource(self, signature, constexprs, attrs)
+                kernel = self.compile(src, target=target, options=options.__dict__)
+                kernel_cache[key] = kernel
+                self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
+                from .jit_utils import jit_kerel_launch
+                kernel_launcher = jit_kerel_launch(kernel, signature_str, bound_args.values(), grid)
+            else:
+                from .jit_utils import jit_kerel_launch
+                kernel_launcher = jit_kerel_launch(kernel, signature_str, bound_args.values(), grid)
 
         # Check that used global values have not changed.
         not_present = object()

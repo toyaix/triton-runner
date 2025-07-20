@@ -65,8 +65,8 @@ def do_bench_walltime(fn, warmup=25, rep=100):
     estimate_ms = timer.elapsed_ms / 5
 
     # compute number of warmup and repeat
-    n_warmup = max(1, int(warmup / estimate_ms))
-    n_repeat = max(1, int(rep / estimate_ms))
+    n_warmup = max(3, int(warmup / estimate_ms))
+    n_repeat = max(3, int(rep / estimate_ms))
 
     # Warm-up
     for _ in range(n_warmup):
