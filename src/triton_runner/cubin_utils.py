@@ -28,6 +28,11 @@ def get_grid_xyz(grid):
     return grid_0, grid_1, grid_2
 
 
+def get_grid_size(grid):
+    grid_0, grid_1, grid_2 = get_grid_xyz(grid)
+    return grid_0 * grid_1 * grid_2
+
+
 def get_compile_metadata():
     _metadata["cluster_dims"] = tuple(_metadata["cluster_dims"])
     # JSON serialization dumps the target as a dict. Restore it to a GPUTarget.
@@ -49,19 +54,38 @@ def get_packed_metadata():
 
 def get_global_scratch(grid):
     if _metadata["global_scratch_size"] > 0:
-        gridX, gridY, gridZ = get_grid_xyz(grid)
-        grid_size = gridX * gridY * gridZ
-        alloc_size = grid_size * _metadata["global_scratch_size"]
+        alloc_size = get_grid_size(grid) * _metadata["global_scratch_size"]
         return triton.runtime._allocation._allocator(alloc_size, _metadata["global_scratch_align"], _stream)
     return None
 
 
-def cubin_launch(function, signature_str, bound_args, grid):
+def get_kernel_global_scratch(grid, metadata):
+    if metadata.global_scratch_size > 0:
+        alloc_size = get_grid_size(grid) * metadata.global_scratch_size
+        return _allocation._allocator(alloc_size, metadata.global_scratch_align, _stream)
+    return None
+
+
+def get_mod(signature_str):
     signature = dict(enumerate(signature_str.split()))
     src = make_launcher(None, signature)
-    mod = compile_module_from_src(src, "__triton_launcher")
+    return compile_module_from_src(src, "__triton_launcher")
+
+
+def cubin_launch_config(function, signature_str, bound_args, grid):
     global_scratch = get_global_scratch(grid)
     packed_metadata = get_packed_metadata()
     launch_metadata, launch_enter_hook, launch_exit_hook = None, None, None
-    mod.launch(*get_grid_xyz(grid), _stream, function, _metadata["launch_cooperative_grid"], global_scratch,
-               packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, *bound_args)
+    launch_cooperative_grid = _metadata["launch_cooperative_grid"]
+    return (get_mod(signature_str), *get_grid_xyz(grid), _stream, function, launch_cooperative_grid, global_scratch,
+            packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, bound_args)
+
+
+def kernel_launch_config(kernel, signature_str, bound_args, grid):
+    kernel._init_handles()
+    launch_metadata = kernel.launch_metadata(grid, _stream, *bound_args)
+    global_scratch = get_kernel_global_scratch(grid, kernel.metadata)
+    launch_enter_hook, launch_exit_hook = None, None
+    return (get_mod(signature_str), *get_grid_xyz(grid), _stream, kernel.function,
+            kernel.metadata.launch_cooperative_grid, global_scratch, kernel.packed_metadata, launch_metadata,
+            launch_enter_hook, launch_exit_hook, bound_args)

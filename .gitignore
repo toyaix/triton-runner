@@ -1,8 +1,8 @@
-# triton-ml-runner builds
+# triton_runner builds
 build/
 build-*/
 
-src/triton_ml_runner*.egg-info/
+src/triton_runner*.egg-info/
 
 # Pytest
 pytest.ini

@@ -30,7 +30,7 @@ def load_context():
 def get_metadata(options):
     env_vars = triton._C.libtriton.get_cache_invalidating_env_vars()
     key = f"{_src.hash()}-{_backend.hash()}-{options.hash()}-{str(sorted(env_vars.items()))}"
-    hash = "mlir_runner-" + hashlib.sha256(key.encode("utf-8")).hexdigest()
+    hash = "runner-" + hashlib.sha256(key.encode("utf-8")).hexdigest()
     metadata = {
         "hash": hash,
         "target": _target,

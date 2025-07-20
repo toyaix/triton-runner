@@ -1,13 +1,21 @@
-from triton_ml_runner.cubin_utils import get_cufunction, cubin_launch
-from triton_ml_runner.compile_utils import *
+from .cubin_utils import get_cufunction, cubin_launch_config, kernel_launch_config
+from .compile_utils import *
+from .components import KernelLauncher
 import os
+
+_kernel_launcher = None
 
 
 def jit_cubin_launch(cubin_dir, kernel_name, bound_args, signature_str, grid):
     metadata_path = os.path.join(cubin_dir, f"{kernel_name}.json")
     cubin_path = os.path.join(cubin_dir, f"{kernel_name}.cubin")
     function = get_cufunction(metadata_path, cubin_path, f"{kernel_name}")
-    cubin_launch(function, signature_str, bound_args, grid)
+    global _kernel_launcher
+    _kernel_launcher = KernelLauncher(*cubin_launch_config(function, signature_str, bound_args, grid))
+
+
+def jit_kerel_launch(kernel, signature_str, bound_args, grid):
+    return KernelLauncher(*kernel_launch_config(kernel, signature_str, bound_args, grid))
 
 
 def jit_ttir_launch(file_dir, kernel_name, bound_args, signature_str, grid, options):
@@ -45,3 +53,4 @@ def jit_launch(type_str, file_dir, kernel_name, bound_args, signature_str, grid,
         jit_llir_launch(file_dir, kernel_name, bound_args, signature_str, grid)
     elif type_str == "ptx":
         jit_ptx_launch(file_dir, kernel_name, bound_args, signature_str, grid)
+    return _kernel_launcher

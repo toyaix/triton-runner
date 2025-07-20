@@ -1,21 +1,17 @@
 import triton
 import triton.language as tl
 import torch
-import triton_ml_runner
+import triton_runner
+import time
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
 # @triton.jit
-@triton_ml_runner.jit
-def matmul_kernel(
-    a_ptr, b_ptr, c_ptr,
-    M, N, K,
-    stride_am, stride_ak,
-    stride_bk, stride_bn,
-    stride_cm, stride_cn,
-    BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr
-):
+@triton_runner.jit
+def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+                  BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr):
+    # pass
     pid_n = tl.program_id(axis=0)
     pid_m = tl.program_id(axis=1)
 
@@ -52,21 +48,17 @@ def matmul(a, b):
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=torch.float32)
 
-    grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE_N']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
-    matmul_kernel[grid](
-        a, b, c,
-        M, N, K,
-        a.stride(0), a.stride(1),
-        b.stride(0), b.stride(1),
-        c.stride(0), c.stride(1),
-        BLOCK_SIZE_M=16,
-        BLOCK_SIZE_N=16,
-        cubin_dir=triton_ml_runner.get_file_dir(__file__)
+    grid = lambda META: (
+        triton.cdiv(N, META['BLOCK_SIZE_N']),
+        triton.cdiv(M, META['BLOCK_SIZE_M']),
     )
+
+    matmul_kernel[grid](a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1),
+                        BLOCK_SIZE_M=16, BLOCK_SIZE_N=16, cubin_dir=triton_runner.get_file_dir(__file__))
     return c
 
 
-torch.manual_seed(0)
+# torch.manual_seed(0)
 a = torch.randn((512, 1024), device=DEVICE, dtype=torch.float32)
 b = torch.randn((1024, 256), device=DEVICE, dtype=torch.float32)
 torch_output = torch.matmul(a, b)
