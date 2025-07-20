@@ -36,8 +36,8 @@ def benchmark(name, unit_name="ms"):
                 input_iter = list(self.get_input_iter())
                 # sum_time = 0
                 input_len = len(input_iter)
-                for idx, args in enumerate(input_iter):
-                    fn = method(self, *args)
+                for idx, input_args in enumerate(input_iter):
+                    fn = method(self, *input_args)
                     elapsed_time = do_bench_walltime(fn)
                     elapsed_time_str = f"{elapsed_time:8.3f} ms"
                     if unit_name == "us":
@@ -46,6 +46,8 @@ def benchmark(name, unit_name="ms"):
                         print(f"[{name:<30}|] time: {elapsed_time_str}")
                     # sum_time += elapsed_time
                 # print(f"[{name + " average":<30}|] time: {sum_time/input_len:.6f} ms")
+            else:
+                return method(self, *args[0])
 
         return wrapper
 
