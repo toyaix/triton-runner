@@ -55,6 +55,8 @@ def benchmark(name, unit_name="ms"):
 
 
 def do_bench_walltime(fn, warmup=25, rep=100):
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
     fn()
     torch.cuda.synchronize()
 
@@ -65,8 +67,8 @@ def do_bench_walltime(fn, warmup=25, rep=100):
     estimate_ms = timer.elapsed_ms / 5
 
     # compute number of warmup and repeat
-    n_warmup = max(3, int(warmup / estimate_ms))
-    n_repeat = max(3, int(rep / estimate_ms))
+    n_warmup = max(1, int(warmup / estimate_ms))
+    n_repeat = max(1, int(rep / estimate_ms))
 
     # Warm-up
     for _ in range(n_warmup):
