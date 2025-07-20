@@ -53,6 +53,17 @@ class Operator:
 
 
     @benchmark("triton_runner", "us")
+    def nop_triton_runner_kernel(self, *args):
+        if len(args) == 0:
+            return lambda: nop_kernel[
+                1,
+            ]()
+        return lambda: nop_with_args_kernel[
+            1,
+        ](*args)
+
+
+    @benchmark("triton_runner_compiled", "us")
     def nop_triton_runner_kernel_run(self, *args):
         if len(args) == 0:
             bin = runner_nop_kernel[
@@ -85,4 +96,5 @@ if __name__ == "__main__":
     op.nop_python_function()
     op.nop_triton_kernel()
     op.nop_triton_compiled_kernel_run()
+    op.nop_triton_runner_kernel()
     op.nop_triton_runner_kernel_run()
