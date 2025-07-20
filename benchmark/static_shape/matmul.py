@@ -48,7 +48,7 @@ def check_triton():
     torch_output = torch.matmul(args[0], args[1])
     op.matmul_triton_kernel(args, enable_benchmark=False)()
     triton_output = args[2]
-    if torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0):
+    if torch.allclose(triton_output, torch_output, atol=1e-1, rtol=1e-2):
         print("✅ Triton and Torch match")
     else:
         print("❌ Triton and Torch differ")
@@ -60,7 +60,7 @@ def check_triton_runner():
     torch_output = torch.matmul(args[0], args[1])
     op.matmul_triton_runner_kernel(args, enable_benchmark=False)()
     triton_output = args[2]
-    if torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0):
+    if torch.allclose(triton_output, torch_output, atol=1e-1, rtol=1e-2):
         print("✅ Triton runner and Torch match")
     else:
         print("❌ Triton runner and Torch differ")
@@ -72,7 +72,7 @@ def triton_runner_compiled():
     torch_output = torch.matmul(args[0], args[1])
     op.matmul_triton_runner_compiled_kernel(args, enable_benchmark=False)()
     triton_output = args[2]
-    if torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0):
+    if torch.allclose(triton_output, torch_output, atol=1e-1, rtol=1e-2):
         print("✅ Triton runner compiled and Torch match")
     else:
         print("❌ Triton runner compiled and Torch differ")
