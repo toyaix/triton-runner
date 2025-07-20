@@ -51,7 +51,6 @@ class Operator:
         else:
             return lambda: bin.run(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, function, None, None, metadata, *args)
 
-
     @benchmark("triton_runner", "us")
     def nop_triton_runner_kernel(self, *args):
         if len(args) == 0:
@@ -61,7 +60,6 @@ class Operator:
         return lambda: nop_with_args_kernel[
             1,
         ](*args)
-
 
     @benchmark("triton_runner_compiled", "us")
     def nop_triton_runner_kernel_run(self, *args):
@@ -75,7 +73,6 @@ class Operator:
                 1,
             ](*args)
         return lambda: bin.run()
-
 
     @benchmark("inductor", "us")
     def nop_inductor_kernel(self, *args):
