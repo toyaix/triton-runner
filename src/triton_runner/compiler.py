@@ -2,13 +2,15 @@ from triton.runtime import driver
 from triton.runtime.cache import get_cache_manager, get_dump_manager, get_override_manager
 from triton.backends.compiler import GPUTarget
 from triton.compiler.compiler import make_backend, triton_key
-from triton.compiler.compiler import ASTSource, CompiledKernel
+from triton.compiler.compiler import ASTSource, IRSource, CompiledKernel
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir
+import triton
 
 import hashlib
 import os
+import json
 
-def native_compile(src, target=None, options=None):
+def native_compile(src, ast_src, target=None, options=None):
     if target is None:
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
@@ -45,7 +47,7 @@ def native_compile(src, target=None, options=None):
     always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
     if not always_compile and metadata_path is not None:
         # cache hit!
-        return CompiledKernel(src, metadata_group, hash)
+        return CompiledKernel(ast_src, metadata_group, hash)
     # initialize metadata
     metadata = {
         "hash": hash,
@@ -53,7 +55,7 @@ def native_compile(src, target=None, options=None):
         **options.__dict__,
         **env_vars,
     }
-    metadata["triton_version"] = __version__
+    metadata["triton_version"] = triton.__version__
     # run compilation pipeline  and populate metadata
     stages = dict()
     backend.add_stages(stages, options)
@@ -110,4 +112,4 @@ def native_compile(src, target=None, options=None):
     if not os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
         context.disable_multithreading()
     # return handle to compiled kernel
-    return CompiledKernel(src, metadata_group, hash)
+    return CompiledKernel(ast_src, metadata_group, hash)
