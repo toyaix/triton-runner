@@ -65,7 +65,8 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                     return None
                 # compile the kernel
                 src = self.ASTSource(self, signature, constexprs, attrs)
-                kernel = self.compile(src, target=target, options=options.__dict__)
+                from .compiler import runner_compile
+                kernel = runner_compile(src, target=target, options=options.__dict__)
                 kernel_cache[key] = kernel
                 self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
                 from .jit_utils import jit_kerel_launch
