@@ -14,7 +14,8 @@ def jit_cubin_launch(cubin_dir, kernel_name, bound_args, signature_str, grid):
     _kernel_launcher = KernelLauncher(*cubin_launch_config(function, signature_str, bound_args, grid))
 
 
-def jit_kerel_launch(kernel, signature_str, bound_args, grid):
+def jit_kerel_launch(kernel, sigvals, bound_args, grid):
+    signature_str = " ".join(sigvals)
     return KernelLauncher(*kernel_launch_config(kernel, signature_str, bound_args, grid))
 
 

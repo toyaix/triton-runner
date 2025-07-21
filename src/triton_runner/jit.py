@@ -7,7 +7,8 @@ import os
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
-    def runner(self, grid, bound_args, kwargs, options, sigkeys, signature_str):
+    def runner(self, grid, bound_args, kwargs, options, sigkeys, sigvals):
+        signature_str = " ".join(sigvals)
         filtered_keys = [k for k in kwargs if k not in options.__dict__ and k not in sigkeys]
         runner_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
         for k in filtered_keys:
@@ -32,27 +33,27 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         kernel_cache, target, backend, binder = self.device_caches[device]
         bound_args, specialization, options = binder(*args, **kwargs)
 
-        options = backend.parse_options(kwargs)
-        # signature
-        sigkeys = [x.name for x in self.params]
-        sigvals = [x[0] for x in specialization]
-        signature_str = " ".join(sigvals)
-        # check arguments
-        assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
-        assert "device" not in kwargs, "device option is deprecated; current device will be used"
-        assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
-        assert grid is not None
-        if callable(grid):
-            grid = grid(bound_args)
-        kernel_launcher = self.runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
+        # compute cache key
+        key = str(specialization) + str(options)
+        kernel = kernel_cache.get(key, None)
 
-        if kernel_launcher is None:
-            # compute cache key
-            key = str(specialization) + str(options)
-            kernel = kernel_cache.get(key, None)
-            if kernel is None:
-                key = str(specialization) + str(options)
-                signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
+        # Kernel is not cached; we have to compile.
+        if kernel is None:
+            # options
+            options = backend.parse_options(kwargs)
+            # signature
+            sigkeys = [x.name for x in self.params]
+            sigvals = [x[0] for x in specialization]
+            signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
+            # check arguments
+            assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
+            assert "device" not in kwargs, "device option is deprecated; current device will be used"
+            assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
+            assert grid is not None
+            if callable(grid):
+                grid = grid(bound_args)
+            kernel_launcher = self.runner(grid, bound_args, kwargs, options, sigkeys, sigvals)
+            if kernel_launcher is None:
                 # constexprs
                 constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
                 constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
@@ -68,10 +69,11 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 kernel_cache[key] = kernel
                 self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
                 from .jit_utils import jit_kerel_launch
-                kernel_launcher = jit_kerel_launch(kernel, signature_str, bound_args.values(), grid)
-            else:
-                from .jit_utils import jit_kerel_launch
-                kernel_launcher = jit_kerel_launch(kernel, signature_str, bound_args.values(), grid)
+                kernel_launcher = jit_kerel_launch(kernel, sigvals, bound_args.values(), grid)
+        else:
+            from .jit_utils import jit_kerel_launch
+            sigvals = [x[0] for x in specialization]
+            kernel_launcher = jit_kerel_launch(kernel, sigvals, bound_args.values(), grid)
 
         # Check that used global values have not changed.
         not_present = object()
