@@ -8,7 +8,7 @@ from triton._C.libtriton import get_cache_invalidating_env_vars, ir
 import hashlib
 import os
 
-def runner_compile(src, target=None, options=None):
+def native_compile(src, target=None, options=None):
     if target is None:
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
