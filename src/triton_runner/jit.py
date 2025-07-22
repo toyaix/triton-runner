@@ -4,6 +4,7 @@ from triton._utils import find_paths_if, get_iterable_path
 from typing import Callable, Iterable, Optional, Union, overload
 from .compiler import native_compile
 import os
+import json
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
@@ -62,14 +63,18 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 return None
             # compile the kernel
             ast_src = self.ASTSource(self, signature, constexprs, attrs)
-
+            metadata_json = {}
             if source_dir_type:
                 source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
                 src = os.path.join(kwargs[source_dir_type], source_file_name)
+                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
+                    json_file_name = f"{self.__name__}.json"
+                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+                    metadata_json = json.loads(open(json_path, "r").read())
             else:
                 src = ast_src
 
-            kernel = native_compile(src, ast_src, target=target, options=options.__dict__)
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
             kernel_cache[key] = kernel
             self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
 
