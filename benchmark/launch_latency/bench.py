@@ -71,7 +71,12 @@ class Operator:
             bin = runner_nop_with_args_kernel[
                 1,
             ](*args)
-        return lambda: bin.run()
+        function = bin.function
+        metadata = (bin.packed_metadata if hasattr(bin, "packed_metadata") else bin.metadata)
+        if hasattr(CompiledKernel, "launch_metadata"):
+            return lambda: bin.run(1, 1, 1, 0, function, metadata, None, None, None, *args)
+        else:
+            return lambda: bin.run(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, function, None, None, metadata, *args)
 
     @benchmark("inductor", "us")
     def nop_inductor_kernel(self, *args):
