@@ -34,15 +34,14 @@ def check_cuda_arch_with_capability(kernel_arch, target_arch):
         warnings.warn(f"This kernel capability={kernel_arch} is different with device capability={target_arch}")
 
 
-def check_cuda_arch(device):
-    target = triton.runtime.driver.active.get_current_target()
+def check_cuda_arch(target):
     kernel_arch = _metadata["target"]["arch"]
     check_cuda_arch_with_capability(target.arch, kernel_arch)
 
 
-def check_triton(kernel_name, metadata, device):
+def runner_check_triton(kernel_name, metadata, target):
     global _metadata
     _metadata = metadata
     check_kernel_name(kernel_name)
     check_triton_version()
-    check_cuda_arch(device)
+    check_cuda_arch(target)

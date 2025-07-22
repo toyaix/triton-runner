@@ -2,21 +2,21 @@ from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 from triton._utils import find_paths_if, get_iterable_path
 from typing import Callable, Iterable, Optional, Union, overload
+from .compiler import native_compile
 import os
+import json
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
-    def runner(self, grid, bound_args, kwargs, options, sigkeys, signature_str):
-        filtered_keys = [k for k in kwargs if k not in options.__dict__ and k not in sigkeys]
-        runner_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
-        for k in filtered_keys:
-            if k.lower() in runner_dir_set:
-                from .jit_utils import jit_launch
-                return jit_launch(k[:-4].lower(), kwargs[k], self.__name__, bound_args.values(), signature_str, grid,
-                                  options)
+    def get_source_dir_type(self, kwargs, options, sigkeys):
+        source_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
+        for k in [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys]:
+            if k in source_dir_set:
+                return k
             else:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+        return None
 
     def run(self, *args, grid, warmup, **kwargs):
         kwargs["debug"] = kwargs.get("debug", self.debug) or os.environ.get("TRITON_DEBUG", "0") == "1"
@@ -32,46 +32,51 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         kernel_cache, target, backend, binder = self.device_caches[device]
         bound_args, specialization, options = binder(*args, **kwargs)
 
-        options = backend.parse_options(kwargs)
-        # signature
-        sigkeys = [x.name for x in self.params]
-        sigvals = [x[0] for x in specialization]
-        signature_str = " ".join(sigvals)
-        # check arguments
-        assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
-        assert "device" not in kwargs, "device option is deprecated; current device will be used"
-        assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
-        assert grid is not None
-        if callable(grid):
-            grid = grid(bound_args)
-        kernel_launcher = self.runner(grid, bound_args, kwargs, options, sigkeys, signature_str)
+        # compute cache key
+        key = str(specialization) + str(options)
+        kernel = kernel_cache.get(key, None)
 
-        if kernel_launcher is None:
-            # compute cache key
-            key = str(specialization) + str(options)
-            kernel = kernel_cache.get(key, None)
-            if kernel is None:
-                key = str(specialization) + str(options)
-                signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
-                # constexprs
-                constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
-                constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
-                # attributes
-                attrvals = [x[1] for x in specialization]
-                attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
-                attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
-                if self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=True):
-                    return None
-                # compile the kernel
-                src = self.ASTSource(self, signature, constexprs, attrs)
-                kernel = self.compile(src, target=target, options=options.__dict__)
-                kernel_cache[key] = kernel
-                self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
-                from .jit_utils import jit_kerel_launch
-                kernel_launcher = jit_kerel_launch(kernel, signature_str, bound_args.values(), grid)
+        # Kernel is not cached; we have to compile.
+        if kernel is None:
+            # options
+            options = backend.parse_options(kwargs)
+            # signature
+            sigkeys = [x.name for x in self.params]
+            sigvals = [x[0] for x in specialization]
+            signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
+            # check arguments
+            assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
+            assert "device" not in kwargs, "device option is deprecated; current device will be used"
+            assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
+
+            # check keyword argument and get source_dir_type
+            source_dir_type = self.get_source_dir_type(kwargs, options, sigkeys)
+
+            # constexprs
+            constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
+            constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
+            # attributes
+            attrvals = [x[1] for x in specialization]
+            attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
+            attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
+            if self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=True):
+                return None
+            # compile the kernel
+            ast_src = self.ASTSource(self, signature, constexprs, attrs)
+            metadata_json = {}
+            if source_dir_type:
+                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
+                src = os.path.join(kwargs[source_dir_type], source_file_name)
+                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
+                    json_file_name = f"{self.__name__}.json"
+                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+                    metadata_json = json.loads(open(json_path, "r").read())
             else:
-                from .jit_utils import jit_kerel_launch
-                kernel_launcher = jit_kerel_launch(kernel, signature_str, bound_args.values(), grid)
+                src = ast_src
+
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
+            kernel_cache[key] = kernel
+            self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
 
         # Check that used global values have not changed.
         not_present = object()
@@ -81,9 +86,20 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                     f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
 
         if not warmup:
-            kernel_launcher.run()
-
-        return kernel_launcher
+            # canonicalize grid
+            assert grid is not None
+            if callable(grid):
+                grid = grid(bound_args)
+            grid_size = len(grid)
+            grid_0 = grid[0]
+            grid_1 = grid[1] if grid_size > 1 else 1
+            grid_2 = grid[2] if grid_size > 2 else 1
+            # launch kernel
+            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata,
+                       launch_metadata, self.CompiledKernel.launch_enter_hook, self.CompiledKernel.launch_exit_hook,
+                       *bound_args.values())
+        return kernel
 
     def __init__(self, fn, version=None, do_not_specialize=None, do_not_specialize_on_alignment=None, debug=None,
                  noinline=None, repr=None, launch_metadata=None):

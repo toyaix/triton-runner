@@ -39,7 +39,7 @@ class Operator:
         M, K = args[3], args[5]
         BLOCK_SIZE_M, BLOCK_SIZE_K = args[-3], args[-1]
         grid = (triton.cdiv(K, BLOCK_SIZE_K), triton.cdiv(M, BLOCK_SIZE_M))
-        return lambda: runner_matmul_kernel[grid](*args).run()
+        return lambda: runner_matmul_kernel[grid](*args)
 
 
 def check_triton():

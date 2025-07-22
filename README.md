@@ -27,6 +27,18 @@ python examples/ptx_runner/sm90/matmul-with-tma-v3.py
 python examples/cubin_runner/sm90/matmul-with-tma-v3.py
 ```
 
+## Benchmarks
+
+Benchmarks Referencing [TritonBench](https://github.com/pytorch-labs/tritonbench)
+  - `launch_latency`: Measures kernel launch overhead.
+  - `matmul`: Provides a benchmark for matrix multiplication performance.
+
+```bash
+python benchmark/launch_latency/bench.py
+
+python benchmark/static_shape/matmul.py
+```
+
 ## Installation
 
 install the package as a standard Python package
