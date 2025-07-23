@@ -17,13 +17,13 @@ python examples/v3.2.0/cubin_runner/sm90/matmul-with-dot-v2.py
 ```bash
 python examples/python_runner/matmul.py
 
-python examples/v3.2.0/ttir_runner/matmul.py
+python examples/ttir_runner/matmul.py
 
 python examples/v3.2.0/ttgir_runner/sm80/matmul-with-dot-v2.py
 
 python examples/v3.2.0/llir_runner/sm80/matmul-with-dot-v2.py
 
-python examples/ptx_runner/sm80/matmul-with-dot-v2.py
+python examples/v3.2.0/ptx_runner/sm80/matmul-with-dot-v2.py
 
 python examples/cubin_runner/sm80/matmul-with-dot-v2.py
 ```
