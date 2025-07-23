@@ -23,7 +23,7 @@ python examples/v3.2.0/ttgir_runner/sm80/matmul-with-dot-v2.py
 
 python examples/v3.2.0/llir_runner/sm80/matmul-with-dot-v2.py
 
-python examples/v3.2.0/ptx_runner/sm80/matmul-with-dot-v2.py
+python examples/ptx_runner/sm80/matmul-with-dot-v2.py
 
 python examples/cubin_runner/sm80/matmul-with-dot-v2.py
 ```
@@ -42,7 +42,7 @@ python examples/v3.2.0/ttgir_runner/sm86/matmul-with-dot-v2.py
 
 python examples/v3.2.0/llir_runner/sm86/matmul-with-dot-v2.py
 
-python examples/v3.2.0/ptx_runner/sm86/matmul-with-dot-v2.py
+python examples/ptx_runner/sm86/matmul-with-dot-v2.py
 
 python examples/cubin_runner/sm86/matmul-with-dot-v2.py
 ```
