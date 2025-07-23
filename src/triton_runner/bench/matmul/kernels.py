@@ -26,6 +26,8 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_an, stride_bn,
         a = tl.load(a_ptrs + n * BLOCK_SIZE_N * stride_an, mask=offs_n[None, :] < max_idx, other=0.0)
         b = tl.load(b_ptrs + n * BLOCK_SIZE_N * stride_bn, mask=offs_n[:, None] < max_idx, other=0.0)
         accumulator = tl.dot(a, b, acc=accumulator)
+        # tl.dot has bug when sm < 80, comment out the code above and enable the code below.
+        # accumulator = tl.dot(a, b, acc=accumulator, input_precision="ieee")
 
     c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_k[None, :] * stride_ck
     c_mask = (offs_m[:, None] < M) & (offs_k[None, :] < K)
@@ -52,6 +54,8 @@ def runner_matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_an, str
         a = tl.load(a_ptrs + n * BLOCK_SIZE_N * stride_an, mask=offs_n[None, :] < max_idx, other=0.0)
         b = tl.load(b_ptrs + n * BLOCK_SIZE_N * stride_bn, mask=offs_n[:, None] < max_idx, other=0.0)
         accumulator = tl.dot(a, b, acc=accumulator)
+        # tl.dot has bug when sm < 80, comment out the code above and enable the code below.
+        # accumulator = tl.dot(a, b, acc=accumulator, input_precision="ieee")
 
     c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_k[None, :] * stride_ck
     c_mask = (offs_m[:, None] < M) & (offs_k[None, :] < K)
