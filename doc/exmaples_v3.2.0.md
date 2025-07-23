@@ -4,13 +4,13 @@ python examples/python_runner/matmul.py
 
 python examples/ttir_runner/matmul.py
 
-python examples/v3.2.0/ttgir_runner/sm90/matmul-with-tma-v3.py
+python examples/v3.2.0/ttgir_runner/sm90/matmul-with-dot-v2.py
 
-python examples/v3.2.0/llir_runner/sm90/matmul-with-tma-v3.py
+python examples/v3.2.0/llir_runner/sm90/matmul-with-dot-v2.py
 
-python examples/v3.2.0/ptx_runner/sm90/matmul-with-tma-v3.py
+python examples/v3.2.0/ptx_runner/sm90/matmul-with-dot-v2.py
 
-python examples/cubin_runner/sm90/matmul-with-tma-v3.py
+python examples/v3.2.0/cubin_runner/sm90/matmul-with-dot-v2.py
 ```
 
 ### sm80 (A100, A30)
