@@ -115,6 +115,15 @@ class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
 
 class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
 
+    def get_source_dir_type(self, excess_kwargs, options):
+        source_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
+        for k in [k.lower() for k in excess_kwargs if k not in options.__dict__]:
+            if k in source_dir_set:
+                return k
+            else:
+                raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+        return None
+
     def run(self, *args, grid, warmup, **kwargs):
         kwargs["debug"] = kwargs.get("debug", False) or os.environ.get("TRITON_DEBUG", "0") == "1"
 
@@ -146,9 +155,9 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
             assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
             assert "device" not in kwargs, "device option is deprecated; current device will be used"
             assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
-            for k in excess_kwargs:
-                if k not in options.__dict__:
-                    raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+
+            # check keyword argument and get source_dir_type
+            source_dir_type = self.get_source_dir_type(excess_kwargs, options)
 
             bound_vals = tuple(bound_args.values())
 
@@ -174,12 +183,19 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
             if self._call_hook(key, signature, device, constants, options, configs, warmup, before=True):
                 return None
             # compile the kernel
-            src = self.ASTSource(self, signature, constants, configs[0])
-            kernel = self.compile(
-                src,
-                target=target,
-                options=options.__dict__,
-            )
+            ast_src = self.ASTSource(self, signature, constants, configs[0])
+            metadata_json = {}
+            if source_dir_type:
+                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
+                src = os.path.join(kwargs[source_dir_type], source_file_name)
+                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
+                    json_file_name = f"{self.__name__}.json"
+                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+                    metadata_json = json.loads(open(json_path, "r").read())
+            else:
+                src = ast_src
+
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
             self.cache[device][key] = kernel
             self._call_hook(key, signature, device, constants, options, configs, warmup, before=False)
 
