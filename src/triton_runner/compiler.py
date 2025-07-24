@@ -64,8 +64,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # A PID string can be 5-character long. A UUID string has typically 36 characters. Let's truncate
     # the file name to 150 characters to be safe.
     file_name = ast_src.name[:150]
+    if not isinstance(src, ASTSource):
+        file_name = "@" + ast_src.name
     if metadata_json:
-        runner_check_triton(file_name, metadata_json, target)
+        runner_check_triton(ast_src.name[:150], metadata_json, target)
     metadata_filename = f"{file_name}.json"
     metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
     metadata_path = metadata_group.get(metadata_filename)
