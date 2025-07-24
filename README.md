@@ -2,7 +2,7 @@
 
 triton_runner(Triton multi-level runner) is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
-This project is built specifically for **Triton v3.3.x** and is not guaranteed to work with other versions.
+This project is built specifically for **Triton v3.3.x(primary)/v3.2.0** and is not guaranteed to work with other versions.
 
 ## Example
 
@@ -10,7 +10,7 @@ This project is built specifically for **Triton v3.3.x** and is not guaranteed t
 
 > If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and then copy the corresponding cache files to your target machine.
 
-Here is an example command for `sm90`. For more examples, please refer to [examples](./doc/examples.md).
+Here is an example command for `sm90`. For more examples, please refer to [examples](./doc/examples.md). If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands.
 
 ### sm90 (H100, H200, H20, etc.)
 ```bash
@@ -59,7 +59,7 @@ pip install -e .
 
 ## ⚠️ Version Compatibility
 
-This runner is built against **Triton v3.3.x**.
+This runner is built against **Triton v3.3.x/v3.2.0**.
 Compatibility with other versions of Triton is **not guaranteed** and may lead to unexpected behavior or run failures.
 
 ## 📄 License
