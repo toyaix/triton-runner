@@ -1,6 +1,6 @@
 from triton.runtime import driver
 from triton.runtime.cache import get_cache_manager, get_dump_manager, get_override_manager
-from triton.backends.compiler import GPUTarget, Language
+from triton.backends.compiler import GPUTarget
 from triton.compiler.compiler import make_backend, triton_key, parse, filter_traceback
 from triton.compiler.compiler import ASTSource, IRSource, CompiledKernel
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
@@ -86,6 +86,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # run compilation pipeline  and populate metadata
     stages = dict()
     if triton.__version__ == "3.4.0":
+        from triton.backends.compiler import Language
         backend.add_stages(stages, options, Language.TRITON)
     else:
         backend.add_stages(stages, options)
