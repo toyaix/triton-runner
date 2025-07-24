@@ -120,6 +120,14 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     except Exception as e:
         filter_traceback(e)
         raise
+
+    if ir_source:
+        ir_filename = f"{file_name}.{src_ext}"
+        metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
+    else:
+        ir_filename = f"{file_name}.source"
+        metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
+
     use_ir_loc = os.environ.get("USE_IR_LOC", None)
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
