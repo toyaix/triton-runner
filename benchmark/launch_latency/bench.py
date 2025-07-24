@@ -10,6 +10,7 @@ from triton.compiler import CompiledKernel
 from triton_runner.bench.launch_latency.kernels import get_trivial_add_kernel, nop_kernel, nop_with_args_kernel, runner_nop_kernel, runner_nop_with_args_kernel
 from triton_runner.bench.utils import benchmark
 from torch import zeros
+import triton
 
 
 class Operator:
@@ -43,6 +44,8 @@ class Operator:
             bin = nop_with_args_kernel[
                 1,
             ](*args)
+            if triton.__version__ == "3.2.0":
+                args = args[:-5]  # remove tl.constexpr args
         function = bin.function
         metadata = (bin.packed_metadata if hasattr(bin, "packed_metadata") else bin.metadata)
         if hasattr(CompiledKernel, "launch_metadata"):
@@ -71,6 +74,8 @@ class Operator:
             bin = runner_nop_with_args_kernel[
                 1,
             ](*args)
+            if triton.__version__ == "3.2.0":
+                args = args[:-5]  # remove tl.constexpr args
         function = bin.function
         metadata = (bin.packed_metadata if hasattr(bin, "packed_metadata") else bin.metadata)
         if hasattr(CompiledKernel, "launch_metadata"):

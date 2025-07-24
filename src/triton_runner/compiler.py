@@ -1,7 +1,7 @@
 from triton.runtime import driver
 from triton.runtime.cache import get_cache_manager, get_dump_manager, get_override_manager
 from triton.backends.compiler import GPUTarget
-from triton.compiler.compiler import make_backend, triton_key, parse
+from triton.compiler.compiler import make_backend, triton_key, parse, filter_traceback
 from triton.compiler.compiler import ASTSource, IRSource, CompiledKernel
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
 import triton
@@ -28,7 +28,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         elif src.endswith("cubin"):
             module = Path(src).read_bytes()
         else:
-            src = IRSource(src, context, backend)
+            if triton.__version__ == "3.2.0":
+                src = IRSource(src)
+            else:
+                src = IRSource(src, context, backend)
 
     ast_extra_options = ast_src.parse_options()
 
@@ -96,8 +99,13 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
-
-    codegen_fns = backend.get_codegen_implementation(options)
+    if triton.__version__ == "3.2.0":
+        context = ir.context()
+        ir.load_dialects(context)
+        backend.load_dialects(context)
+        codegen_fns = backend.get_codegen_implementation()
+    else:
+        codegen_fns = backend.get_codegen_implementation(options)
     module_map = backend.get_module_map()
     try:
         if src_ext == "ptx":
@@ -133,13 +141,14 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if metadata_json:
         metadata["name"] = metadata_json["name"]
         metadata["shared"] = metadata_json["shared"]
-        metadata["tmem_size"] = metadata_json["tmem_size"]
-        metadata["global_scratch_size"] = metadata_json["global_scratch_size"]
-        metadata["global_scratch_align"] = metadata_json["global_scratch_align"]
+        if not triton.__version__ == "3.2.0":
+            metadata["tmem_size"] = metadata_json["tmem_size"]
+            metadata["global_scratch_size"] = metadata_json["global_scratch_size"]
+            metadata["global_scratch_align"] = metadata_json["global_scratch_align"]
 
     # write-back metadata
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
-                                                            binary=False)
+                                                             binary=False)
     fn_cache_manager.put_group(metadata_filename, metadata_group)
     # Compilation completed, disabling multithreading in context.
     # This is needed to safely finalize threads pool inside context: if current process forks before
