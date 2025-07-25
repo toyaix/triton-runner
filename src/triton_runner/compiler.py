@@ -148,10 +148,6 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             print(f"Creating new locations for {ir_full_name}")
         module = next_module
 
-    if src_ext == "cubin":
-        ir_filename = f"{file_name}.cubin"
-        metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
-
     if metadata_json:
         metadata["name"] = metadata_json["name"]
         metadata["shared"] = metadata_json["shared"]
