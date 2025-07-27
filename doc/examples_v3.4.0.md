@@ -35,9 +35,9 @@ python examples/python_runner/matmul.py
 
 python examples/ttir_runner/matmul.py
 
-python examples/ttgir_runner/sm120/matmul-with-tma-v3.py
+python examples/v3.4.0/ttgir_runner/sm120/matmul-with-tma-v4.py
 
-python examples/llir_runner/sm120/matmul-with-tma-v3.py
+python examples/v3.4.0/llir_runner/sm120/matmul-with-tma-v4.py
 
 python examples/ptx_runner/sm120/matmul-with-tma-v3.py
 
