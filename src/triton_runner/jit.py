@@ -16,10 +16,11 @@ class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
     def get_source_dir_type(self, kwargs, options, sigkeys):
         source_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
         for k in [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys]:
+            if not k in source_dir_set:
+                raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+        for k in [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys]:
             if k in source_dir_set:
                 return k
-            else:
-                raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         return None
 
     def run(self, *args, grid, warmup, **kwargs):
@@ -118,10 +119,11 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
     def get_source_dir_type(self, excess_kwargs, options):
         source_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
         for k in [k.lower() for k in excess_kwargs if k not in options.__dict__]:
+            if not k in source_dir_set:
+                raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+        for k in [k.lower() for k in excess_kwargs if k not in options.__dict__]:
             if k in source_dir_set:
                 return k
-            else:
-                raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         return None
 
     def run(self, *args, grid, warmup, **kwargs):
@@ -230,10 +232,11 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
     def get_source_dir_type(self, kwargs, options, sigkeys):
         source_dir_set = {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
         for k in [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys]:
+            if not k in source_dir_set:
+                raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+        for k in [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys]:
             if k in source_dir_set:
                 return k
-            else:
-                raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         return None
 
     def run(self, *args, grid, warmup, **kwargs):
