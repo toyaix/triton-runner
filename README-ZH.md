@@ -22,7 +22,7 @@ python examples/ptx_runner/sm90/matmul-with-tma-v3.py
 python examples/cubin_runner/sm90/matmul-with-tma-v3.py
 ```
 
-更多target示例，请参阅 [examples](./doc/examples.md)。
+更多target示例，请参阅 [examples](./doc/examples.md)。如果没有你的target示例，你需要使用`TRITON_CACHE_DIR=$PWD/.cache` 得到对应的源文件之后再运行。
 
 如果你的 Triton 版本是 v3.4.0，请参阅 [examples_v3.4.0](./doc/examples_v3.4.0.md) 获取命令。
 
