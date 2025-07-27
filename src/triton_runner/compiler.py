@@ -64,8 +64,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # A PID string can be 5-character long. A UUID string has typically 36 characters. Let's truncate
     # the file name to 150 characters to be safe.
     file_name = ast_src.name[:150]
+    if not isinstance(src, ASTSource):
+        file_name = "@" + ast_src.name
     if metadata_json:
-        runner_check_triton(file_name, metadata_json, target)
+        runner_check_triton(ast_src.name[:150], metadata_json, target)
     metadata_filename = f"{file_name}.json"
     metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
     metadata_path = metadata_group.get(metadata_filename)
@@ -83,7 +85,11 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata["triton_version"] = triton.__version__
     # run compilation pipeline  and populate metadata
     stages = dict()
-    backend.add_stages(stages, options)
+    if triton.__version__ == "3.4.0":
+        from triton.backends.compiler import Language
+        backend.add_stages(stages, options, Language.TRITON)
+    else:
+        backend.add_stages(stages, options)
     if isinstance(src, ASTSource) or isinstance(src, IRSource):
         src_ext = src.ext
     else:
@@ -115,6 +121,14 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     except Exception as e:
         filter_traceback(e)
         raise
+
+    if ir_source:
+        ir_filename = f"{file_name}.{src_ext}"
+        metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
+    else:
+        ir_filename = f"{file_name}.source"
+        metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
+
     use_ir_loc = os.environ.get("USE_IR_LOC", None)
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
@@ -133,10 +147,6 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             next_module.create_location_snapshot(ir_full_name)
             print(f"Creating new locations for {ir_full_name}")
         module = next_module
-
-    if src_ext == "cubin":
-        ir_filename = f"{file_name}.cubin"
-        metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
 
     if metadata_json:
         metadata["name"] = metadata_json["name"]
