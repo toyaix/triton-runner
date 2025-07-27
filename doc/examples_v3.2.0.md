@@ -30,7 +30,7 @@ python examples/cubin_runner/sm80/matmul-with-dot-v2.py
 
 ### sm120 (RTX PRO 6000, RTX 5090, etc.)
 
-not supported
+**not supported**
 
 ### sm86 (A10, RTX 3090, etc.)
 ```bash
