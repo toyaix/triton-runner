@@ -66,9 +66,9 @@ python examples/ttir_runner/matmul.py
 
 python examples/ttgir_runner/sm75/matmul.py
 
-python examples/llir_runner/sm75/matmul.py
+python examples/v3.3.x/llir_runner/sm75/matmul.py
 
-python examples/ptx_runner/sm75/matmul.py
+python examples/v3.3.x/ptx_runner/sm75/matmul.py
 
 python examples/cubin_runner/sm75/matmul.py
 ```
