@@ -8,10 +8,9 @@ python examples/v3.3.x/ttgir_runner/sm90/matmul-with-tma-v3.py
 
 python examples/v3.3.x/llir_runner/sm90/matmul-with-tma-v3.py
 
-# There appears to be a bug in ptxas for this case. The ptxas bundled with NVCC 12.8.93 is not compatible with .version 8.4. Triton 3.3.x is designed to work with NVCC 12.4.99, which is the correct version for targeting .version 8.4.
 python examples/v3.3.x/ptx_runner/sm90/matmul-with-tma-v3.py
 
-python examples/cubin_runner/sm90/matmul-with-tma-v3.py
+python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 ```
 
 ### sm80 (A100, A30)
