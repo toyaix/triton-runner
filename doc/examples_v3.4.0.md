@@ -38,9 +38,9 @@ python examples/ttgir_runner/sm120/matmul-with-tma-v4.py
 
 python examples/llir_runner/sm120/matmul-with-tma-v4.py
 
-python examples/ptx_runner/sm120/matmul-with-tma-v3.py
+python examples/ptx_runner/sm120/matmul-with-tma-v4.py
 
-python examples/cubin_runner/sm120/matmul-with-tma-v3.py
+python examples/cubin_runner/sm120/matmul-with-tma-v4.py
 ```
 
 ### sm86 (A10, RTX 3090, etc.)
