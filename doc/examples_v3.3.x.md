@@ -51,9 +51,9 @@ python examples/ttir_runner/matmul.py
 
 python examples/ttgir_runner/sm86/matmul-with-dot-v2.py
 
-python examples/llir_runner/sm86/matmul-with-dot-v2.py
+python examples/v3.3.x/llir_runner/sm86/matmul-with-dot-v2.py
 
-python examples/ptx_runner/sm86/matmul-with-dot-v2.py
+python examples/v3.3.x/ptx_runner/sm86/matmul-with-dot-v2.py
 
 python examples/cubin_runner/sm86/matmul-with-dot-v2.py
 ```
