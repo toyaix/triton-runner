@@ -10,7 +10,7 @@ python examples/llir_runner/sm90/matmul-with-tma-v4.py
 
 python examples/ptx_runner/sm90/matmul-with-tma-v4.py
 
-python examples/cubin_runner/sm90/matmul-with-tma-v3.py
+python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 ```
 
 ### sm80 (A100, A30)
