@@ -4,13 +4,13 @@ python examples/python_runner/matmul.py
 
 python examples/ttir_runner/matmul.py
 
-python examples/ttgir_runner/sm90/matmul-with-tma-v3.py
+python examples/v3.3.x/ttgir_runner/sm90/matmul-with-tma-v3.py
 
-python examples/llir_runner/sm90/matmul-with-tma-v3.py
+python examples/v3.3.x/llir_runner/sm90/matmul-with-tma-v3.py
 
-python examples/ptx_runner/sm90/matmul-with-tma-v3.py
+python examples/v3.3.x/ptx_runner/sm90/matmul-with-tma-v3.py
 
-python examples/cubin_runner/sm90/matmul-with-tma-v3.py
+python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 ```
 
 ### sm80 (A100, A30)
@@ -21,9 +21,9 @@ python examples/ttir_runner/matmul.py
 
 python examples/ttgir_runner/sm80/matmul-with-dot-v2.py
 
-python examples/llir_runner/sm80/matmul-with-dot-v2.py
+python examples/v3.3.x/llir_runner/sm80/matmul-with-dot-v2.py
 
-python examples/ptx_runner/sm80/matmul-with-dot-v2.py
+python examples/v3.3.x/ptx_runner/sm80/matmul-with-dot-v2.py
 
 python examples/cubin_runner/sm80/matmul-with-dot-v2.py
 ```
@@ -34,13 +34,13 @@ python examples/python_runner/matmul.py
 
 python examples/ttir_runner/matmul.py
 
-python examples/ttgir_runner/sm120/matmul-with-tma-v3.py
+python examples/v3.3.x/ttgir_runner/sm120/matmul-with-tma-v3.py
 
-python examples/llir_runner/sm120/matmul-with-tma-v3.py
+python examples/v3.3.x/llir_runner/sm120/matmul-with-tma-v3.py
 
-python examples/ptx_runner/sm120/matmul-with-tma-v3.py
+python examples/ptx_runner/sm120/matmul-with-tma-v4.py
 
-python examples/cubin_runner/sm120/matmul-with-tma-v3.py
+python examples/cubin_runner/sm120/matmul-with-tma-v4.py
 ```
 
 ### sm86 (A10, RTX 3090, etc.)
@@ -51,9 +51,9 @@ python examples/ttir_runner/matmul.py
 
 python examples/ttgir_runner/sm86/matmul-with-dot-v2.py
 
-python examples/llir_runner/sm86/matmul-with-dot-v2.py
+python examples/v3.3.x/llir_runner/sm86/matmul-with-dot-v2.py
 
-python examples/ptx_runner/sm86/matmul-with-dot-v2.py
+python examples/v3.3.x/ptx_runner/sm86/matmul-with-dot-v2.py
 
 python examples/cubin_runner/sm86/matmul-with-dot-v2.py
 ```
@@ -66,9 +66,9 @@ python examples/ttir_runner/matmul.py
 
 python examples/ttgir_runner/sm75/matmul.py
 
-python examples/llir_runner/sm75/matmul.py
+python examples/v3.3.x/llir_runner/sm75/matmul.py
 
-python examples/ptx_runner/sm75/matmul.py
+python examples/v3.3.x/ptx_runner/sm75/matmul.py
 
 python examples/cubin_runner/sm75/matmul.py
 ```
