@@ -64,6 +64,7 @@ def matmul(a, b):
         BLOCK_SIZE_M=16,
         BLOCK_SIZE_N=16,
     )
+    print(c)
     return c
 
 
