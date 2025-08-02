@@ -4,7 +4,7 @@
 
 triton_runner(Triton multi-level runner) is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
-triton_runner is compatible with **Triton v3.3.x (primary), v3.4.0, or v3.2.0**, and may not work with other versions.
+triton_runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**, and may not work with other versions.
 
 ## Example
 
@@ -12,7 +12,7 @@ triton_runner is compatible with **Triton v3.3.x (primary), v3.4.0, or v3.2.0**,
 
 > If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and then copy the corresponding cache files to your target machine.
 
-Here's an example command that targets sm90 with Triton v3.3.x. For more target, please refer to [examples](./doc/examples.md). If your Triton version is v3.4.0, please refer to [examples_v3.4.0](./doc/examples_v3.4.0.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands.
+Here's an example command that targets sm90 with Triton v3.4.0. For more target, please refer to [examples](./doc/examples_v3.4.0.md). If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands.
 
 ### sm90 (H100, H200, H20, etc.)
 ```bash

@@ -2,11 +2,11 @@
 
 triton_runner(Triton multi-level runner)是一个面向 [OpenAI/Triton](https://github.com/triton-lang/triton) 的多层级 runner 工具，用于调试 Triton IR，支持在多个编译阶段直接运行 GPU kernel，包括 ttir、ttgir、llir、ptx、cubin。该工具旨在提升 Triton 用户对编译流程的可观测性与可控性，同时降低对 Triton 源码的编译Pass pipeline的限制，提升调试开发与部署效率。
 
-triton_runner 兼容 **Triton v3.3.x (主要版本), v3.4.0, or v3.2.0**。
+triton_runner 兼容 **Triton v3.4.0 (主要版本), v3.3.x, or v3.2.0**。
 
 ## 样例
 
-目前提供了sm90 (H100, H200, H20, etc.), sm80 (A100, A30), sm120 (RTX PRO 6000, RTX 5090, etc.), sm86 (A10, RTX 3090, etc.) or sm75 (T4, RTX 2080, etc.) 这5个[compute capability](https://developer.nvidia.com/cuda-gpus) 的示例，比如H20在Triton v.3.3.x 可以运行如下命令。
+目前提供了sm90 (H100, H200, H20, etc.), sm80 (A100, A30), sm120 (RTX PRO 6000, RTX 5090, etc.), sm86 (A10, RTX 3090, etc.) or sm75 (T4, RTX 2080, etc.) 这5个[compute capability](https://developer.nvidia.com/cuda-gpus) 的示例，比如H20在Triton v.3.4.0 可以运行如下命令。
 
 ```bash
 python examples/python_runner/matmul.py
@@ -22,9 +22,9 @@ python examples/ptx_runner/sm90/matmul-with-tma-v3.py
 python examples/cubin_runner/sm90/matmul-with-tma-v3.py
 ```
 
-更多target示例，请参阅 [examples](./doc/examples.md)。如果没有你的target示例，你需要使用`TRITON_CACHE_DIR=$PWD/.cache` 得到对应的源文件之后再运行。
+更多target示例，请参阅 [examples](./doc/examples_v3.4.0.md)。如果没有你的target示例，你需要使用`TRITON_CACHE_DIR=$PWD/.cache` 得到对应的源文件之后再运行。
 
-如果你的 Triton 版本是 v3.4.0，请参阅 [examples_v3.4.0](./doc/examples_v3.4.0.md) 获取命令。
+如果你的 Triton 版本是 v3.3.1 或 v3.3.0，请参阅 [examples_v3.3.x](./doc/examples_v3.3.x.md) 获取命令。
 
 如果你的 Triton 版本是 v3.2.0，请参阅 [examples_v3.2.0](./doc/examples_v3.2.0.md) 获取命令。
 
