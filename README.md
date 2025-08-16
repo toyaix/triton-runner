@@ -65,7 +65,7 @@ pip install -e .
 
 ## ⚠️ Version Compatibility
 
-triton_runner is compatible with **Triton v3.3.x (primary), v3.4.0, or v3.2.0**.
+triton_runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**.
 
 Compatibility with other versions of Triton is **not guaranteed** and may lead to unexpected behavior or run failures.
 
