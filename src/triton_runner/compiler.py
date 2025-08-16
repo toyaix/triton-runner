@@ -39,6 +39,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         extra_options = src.parse_options()
     else:
         extra_options = {}
+    # merge dictionaries, with ast_extra_options(your python code) having higher priority
     extra_options = extra_options | ast_extra_options
     options = backend.parse_options(dict(options or dict(), **extra_options))
     # create cache manager
