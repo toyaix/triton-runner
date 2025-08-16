@@ -1,16 +1,22 @@
 [build-system]
-requires = ["setuptools>=40.8.0", "wheel"]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
-[tool.yapf]
-based_on_style = "pep8"
-column_limit = 120
-disable_split_list_with_comment = true
-each_dict_entry_on_separate_line=false
-split_before_named_assigns = false
-split_complex_comprehension = true
+[project]
+name = "triton_runner"
+version = "0.1.9"
+description = "Triton multi-level runner, include cubin, ptx, ttgir etc."
+authors = [
+    { name = "Bob Huang", email = "git@bobhuang.xyz" },
+]
+license = "MIT" 
 
-[tool.ruff]
-line-length = 120
+[project.urls]
+repository = "https://github.com/OpenMLIR/triton_runner"
+homepage = "https://triton-runner.org"
 
-[tool.ruff.lint]
-ignore = ["E501", "E701", "E731", "E741"]
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["triton_runner*"]

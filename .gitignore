@@ -2,7 +2,7 @@
 build/
 build-*/
 
-src/triton_runner*.egg-info/
+triton_runner*.egg-info/
 
 # Pytest
 pytest.ini
