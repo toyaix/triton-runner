@@ -44,7 +44,17 @@ python benchmark/static_shape/matmul.py
 
 ## 安装
 
-因为项目并不稳定，这里建议pip使用-e(editable)以可编辑模式安装一个本地包
+### 1.从 [PyPI](https://pypi.org/project/triton-runner/) 安装
+
+对于大多数用户，推荐使用以下方式：
+
+```
+pip install triton-runner
+```
+ 
+### 2.从源码安装（用于开发）
+
+如果你正在开发或修改源代码，可以使用可编辑模式安装。这样对源代码的修改会立即生效，无需重新安装：
 
 ```bash
 git clone https://github.com/OpenMLIR/triton_runner
