@@ -43,25 +43,29 @@ python benchmark/static_shape/matmul.py
 
 ## Installation
 
-install the package as a standard Python package
+> Note: Triton (>=3.2.0) is required for Triton-specific functionality. Make sure it is installed in your environment.
+
+### 1. Install from [PyPI](https://pypi.org/project/triton-runner/)
+
+The recommended way for most users:
 
 ```bash
-git clone https://github.com/OpenMLIR/triton_runner
-cd triton_runner
-pip install .
+pip install triton-runner
 ```
 
-### Development Installation (Editable Mode)
+### 2. Install from Source (for development)
 
 If you are actively developing or modifying the source code, install the package in editable mode. This allows changes in the source files to take effect immediately without reinstalling:
 
 ```bash
+git clone https://github.com/OpenMLIR/triton_runner
+cd triton_runner
 pip install -e .
 ```
 
 ## ⚠️ Version Compatibility
 
-triton_runner is compatible with **Triton v3.3.x (primary), v3.4.0, or v3.2.0**.
+triton_runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**.
 
 Compatibility with other versions of Triton is **not guaranteed** and may lead to unexpected behavior or run failures.
 
