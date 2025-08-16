@@ -12,7 +12,7 @@ from pathlib import Path
 from .check_utils import runner_check_triton
 
 
-def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None):
+def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None):
     if target is None:
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
@@ -77,6 +77,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         return CompiledKernel(ast_src, metadata_group, hash)
     # initialize metadata
     metadata = {
+        "kernel_signature": str(kernel_signature),
         "hash": hash,
         "target": target,
         **options.__dict__,
