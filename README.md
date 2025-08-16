@@ -1,10 +1,18 @@
-# triton_runner
+<h3 align="center">
+Multi-Level Triton Runner Tool 🔧
+</h3>
 
-> Chinese Documentation - [中文文档](./README-ZH.md)
+<p align="center">
+<a href="./doc/"><b>Documentation</b></a> ｜ <a href="https://triton-runner.org"><b>🔗 triton-runner.org</b></a>
+</p>
 
-triton_runner(Triton multi-level runner) is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
+<p align="center">
+<a ><b>English</b></a> | <a href="README.zh.md"><b>中文</b></a>
+</p>
 
-triton_runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**, and may not work with other versions.
+triton-runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
+
+triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**, and may not work with other versions.
 
 ## Quick Installation
 
@@ -17,8 +25,8 @@ pip install triton-runner
 ## Install from source
 
 ```shell
-git clone https://github.com/OpenMLIR/triton_runner
-cd triton_runner
+git clone https://github.com/OpenMLIR/triton-runner
+cd triton-runner
 
 pip install -e .
 ```
@@ -60,7 +68,7 @@ python benchmark/static_shape/matmul.py
 
 ## ⚠️ Version Compatibility
 
-triton_runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**.
+triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**.
 
 Compatibility with other versions of Triton is **not guaranteed** and may lead to unexpected behavior or run failures.
 

@@ -1,8 +1,18 @@
-# triton_runner
+<h3 align="center">
+Multi-Level Triton Runner Tool 🔧
+</h3>
 
-triton_runner(Triton multi-level runner)是一个面向 [OpenAI/Triton](https://github.com/triton-lang/triton) 的多层级 runner 工具，用于调试 Triton IR，支持在多个编译阶段直接运行 GPU kernel，包括 ttir、ttgir、llir、ptx、cubin。该工具旨在提升 Triton 用户对编译流程的可观测性与可控性，同时降低对 Triton 源码的编译Pass pipeline的限制，从而进行性能调优和调试。
+<p align="center">
+<a href="./doc/"><b>文档</b></a> | <a href="https://zhuanlan.zhihu.com/column/c_1940119129400013405"><b>开发文档</b></a> ｜ <a href="https://triton-runner.org"><b>🔗 triton-runner.org</b></a>
+</p>
 
-triton_runner 兼容 **Triton v3.4.0 (主要版本), v3.3.x, or v3.2.0**。
+<p align="center">
+<a href="README.md"><b>English</b></a> | <a><b>中文</b></a>
+</p>
+
+triton-runner 是一个面向 [OpenAI/Triton](https://github.com/triton-lang/triton) 的多层级 runner 工具，用于调试 Triton IR，支持在多个编译阶段直接运行 GPU kernel，包括 ttir、ttgir、llir、ptx、cubin。该工具旨在提升 Triton 用户对编译流程的可观测性与可控性，同时降低对 Triton 源码的编译Pass pipeline的限制，从而进行性能调优和调试。
+
+triton-runner 兼容 **Triton v3.4.0 (主要版本), v3.3.x, or v3.2.0**。
 
 ## 快速安装
 
@@ -15,8 +25,8 @@ pip install triton-runner
 ## 源码安装
 
 ```shell
-git clone https://github.com/OpenMLIR/triton_runner
-cd triton_runner
+git clone https://github.com/OpenMLIR/triton-runner
+cd triton-runner
 
 pip install -e .
 ```
@@ -61,7 +71,7 @@ python benchmark/static_shape/matmul.py
 
 ## ⚠️ Triton版本限制
 
-`triton_runner` 兼容的 Triton 版本包括 v3.4.0（主要版本）、v3.3.x 和 v3.2.0。
+triton-runner 兼容的 Triton 版本包括 v3.4.0（主要版本）、v3.3.x 和 v3.2.0。
 
 ## 📄 License
 
