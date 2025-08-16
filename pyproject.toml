@@ -19,4 +19,4 @@ homepage = "https://triton-runner.org"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["triton_runner*"]
+include = ["triton_runner"]
