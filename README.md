@@ -1,10 +1,35 @@
-# triton_runner
+<h3 align="center">
+Multi-Level Triton Runner Tool 🔧
+</h3>
 
-> Chinese Documentation - [中文文档](./README-ZH.md)
+<p align="center">
+<a href="./doc/"><b>Documentation</b></a> ｜ <a href="https://triton-runner.org"><b>🔗 triton-runner.org</b></a>
+</p>
 
-triton_runner(Triton multi-level runner) is a lightweight, multi-level execution engine for [Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
+<p align="center">
+<a ><b>English</b></a> | <a href="README.zh.md"><b>中文</b></a>
+</p>
 
-triton_runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**, and may not work with other versions.
+triton-runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
+
+triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**, and may not work with other versions.
+
+## Quick Installation
+
+You can install the latest stable release of Triton from pip:
+
+```shell
+pip install triton-runner
+```
+
+## Install from source
+
+```shell
+git clone https://github.com/OpenMLIR/triton-runner
+cd triton-runner
+
+pip install -e .
+```
 
 ## Example
 
@@ -15,7 +40,7 @@ triton_runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**,
 Here's an example command that targets sm90 with Triton v3.4.0. For more target, please refer to [examples](./doc/examples_v3.4.0.md). If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands.
 
 ### sm90 (H100, H200, H20, etc.)
-```bash
+```shell
 python examples/python_runner/matmul.py
 
 python examples/ttir_runner/matmul.py
@@ -35,37 +60,15 @@ Benchmarks Referencing [TritonBench](https://github.com/pytorch-labs/tritonbench
   - `launch_latency`: Measures kernel launch overhead.
   - `matmul`: Provides a benchmark for matrix multiplication performance.
 
-```bash
+```shell
 python benchmark/launch_latency/bench.py
 
 python benchmark/static_shape/matmul.py
 ```
 
-## Installation
-
-> Note: Triton (>=3.2.0) is required for Triton-specific functionality. Make sure it is installed in your environment.
-
-### 1. Install from [PyPI](https://pypi.org/project/triton-runner/)
-
-The recommended way for most users:
-
-```bash
-pip install triton-runner
-```
-
-### 2. Install from Source (for development)
-
-If you are actively developing or modifying the source code, install the package in editable mode. This allows changes in the source files to take effect immediately without reinstalling:
-
-```bash
-git clone https://github.com/OpenMLIR/triton_runner
-cd triton_runner
-pip install -e .
-```
-
 ## ⚠️ Version Compatibility
 
-triton_runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**.
+triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**.
 
 Compatibility with other versions of Triton is **not guaranteed** and may lead to unexpected behavior or run failures.
 
