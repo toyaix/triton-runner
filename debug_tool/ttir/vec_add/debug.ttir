@@ -18,7 +18,7 @@ module {
     %debuger_store_offs     = arith.addi %debuger_store_splat, %debuger_range : tensor<1024xi32> loc(#loc8)
     %debuger_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<1024x!tt.ptr<f32>> loc(#loc8)
     %debuger_ptr            = tt.addptr %debuger_splat, %debuger_store_offs : tensor<1024x!tt.ptr<f32>>, tensor<1024xi32> loc(#loc8)
-    tt.store %debuger_ptr, %9, %6 : tensor<1024x!tt.ptr<f32>> loc(#loc8)
+    tt.store %debuger_ptr, %9 : tensor<1024x!tt.ptr<f32>> loc(#loc8)
     %10 = tt.splat %arg1 : !tt.ptr<f32> -> tensor<1024x!tt.ptr<f32>> loc(#loc9)
     %11 = tt.addptr %10, %4 : tensor<1024x!tt.ptr<f32>>, tensor<1024xi32> loc(#loc9)
     %12 = tt.load %11, %6 : tensor<1024x!tt.ptr<f32>> loc(#loc10)

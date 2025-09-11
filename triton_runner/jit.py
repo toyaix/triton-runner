@@ -6,7 +6,7 @@ from .compiler import native_compile
 import os
 import json
 import re
-from .check_utils import warning_debug_mode
+from .color_print import warning_debug_mode_ssa_and_op, warning_debug_mode_grid
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
@@ -50,21 +50,19 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
     def inject_debug_store(self, full_text, ssa_value):
         pattern = re.compile(
             rf'^(?P<indent>\s*){ssa_value}\s*=\s*'
-            r'(?:tt\.load)\s+'
-            r'(?P<op1>%\d+)\s*,\s*(?P<op2>%\d+)[^:]+:\s*'
-            r'tensor<(?P<size>\d+)x[^>]*>'
-            r'.*?'
-            r'loc\((?P<loc>[^)]+)\)', 
+            r'(?P<op>\S+)\s+'
+            r'.*?:\s*tensor<(?P<size>\d+)x[^>]*>'
+            r'.*?loc\((?P<loc>#[^)]+)\)',
             re.MULTILINE
         )
         def make_replacer(full_text):
             def replacer(match):
                 original_line = match.group(0)
                 indent = match.group("indent")
+                op = match.group("op")
                 size = match.group("size")
                 loc = match.group("loc")
-                addptr_value = match.group("op1")
-                op2 = match.group("op2")
+                warning_debug_mode_ssa_and_op(ssa_value, op, loc, size)
                 injected_code = f"""{original_line}
 {indent}%debuger_0_i32 = arith.constant 0 : i32 loc(#loc1)
 {indent}%debuger_range          = tt.make_range {{end = {size} : i32, start = 0 : i32}} : tensor<{size}xi32> loc({loc})
@@ -72,7 +70,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 {indent}%debuger_store_offs     = arith.addi %debuger_store_splat, %debuger_range : tensor<{size}xi32> loc({loc})
 {indent}%debuger_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>> loc({loc})
 {indent}%debuger_ptr            = tt.addptr %debuger_splat, %debuger_store_offs : tensor<{size}x!tt.ptr<f32>>, tensor<{size}xi32> loc({loc})
-{indent}tt.store %debuger_ptr, {ssa_value}, {op2} : tensor<{size}x!tt.ptr<f32>> loc({loc})"""
+{indent}tt.store %debuger_ptr, {ssa_value} : tensor<{size}x!tt.ptr<f32>> loc({loc})"""
                 return injected_code
             return replacer
         replacer_with_text = make_replacer(full_text)
@@ -172,7 +170,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             grid_2 = grid[2] if grid_size > 2 else 1
             if self.need_debug(kwargs):
                 grid_0, grid_1, grid_2 = 1, 1, 1
-                warning_debug_mode()
+                warning_debug_mode_grid()
             # launch kernel
             launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
             kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
