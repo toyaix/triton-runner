@@ -54,6 +54,20 @@ python examples/ptx_runner/sm90/matmul-with-tma-v4.py
 python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 ```
 
+## Debug TTIR(main branch)
+
+Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0.
+
+```shell
+python debug_tool/ttir/01-vector_add/debug_load.py
+
+python debug_tool/ttir/01-vector_add/debug_addf.py
+
+python debug_tool/ttir/02-matrix_transpose/debug_2d_load.py
+
+python debug_tool/ttir/02-matrix_transpose/debug_2d_trans.py
+```
+
 ## Benchmarks
 
 Benchmarks Referencing [TritonBench](https://github.com/pytorch-labs/tritonbench)

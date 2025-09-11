@@ -55,6 +55,20 @@ python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 
 如果你的 Triton 版本是 v3.2.0，请参阅 [examples_v3.2.0](./doc/examples_v3.2.0.md) 获取命令。
 
+## 调试 TTIR(主分支)
+
+支持了在Triton v3.4.0的TTIR级别的调试，如 `tt.load`、 `arith.addf`、 `tt.trans`等.
+
+```shell
+python debug_tool/ttir/01-vector_add/debug_load.py
+
+python debug_tool/ttir/01-vector_add/debug_addf.py
+
+python debug_tool/ttir/02-matrix_transpose/debug_2d_load.py
+
+python debug_tool/ttir/02-matrix_transpose/debug_2d_trans.py
+```
+
 ## Benchmarks
 
 Benchmarks 参照 [TritonBench](https://github.com/pytorch-labs/tritonbench)项目

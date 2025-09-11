@@ -37,5 +37,5 @@ cmake-build-*
 
 # macOS
 .DS_Store
-debug_tool/ttir/add/debug.ttir
 
+**/debug.ttir
