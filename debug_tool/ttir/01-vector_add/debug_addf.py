@@ -67,7 +67,6 @@ def add(x: torch.Tensor, y: torch.Tensor):
     triton_runner.color_print.blue_print(f"debug {debug_tensor}")
     debug_torch = x + y
     max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE] - debug_tensor[:BLOCK_SIZE]))
-    debug_tensor = torch.empty_like(y)
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and triton is {max_diff}")
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still
     # running asynchronously at this point.
