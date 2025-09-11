@@ -45,3 +45,7 @@ def runner_check_triton(kernel_name, metadata, target):
     check_kernel_name(kernel_name)
     check_triton_version()
     check_cuda_arch(target)
+
+
+def warning_debug_mode():
+    warnings.warn(f"In debug mode, grid is changed to (1, 1, 1)")
