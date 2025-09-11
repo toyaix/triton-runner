@@ -6,7 +6,8 @@ from .compiler import native_compile
 import os
 import json
 import re
-from .color_print import warning_debug_mode_ssa_and_op, warning_debug_mode_grid
+from .color_print import warning_debug_mode_grid
+from .debug_utils import get_injected_ir
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
@@ -51,7 +52,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
         pattern = re.compile(
             rf'^(?P<indent>\s*){ssa_value}\s*=\s*'
             r'(?P<op>\S+)\s+'
-            r'.*?:\s*tensor<(?P<size>(?:\d+x){0,1}\d+)(?:x[^>]*)?>'
+            r'.*?:\s*tensor<(?P<size>(?:\d+x)*\d+)(?:x[^>]*)?>'
             r'.*?loc\((?P<loc>#[^)]+)\)',
             re.MULTILINE
         )
@@ -62,16 +63,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 op = match.group("op")
                 size = match.group("size")
                 loc = match.group("loc")
-                warning_debug_mode_ssa_and_op(ssa_value, op, loc, size)
-                injected_code = f"""{original_line}
-{indent}%debuger_0_i32 = arith.constant 0 : i32 loc(#loc1)
-{indent}%debuger_range          = tt.make_range {{end = {size} : i32, start = 0 : i32}} : tensor<{size}xi32> loc({loc})
-{indent}%debuger_store_splat    = tt.splat %debuger_0_i32 : i32 -> tensor<{size}xi32> loc({loc})
-{indent}%debuger_store_offs     = arith.addi %debuger_store_splat, %debuger_range : tensor<{size}xi32> loc({loc})
-{indent}%debuger_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>> loc({loc})
-{indent}%debuger_ptr            = tt.addptr %debuger_splat, %debuger_store_offs : tensor<{size}x!tt.ptr<f32>>, tensor<{size}xi32> loc({loc})
-{indent}tt.store %debuger_ptr, {ssa_value} : tensor<{size}x!tt.ptr<f32>> loc({loc})"""
-                return injected_code
+                return get_injected_ir(ssa_value, op, original_line, indent, size, loc)
             return replacer
         replacer_with_text = make_replacer(full_text)
         return pattern.sub(replacer_with_text, full_text, count=1)

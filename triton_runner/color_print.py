@@ -12,3 +12,6 @@ def blue_print(text):
 
 def yellow_print(text):
     print(termcolor.colored(text, "yellow"), flush=True)
+
+def warning_size_not_supported(ssa, op, loc, size):
+    yellow_print(f"Warning: size={size} is not supported. And ssa={ssa}, op={op}, loc={loc}")
