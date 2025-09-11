@@ -12,12 +12,16 @@ from .check_utils import warning_debug_mode
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def get_runner_args_set(self):
-        return {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "debug_value", "debug_tensor"}
+        return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "cubin_dir"}
+
+    def get_debugger_args_set(self):
+        return {"debug_tensor", "debug_value"}
 
     def get_source_dir_type(self, need_check_lst):
         runner_args_set = self.get_runner_args_set()
+        debugger_args_set = self.get_debugger_args_set()
         for k in need_check_lst:
-            if not k in runner_args_set:
+            if not k in runner_args_set | debugger_args_set:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         for k in need_check_lst:
             if k in runner_args_set:
@@ -31,7 +35,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def need_debug(self, kwargs):
-        return "debug_tensor" in kwargs and "debug_value" in kwargs
+        return "debug_tensor" in kwargs and "debug_value" in kwargs and "ttir_dir" in kwargs
 
     def insert_debug_tensor_param(self, full_text):
         pattern = re.compile(r'(tt\.func\s+public\s+@\w+\s*)\((.*?)\)(\s*attributes\s*{[^}]*}\s*{)', re.DOTALL)
@@ -61,19 +65,14 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 loc = match.group("loc")
                 addptr_value = match.group("op1")
                 op2 = match.group("op2")
-                splat_pattern = re.compile(
-                    rf'^(?P<indent>\s*){addptr_value}\s*=\s*'
-                    r'(?:tt\.addptr)\s+'
-                    r'(?P<op1>%\d+)\s*,\s*(?P<op2>%\d+)',
-                    re.MULTILINE
-                )
-                addptr_match = splat_pattern.search(full_text)
-                if addptr_match:
-                    addptr_op2 = addptr_match.group("op2")
                 injected_code = f"""{original_line}
-{indent}%splat = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>> loc({loc})
-{indent}%ptr = tt.addptr %splat, {addptr_op2} : tensor<{size}x!tt.ptr<f32>>, tensor<{size}xi32> loc({loc})
-{indent}tt.store %ptr, {ssa_value}, {op2} : tensor<{size}x!tt.ptr<f32>> loc({loc})"""
+{indent}%debuger_0_i32 = arith.constant 0 : i32 loc(#loc1)
+{indent}%debuger_range          = tt.make_range {{end = {size} : i32, start = 0 : i32}} : tensor<{size}xi32> loc({loc})
+{indent}%debuger_store_splat    = tt.splat %debuger_0_i32 : i32 -> tensor<{size}xi32> loc({loc})
+{indent}%debuger_store_offs     = arith.addi %debuger_store_splat, %debuger_range : tensor<{size}xi32> loc({loc})
+{indent}%debuger_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>> loc({loc})
+{indent}%debuger_ptr            = tt.addptr %debuger_splat, %debuger_store_offs : tensor<{size}x!tt.ptr<f32>>, tensor<{size}xi32> loc({loc})
+{indent}tt.store %debuger_ptr, {ssa_value}, {op2} : tensor<{size}x!tt.ptr<f32>> loc({loc})"""
                 return injected_code
             return replacer
         replacer_with_text = make_replacer(full_text)

@@ -8,6 +8,8 @@ if triton.__version__ == "3.2.0":
 else:
     DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
+BLOCK_SIZE = 1024
+
 @triton_runner.jit
 def add_kernel(x_ptr,  # *Pointer* to first input vector.
                y_ptr,  # *Pointer* to second input vector.
@@ -55,13 +57,16 @@ def add(x: torch.Tensor, y: torch.Tensor):
     #  - `triton.jit`'ed functions can be indexed with a launch grid to obtain a callable GPU kernel.
     #  - Don't forget to pass meta-parameters as keywords arguments.
     debug_tensor = torch.empty_like(y)
-    # debug_value can be "%9", "%12" or "%13"
-    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=1024,
+    # debug_value can be "%9"(x), "%12"(y) or "%13"
+    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE,
                      ttir_dir=triton_runner.get_file_dir(__file__),
                      debug_tensor=debug_tensor,
                      debug_value="%9"
     )
     print(f"\033[33mdebug {debug_tensor}\033[0m")
+    debug_torch = x
+    max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE] - debug_tensor[:BLOCK_SIZE]))
+    print(f"\033[34mThe maximum difference between torch and triton is {max_diff}\033[0m")
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still
     # running asynchronously at this point.
     return output
@@ -76,7 +81,7 @@ x = torch.rand(size, device=DEVICE)
 y = torch.rand(size, device=DEVICE)
 output_torch = x + y
 output_triton = add(x, y)
-print(output_torch[:1024])
-print(output_triton[:1024])
+print(output_torch[:BLOCK_SIZE])
+print(output_triton[:BLOCK_SIZE])
 print(f'The maximum difference between torch and triton is '
-      f'{torch.max(torch.abs(output_torch[:1024] - output_triton[:1024]))}')
+      f'{torch.max(torch.abs(output_torch[:BLOCK_SIZE] - output_triton[:BLOCK_SIZE]))}')
