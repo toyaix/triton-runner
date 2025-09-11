@@ -51,7 +51,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
         pattern = re.compile(
             rf'^(?P<indent>\s*){ssa_value}\s*=\s*'
             r'(?P<op>\S+)\s+'
-            r'.*?:\s*tensor<(?P<size>\d+)x[^>]*>'
+            r'.*?:\s*tensor<(?P<size>(?:\d+x){0,1}\d+)(?:x[^>]*)?>'
             r'.*?loc\((?P<loc>#[^)]+)\)',
             re.MULTILINE
         )
