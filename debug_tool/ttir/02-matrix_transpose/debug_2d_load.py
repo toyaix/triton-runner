@@ -36,15 +36,15 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
     debug_torch = input
     print(debug_torch[:BLOCK_SIZE, :BLOCK_SIZE], debug_tensor)
     max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE, :BLOCK_SIZE] - debug_tensor))
-    triton_runner.color_print.yellow_print(f"The maximum difference between torch and triton is {max_diff}")
+    triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
 if __name__ == "__main__":
-    rows, cols = 33, 32
+    rows, cols = 98, 104
     a = torch.randn((rows, cols), device='cuda')
     torch_output = a.T
     triton_output = torch.empty(torch_output.shape, device='cuda')
     solve(a, triton_output, rows, cols)
-    if torch.allclose(triton_output[:BLOCK_SIZE, :BLOCK_SIZE], torch_output[:BLOCK_SIZE, :BLOCK_SIZE]):
+    if torch.allclose(triton_output, torch_output):
         print("✅ Triton and Torch match")
     else:
         print("❌ Triton and Torch differ")

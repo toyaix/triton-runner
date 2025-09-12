@@ -41,7 +41,7 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
     pid_y = tl.program_id(axis=1)
     pid_z = tl.program_id(axis=2)
     # only save once
-    if (pid_x == 0 and pid_y == 0) and pid_z ==0:
+    if (pid_x == 0 and pid_y == 0) and pid_z == 0:
         off = tl.arange(0, BLOCK_SIZE)
         tl.store(debug_tensor + off, output)
     # ===== DEBUG END =====
@@ -74,7 +74,7 @@ def add(x: torch.Tensor, y: torch.Tensor):
     triton_runner.color_print.blue_print(f"debug {debug_tensor}")
     debug_torch = x + y
     max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE] - debug_tensor))
-    triton_runner.color_print.yellow_print(f"The maximum difference between torch and triton is {max_diff}")
+    triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still
     # running asynchronously at this point.
     return output
@@ -82,14 +82,13 @@ def add(x: torch.Tensor, y: torch.Tensor):
 
 # %%
 # We can now use the above function to compute the element-wise sum of two `torch.tensor` objects and test its correctness:
-
-torch.manual_seed(0)
-size = 98432
-x = torch.rand(size, device=DEVICE)
-y = torch.rand(size, device=DEVICE)
-output_torch = x + y
-output_triton = add(x, y)
-print(output_torch[:BLOCK_SIZE])
-print(output_triton[:BLOCK_SIZE])
-print(f'The maximum difference between torch and triton is '
-      f'{torch.max(torch.abs(output_torch[:BLOCK_SIZE] - output_triton[:BLOCK_SIZE]))}')
+if __name__ == "__main__":
+    size = 98432
+    x = torch.rand(size, device=DEVICE)
+    y = torch.rand(size, device=DEVICE)
+    torch_output = x + y
+    triton_output = add(x, y)
+    if torch.allclose(triton_output, torch_output):
+        print("✅ Triton and Torch match")
+    else:
+        print("❌ Triton and Torch differ")
