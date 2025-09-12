@@ -6,7 +6,6 @@ from .compiler import native_compile
 import os
 import json
 import re
-from .color_print import warning_debug_mode_grid
 from .debug_utils import get_injected_ir
 
 
@@ -160,9 +159,6 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             grid_0 = grid[0]
             grid_1 = grid[1] if grid_size > 1 else 1
             grid_2 = grid[2] if grid_size > 2 else 1
-            if self.need_debug(kwargs):
-                grid_0, grid_1, grid_2 = 1, 1, 1
-                warning_debug_mode_grid()
             # launch kernel
             launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
             kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
