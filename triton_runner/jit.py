@@ -5,17 +5,24 @@ from typing import Callable, Iterable, Optional, Union, overload
 from .compiler import native_compile
 import os
 import json
+import re
+from .color_print import warning_debug_mode_grid
+from .debug_utils import get_injected_ir
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def get_runner_args_set(self):
-        return {"cubin_dir", "ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir"}
+        return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "cubin_dir"}
+
+    def get_debugger_args_set(self):
+        return {"debug_tensor", "debug_value"}
 
     def get_source_dir_type(self, need_check_lst):
         runner_args_set = self.get_runner_args_set()
+        debugger_args_set = self.get_debugger_args_set()
         for k in need_check_lst:
-            if not k in runner_args_set:
+            if not k in runner_args_set | debugger_args_set:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         for k in need_check_lst:
             if k in runner_args_set:
@@ -27,6 +34,39 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
     def get_source_dir_type(self, kwargs, options, sigkeys):
         return super().get_source_dir_type(
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
+
+    def need_debug(self, kwargs):
+        return "debug_tensor" in kwargs and "debug_value" in kwargs and "ttir_dir" in kwargs
+
+    def insert_debug_tensor_param(self, full_text):
+        pattern = re.compile(r'(tt\.func\s+public\s+@\w+\s*)\((.*?)\)(\s*attributes\s*{[^}]*}\s*{)', re.DOTALL)
+
+        def replacer(match):
+            prefix, args_str, suffix = match.groups()
+            new_args_str = args_str + ', %debug_tensor: !tt.ptr<f32>'
+            return f"{prefix}({new_args_str}){suffix}"
+
+        return pattern.sub(replacer, full_text, count=1)
+
+    def inject_debug_store(self, full_text, ssa_value):
+        pattern = re.compile(
+            rf'^(?P<indent>\s*){ssa_value}\s*=\s*'
+            r'(?P<op>\S+)\s+'
+            r'.*?:\s*tensor<(?P<size>(?:\d+x)*\d+)(?:x[^>]*)?>'
+            r'.*?loc\((?P<loc>#[^)]+)\)',
+            re.MULTILINE
+        )
+        def make_replacer(full_text):
+            def replacer(match):
+                original_line = match.group(0)
+                indent = match.group("indent")
+                op = match.group("op")
+                size = match.group("size")
+                loc = match.group("loc")
+                return get_injected_ir(ssa_value, op, original_line, indent, size, loc)
+            return replacer
+        replacer_with_text = make_replacer(full_text)
+        return pattern.sub(replacer_with_text, full_text, count=1)
 
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
@@ -66,6 +106,9 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
             # check keyword argument and get source_dir_type
             source_dir_type = self.get_source_dir_type(kwargs, options, sigkeys)
+            if self.need_debug(kwargs) and source_dir_type == "ttir_dir":
+                signature["debug_tensor"] = "*fp32"
+                bound_args["debug_tensor"] = kwargs["debug_tensor"]
 
             # constexprs
             constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
@@ -83,6 +126,12 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             if source_dir_type:
                 source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
                 src = os.path.join(kwargs[source_dir_type], source_file_name)
+                if self.need_debug(kwargs) and source_dir_type == "ttir_dir":
+                    debug_content = self.insert_debug_tensor_param(open(src, "r").read())
+                    debug_content = self.inject_debug_store(debug_content, kwargs["debug_value"])
+                    src = os.path.join(kwargs[source_dir_type], "debug.ttir")
+                    with open(src, "w") as file:
+                        file.write(debug_content)
                 if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
                     json_file_name = f"{self.__name__}.json"
                     json_path = os.path.join(kwargs[source_dir_type], json_file_name)
@@ -111,6 +160,9 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             grid_0 = grid[0]
             grid_1 = grid[1] if grid_size > 1 else 1
             grid_2 = grid[2] if grid_size > 2 else 1
+            if self.need_debug(kwargs):
+                grid_0, grid_1, grid_2 = 1, 1, 1
+                warning_debug_mode_grid()
             # launch kernel
             launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
             kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
