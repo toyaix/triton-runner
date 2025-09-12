@@ -41,7 +41,7 @@ def get_2d_injected_ir(ssa_value, original_line, indent, size, loc):
 {indent}  %debug_expand_1       = tt.expand_dims %debug_range_1 {{axis = 1 : i32}} : tensor<{size_1}xi32> -> tensor<{size_1}x1xi32> {loc}
 {indent}  %debug_size_0_i32     = arith.constant {size_0} : i32 {loc}
 {indent}  %debug_size_0_splat   = tt.splat %debug_size_0_i32 : i32 -> tensor<{size_0}x1xi32> {loc}
-{indent}  %debug_size_1_off     = arith.muli %debug_expand_1, %debug_size_0_splat : tensor<32x1xi32> {loc}
+{indent}  %debug_size_1_off     = arith.muli %debug_expand_1, %debug_size_0_splat : tensor<{size_0}x1xi32> {loc}
 {indent}  %debug_broadcast_1    = tt.broadcast %debug_size_1_off : tensor<{size_1}x1xi32> -> tensor<{size}xi32> {loc}
 {indent}  %debug_range          = arith.addi %debug_broadcast_0, %debug_broadcast_1 : tensor<{size}xi32> {loc}
 {indent}  %debug_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>> {loc}
