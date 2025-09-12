@@ -3,7 +3,7 @@ import triton
 import triton.language as tl
 import triton_runner
 
-BLOCK_SIZE = 32
+BLOCK_SIZE = 64
 
 @triton_runner.jit
 def matrix_transpose_kernel(input_ptr, output_ptr, rows, cols, BLOCK_SIZE: tl.constexpr):
@@ -34,12 +34,11 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
     )
     triton_runner.color_print.blue_print(f"debug {debug_tensor}")
     debug_torch = input
-    print(debug_torch[:BLOCK_SIZE, :BLOCK_SIZE], debug_tensor)
     max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE, :BLOCK_SIZE] - debug_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
 if __name__ == "__main__":
-    rows, cols = 98, 104
+    rows, cols = 104, 78
     a = torch.randn((rows, cols), device='cuda')
     torch_output = a.T
     triton_output = torch.empty(torch_output.shape, device='cuda')
