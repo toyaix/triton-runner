@@ -12,21 +12,24 @@ module {
     %7 = tt.splat %arg0 : !tt.ptr<f32> -> tensor<1024x!tt.ptr<f32>> loc(#loc7)
     %8 = tt.addptr %7, %4 : tensor<1024x!tt.ptr<f32>>, tensor<1024xi32> loc(#loc7)
     %9 = tt.load %8, %6 : tensor<1024x!tt.ptr<f32>> loc(#loc8)
-    %debuger_pid_x          = tt.get_program_id x : i32 loc(#loc8)
-    %debuger_pid_y          = tt.get_program_id y : i32 loc(#loc8)
-    %debuger_pid_z          = tt.get_program_id z : i32 loc(#loc8)
-    %debuger_c0_i32         = arith.constant 0 : i32 loc(#loc8)
-    %debuger_cmpi_eq_x      = arith.cmpi eq, %debuger_pid_x, %debuger_c0_i32 : i32 loc(#loc8)
-    %debuger_cmpi_eq_y      = arith.cmpi eq, %debuger_pid_y, %debuger_c0_i32 : i32 loc(#loc8)
-    %debuger_cmpi_eq_z      = arith.cmpi eq, %debuger_pid_z, %debuger_c0_i32 : i32 loc(#loc8)
-    %debuger_cmpi_eq_x_y    = arith.andi %debuger_cmpi_eq_x, %debuger_cmpi_eq_y : i1 loc(#loc8)
-    %debuger_cmpi_eq_x_y_z  = arith.andi %debuger_cmpi_eq_x_y, %debuger_cmpi_eq_z : i1 loc(#loc8)
-    scf.if %debuger_cmpi_eq_x_y_z {
-      %debuger_range          = tt.make_range {end = 1024 : i32, start = 0 : i32} : tensor<1024xi32> loc(#loc8)
-      %debuger_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<1024x!tt.ptr<f32>> loc(#loc8)
-      %debuger_ptr            = tt.addptr %debuger_splat, %debuger_range : tensor<1024x!tt.ptr<f32>>, tensor<1024xi32> loc(#loc8)
-      tt.store %debuger_ptr, %9 : tensor<1024x!tt.ptr<f32>> loc(#loc8)
+
+    // triton_runner debug start
+    %debug_pid_x            = tt.get_program_id x : i32 loc(#loc8)
+    %debug_pid_y            = tt.get_program_id y : i32 loc(#loc8)
+    %debug_pid_z            = tt.get_program_id z : i32 loc(#loc8)
+    %debug_c0_i32           = arith.constant 0 : i32 loc(#loc8)
+    %debug_cmpi_eq_x        = arith.cmpi eq, %debug_pid_x, %debug_c0_i32 : i32 loc(#loc8)
+    %debug_cmpi_eq_y        = arith.cmpi eq, %debug_pid_y, %debug_c0_i32 : i32 loc(#loc8)
+    %debug_cmpi_eq_z        = arith.cmpi eq, %debug_pid_z, %debug_c0_i32 : i32 loc(#loc8)
+    %debug_cmpi_eq_x_y      = arith.andi %debug_cmpi_eq_x, %debug_cmpi_eq_y : i1 loc(#loc8)
+    %debug_cmpi_eq_x_y_z    = arith.andi %debug_cmpi_eq_x_y, %debug_cmpi_eq_z : i1 loc(#loc8)
+    scf.if %debug_cmpi_eq_x_y_z {
+      %debug_range          = tt.make_range {end = 1024 : i32, start = 0 : i32} : tensor<1024xi32> loc(#loc8)
+      %debug_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<1024x!tt.ptr<f32>> loc(#loc8)
+      %debug_ptr            = tt.addptr %debug_splat, %debug_range : tensor<1024x!tt.ptr<f32>>, tensor<1024xi32> loc(#loc8)
+      tt.store %debug_ptr, %9 : tensor<1024x!tt.ptr<f32>> loc(#loc8)
     }
+    // triton_runner debug end
 
     %10 = tt.splat %arg1 : !tt.ptr<f32> -> tensor<1024x!tt.ptr<f32>> loc(#loc9)
     %11 = tt.addptr %10, %4 : tensor<1024x!tt.ptr<f32>>, tensor<1024xi32> loc(#loc9)
