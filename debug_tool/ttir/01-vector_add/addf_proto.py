@@ -8,8 +8,6 @@ if triton.__version__ == "3.2.0":
 else:
     DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
-BLOCK_SIZE = 1024
-
 @triton_runner.jit
 def add_kernel(x_ptr,  # *Pointer* to first input vector.
                y_ptr,  # *Pointer* to second input vector.
@@ -64,13 +62,16 @@ def add(x: torch.Tensor, y: torch.Tensor):
     # It is analogous to CUDA launch grids. It can be either Tuple[int], or Callable(metaparameters) -> Tuple[int].
     # In this case, we use a 1D grid where the size is the number of blocks:
     grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
+
+    BLOCK_SIZE = 1024
+    debug_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
+
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
     #  - `triton.jit`'ed functions can be indexed with a launch grid to obtain a callable GPU kernel.
     #  - Don't forget to pass meta-parameters as keywords arguments.
-    debug_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
-    # debug_value can be "%9"(x), "%12"(y)
     add_kernel[grid](x, y, output, n_elements, debug_tensor, BLOCK_SIZE=BLOCK_SIZE)
+
     triton_runner.color_print.blue_print(f"debug {debug_tensor}")
     debug_torch = x + y
     max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE] - debug_tensor))
