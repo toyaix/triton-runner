@@ -98,7 +98,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         src_ext = Path(src).suffix[1:]
     first_stage = list(stages.keys()).index(src_ext)
     # when the source is an IR file, don't apply the passes related to this stage. This makes it easier to write IR level tests.
-    if ir_source:
+    if ir_source and src_ext != "ttir":
         first_stage += 1
 
     # For IRSource, we have already grabbed the context + called both
