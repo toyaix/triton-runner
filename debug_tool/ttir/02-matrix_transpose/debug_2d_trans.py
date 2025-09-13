@@ -3,7 +3,6 @@ import triton
 import triton.language as tl
 import triton_runner
 
-BLOCK_SIZE = 32
 
 @triton_runner.jit
 def matrix_transpose_kernel(input_ptr, output_ptr, rows, cols, BLOCK_SIZE: tl.constexpr):
@@ -20,10 +19,13 @@ def matrix_transpose_kernel(input_ptr, output_ptr, rows, cols, BLOCK_SIZE: tl.co
 
 
 def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
-    grid = (triton.cdiv(rows, BLOCK_SIZE), triton.cdiv(cols, BLOCK_SIZE))
+    grid = lambda meta: (triton.cdiv(rows, meta['BLOCK_SIZE']), triton.cdiv(cols, meta['BLOCK_SIZE']))
+
+    BLOCK_SIZE = 64
     debug_tensor = torch.empty((BLOCK_SIZE, BLOCK_SIZE), dtype=input.dtype, device=input.device)
     # debug_value can be "%26"(output)
     debug_value = "%26"
+
     matrix_transpose_kernel[grid](
         input, output,
         rows, cols,
@@ -34,17 +36,16 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
     )
     triton_runner.color_print.blue_print(f"debug {debug_tensor}")
     debug_torch = output
-    print(debug_torch[:BLOCK_SIZE, :BLOCK_SIZE], debug_tensor)
     max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE, :BLOCK_SIZE] - debug_tensor))
-    triton_runner.color_print.yellow_print(f"The maximum difference between torch and triton is {max_diff}")
+    triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
 if __name__ == "__main__":
-    rows, cols = 33, 32
+    rows, cols = 104, 78
     a = torch.randn((rows, cols), device='cuda')
     torch_output = a.T
     triton_output = torch.empty(torch_output.shape, device='cuda')
     solve(a, triton_output, rows, cols)
-    if torch.allclose(triton_output[:BLOCK_SIZE, :BLOCK_SIZE], torch_output[:BLOCK_SIZE, :BLOCK_SIZE]):
+    if torch.allclose(triton_output, torch_output):
         print("✅ Triton and Torch match")
     else:
         print("❌ Triton and Torch differ")

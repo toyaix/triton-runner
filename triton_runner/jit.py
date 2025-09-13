@@ -6,7 +6,6 @@ from .compiler import native_compile
 import os
 import json
 import re
-from .color_print import warning_debug_mode_grid
 from .debug_utils import get_injected_ir
 
 
@@ -127,6 +126,10 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
                 src = os.path.join(kwargs[source_dir_type], source_file_name)
                 if self.need_debug(kwargs) and source_dir_type == "ttir_dir":
+                    if not os.path.exists(src):
+                        src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
+                    if not os.path.exists(src):
+                        raise RuntimeError("Check .ttir/.source file for debugging.")
                     debug_content = self.insert_debug_tensor_param(open(src, "r").read())
                     debug_content = self.inject_debug_store(debug_content, kwargs["debug_value"])
                     src = os.path.join(kwargs[source_dir_type], "debug.ttir")
@@ -160,9 +163,6 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             grid_0 = grid[0]
             grid_1 = grid[1] if grid_size > 1 else 1
             grid_2 = grid[2] if grid_size > 2 else 1
-            if self.need_debug(kwargs):
-                grid_0, grid_1, grid_2 = 1, 1, 1
-                warning_debug_mode_grid()
             # launch kernel
             launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
             kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
