@@ -3,9 +3,6 @@ import triton
 import triton.language as tl
 import triton_runner
 
-BLOCK_SIZE_M = 64
-BLOCK_SIZE_K = 64
-
 @triton_runner.jit
 def matrix_multiplication_kernel(
     a_ptr, b_ptr, c_ptr,
@@ -41,21 +38,19 @@ def matrix_multiplication_kernel(
 
 
 def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: int):
-    stride_am, stride_an = N, 1
-    stride_bn, stride_bk = K, 1
-    stride_cm, stride_ck = K, 1
+    grid = lambda META: (triton.cdiv(K, META['BLOCK_SIZE_K']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
 
+    BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
     debug_tensor = torch.empty((BLOCK_SIZE_M, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
     # debug_value can be "%44"(acc in loop)
-    debug_value = "%44"
+    debug_value = "%45"
 
-    grid = lambda META: (triton.cdiv(K, META['BLOCK_SIZE_K']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
     matrix_multiplication_kernel[grid](
         a, b, c,
         M, N, K,
-        stride_am, stride_an,
-        stride_bn, stride_bk,
-        stride_cm, stride_ck,
+        a.stride(0), a.stride(1),
+        b.stride(0), b.stride(1),
+        c.stride(0), c.stride(1),
         BLOCK_SIZE_M=BLOCK_SIZE_M,
         BLOCK_SIZE_K=BLOCK_SIZE_K,
         ttir_dir=triton_runner.get_file_dir(__file__),
