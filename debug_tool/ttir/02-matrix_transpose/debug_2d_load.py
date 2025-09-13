@@ -3,8 +3,6 @@ import triton
 import triton.language as tl
 import triton_runner
 
-BLOCK_SIZE = 64
-
 @triton_runner.jit
 def matrix_transpose_kernel(input_ptr, output_ptr, rows, cols, BLOCK_SIZE: tl.constexpr):
     row_index = tl.program_id(axis=0)
@@ -20,10 +18,13 @@ def matrix_transpose_kernel(input_ptr, output_ptr, rows, cols, BLOCK_SIZE: tl.co
 
 
 def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
-    grid = (triton.cdiv(rows, BLOCK_SIZE), triton.cdiv(cols, BLOCK_SIZE))
+    grid = lambda meta: (triton.cdiv(rows, meta['BLOCK_SIZE']), triton.cdiv(cols, meta['BLOCK_SIZE']))
+
+    BLOCK_SIZE = 64
     debug_tensor = torch.empty((BLOCK_SIZE, BLOCK_SIZE), dtype=input.dtype, device=input.device)
     # debug_value can be "%9"(input)
     debug_value = "%25"
+
     matrix_transpose_kernel[grid](
         input, output,
         rows, cols,
