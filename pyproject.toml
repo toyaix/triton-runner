@@ -9,7 +9,7 @@ dependencies = [
 
 [project]
 name = "triton_runner"
-version = "0.1.9"
+version = "0.2.0"
 description = "Triton multi-level runner, include cubin, ptx, ttgir etc."
 authors = [
     { name = "Bob Huang", email = "git@bobhuang.xyz" },
