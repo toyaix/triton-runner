@@ -10,6 +10,7 @@ import os
 import json
 from pathlib import Path
 from .check_utils import runner_check_triton
+from .color_print import print_triton_cache_dir
 
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None):
@@ -72,8 +73,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_filename = f"{file_name}.json"
     metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
     metadata_path = metadata_group.get(metadata_filename)
-    always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
+    # triton_runner change this default value
+    always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "1") == "1"
     if not always_compile and metadata_path is not None:
+        print_triton_cache_dir(metadata_path, always_compile)
         # cache hit!
         return CompiledKernel(ast_src, metadata_group, hash)
     # initialize metadata
@@ -162,6 +165,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
                                                              binary=False)
     fn_cache_manager.put_group(metadata_filename, metadata_group)
+
+    print_triton_cache_dir(metadata_group.get(metadata_filename))
+
     # Compilation completed, disabling multithreading in context.
     # This is needed to safely finalize threads pool inside context: if current process forks before
     # python GC deletes context object, thread pool in child process will be invalid, which could
