@@ -14,6 +14,12 @@ triton-runner is a lightweight, multi-level execution engine for [OpenAI/Triton]
 
 triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**, and may not work with other versions.
 
+## ✨ Features
+
+- Support multi-level execution
+- Benchmark performance
+- TTIR Debug
+
 ## Quick Installation
 
 You can install the latest stable release of Triton from pip:
