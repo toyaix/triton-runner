@@ -33,13 +33,16 @@ pip install -e .
 
 ## Example
 
+### multi-level execution 
+
 > **Note:** The following example requires an NVIDIA GPU with compute capability `sm90 (H100, H200, H20, etc.)`, `sm80 (A100, A30)`, `sm120 (RTX PRO 6000, RTX 5090, etc.)`, `sm86 (A10, RTX 3090, etc.)` or `sm75 (T4, RTX 2080, etc.)`. Please make sure to install the package before running the example.
 
-> If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and then copy the corresponding cache files to your target machine.
+If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and then copy the corresponding cache files to your target machine.
 
 Here's an example command that targets sm90 with Triton v3.4.0. For more target, please refer to [examples](./doc/examples_v3.4.0.md). If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands.
 
-### sm90 (H100, H200, H20, etc.)
+#### sm90 (H100, H200, H20, etc.)
+
 ```shell
 python examples/python_runner/matmul.py
 
@@ -54,7 +57,7 @@ python examples/ptx_runner/sm90/matmul-with-tma-v4.py
 python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 ```
 
-## TTIR Debug(main branch)
+### TTIR Debug(main branch)
 
 Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0.
 
