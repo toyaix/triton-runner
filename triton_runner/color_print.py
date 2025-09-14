@@ -18,4 +18,4 @@ def warning_size_not_supported(ssa, op, loc, size):
     yellow_print(f"Warning: size={size} is not supported. And ssa={ssa}, op={op}, loc={loc}")
 
 def print_triton_cache_dir(metadata_path):
-    blue_print(f"[triton-runner] Triton cache file saved at {os.path.dirname(metadata_path)}")
+    blue_print(f"[triton-runner] Triton cache saved at {os.path.dirname(metadata_path)}")
