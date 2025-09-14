@@ -20,15 +20,19 @@ triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**,
 - Benchmark performance
 - TTIR Debug
 
-## Quick Installation
+## 📦 Installation
 
-You can install the latest stable release of Triton from pip:
+### Quick Installation
+
+You can install the latest stable release of Triton from pip.
 
 ```shell
 pip install triton-runner
 ```
 
-## Install from source
+### Install from source
+
+You can install from source to access the latest features and developments.
 
 ```shell
 git clone https://github.com/OpenMLIR/triton-runner
