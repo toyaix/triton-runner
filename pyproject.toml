@@ -1,16 +1,14 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+[project]
+name = "triton-runner"
+description = "Triton multi-level runner, include IR/PTX/cubin."
 
 dependencies = [
     "triton>=3.2.0",
     "termcolor",
 ]
 
-[project]
-name = "triton_runner"
+readme = "README.md"
 version = "0.2.0"
-description = "Triton multi-level runner, include cubin, ptx, ttgir etc."
 authors = [
     { name = "Bob Huang", email = "git@bobhuang.xyz" },
 ]
@@ -20,8 +18,15 @@ license = "MIT"
 repository = "https://github.com/OpenMLIR/triton_runner"
 homepage = "https://triton-runner.org"
 
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.package-data]
+"triton_runner" = ["README.md"]
 
 [tool.setuptools.packages.find]
 include = ["triton_runner*"]
