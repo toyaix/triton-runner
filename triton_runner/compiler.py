@@ -73,9 +73,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_filename = f"{file_name}.json"
     metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
     metadata_path = metadata_group.get(metadata_filename)
-    always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
+    # triton_runner change this default value
+    always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "1") == "1"
     if not always_compile and metadata_path is not None:
-        print_triton_cache_dir(metadata_path)
+        print_triton_cache_dir(metadata_path, always_compile)
         # cache hit!
         return CompiledKernel(ast_src, metadata_group, hash)
     # initialize metadata
