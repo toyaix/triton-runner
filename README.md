@@ -16,9 +16,9 @@ triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**,
 
 ## ✨ Features
 
-- Support multi-level execution
-- TTIR Debug
-- Benchmark performance
+- [multi-level execution](#multi-level-execution)
+- [TTIR Debug](#ttir-debug)
+- [Benchmark performance](#benchmarks)
 
 ## 📦 Installation
 
