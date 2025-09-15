@@ -47,7 +47,7 @@ See the provided examples in the [triton-runner.org](https://triton-runner.org) 
 
 ### multi-level execution
 
-Triton all compile levels are supported by triton-runner.
+Triton’s all compilation levels are supported by triton-runner.
 
 ```mermaid
 flowchart LR
