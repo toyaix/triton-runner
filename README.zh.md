@@ -16,7 +16,7 @@ triton-runner 兼容 **Triton v3.4.0 (主要版本), v3.3.x, or v3.2.0**。
 
 ## 快速安装
 
-You can install the latest stable release of Triton from pip:
+可以使用 pip 安装 Triton 的最新稳定[发行版](https://pypi.org/project/triton-runner/#history)。
 
 ```shell
 pip install triton-runner
@@ -31,81 +31,16 @@ cd triton-runner
 pip install -e .
 ```
 
-## 样例
+## ✨ 功能
 
-目前提供了sm90 (H100, H200, H20, etc.), sm80 (A100, A30), sm120 (RTX PRO 6000, RTX 5090, etc.), sm86 (A10, RTX 3090, etc.) or sm75 (T4, RTX 2080, etc.) 这5个[compute capability](https://developer.nvidia.com/cuda-gpus) 的示例，比如H20在Triton v.3.4.0 可以运行如下命令。
+- [多层级执行](README.md#multi-level-execution)
+- [TTIR 调试](README.md#ttir-debug)
+- [性能测试](README.md#benchmarks)
 
-```shell
-python examples/python_runner/matmul.py
 
-python examples/ttir_runner/matmul.py
+## [[开发文档] triton-runner ——— 知乎专栏](https://www.zhihu.com/column/c_1940119129400013405)
 
-python examples/ttgir_runner/sm90/matmul-with-tma-v4.py
-
-python examples/llir_runner/sm90/matmul-with-tma-v4.py
-
-python examples/ptx_runner/sm90/matmul-with-tma-v4.py
-
-python examples/cubin_runner/sm90/matmul-with-tma-v4.py
-```
-
-更多target示例，请参阅 [examples](./doc/examples_v3.4.0.md)。如果没有你的target示例，你需要使用`TRITON_CACHE_DIR=$PWD/.cache` 得到对应的源文件之后再运行。
-
-如果你的 Triton 版本是 v3.3.1 或 v3.3.0，请参阅 [examples_v3.3.x](./doc/examples_v3.3.x.md) 获取命令。
-
-如果你的 Triton 版本是 v3.2.0，请参阅 [examples_v3.2.0](./doc/examples_v3.2.0.md) 获取命令。
-
-## TTIR调试(主分支)
-
-支持了在Triton v3.4.0的TTIR级别的调试，如 `tt.load`、 `arith.addf`、 `tt.trans`等.
-
-```shell
-python debug_tool/ttir/01-vector_add/debug_load.py
-python debug_tool/ttir/01-vector_add/debug_addf.py
-
-python debug_tool/ttir/02-matrix_transpose/debug_2d_load.py
-python debug_tool/ttir/02-matrix_transpose/debug_2d_trans.py
-
-python debug_tool/ttir/03-matrix_multiplication/debug_acc.py
-
-python debug_tool/ttir/04-softmax/debug_maxnumf.py
-python debug_tool/ttir/04-softmax/debug_addf-sum.py
-python debug_tool/ttir/04-softmax/debug_subf.py
-python debug_tool/ttir/04-softmax/debug_exp-exp_shifted.py
-python debug_tool/ttir/04-softmax/debug_divf-normalize_by_sum.py
-
-python debug_tool/ttir/05-softmax_lse/debug_log_acc.py
-python debug_tool/ttir/05-softmax_lse/debug_max_acc.py
-python debug_tool/ttir/05-softmax_lse/debug_more.py
-
-python debug_tool/ttir/06-attention/debug_out.py
-
-python debug_tool/ttir/07-debug_not_f32/debug_bf16.py
-```
-
-## Benchmarks
-
-Benchmarks 参照 [TritonBench](https://github.com/pytorch-labs/tritonbench)项目
-
-  - `launch_latency`：测量 kernel 启动的延迟开销。
-
-  - `matmul`：用于评估矩阵乘法的性能表现。
-
-```shell
-python benchmark/launch_latency/bench.py
-
-python benchmark/static_shape/matmul.py
-```
-
-## ⚠️ Triton版本限制
-
-triton-runner 兼容的 Triton 版本包括 v3.4.0（主要版本）、v3.3.x 和 v3.2.0。
-
-## 📄 License
-
-本项目采用 **MIT License**，详细内容请参阅 [LICENSE](./LICENSE) 文件。
-
-## 项目文档
+以下是当前文档内容，最新版本会实时更新在[知乎专栏](https://www.zhihu.com/column/c_1940119129400013405)。
 
 [Triton多层级runner v0.1.5：支持缓存机制，Benchmark更友好 (9c28df1)](https://zhuanlan.zhihu.com/p/1931261279072396108)
 
@@ -113,12 +48,16 @@ triton-runner 兼容的 Triton 版本包括 v3.4.0（主要版本）、v3.3.x �
 
 [Triton黑魔法：cubin runner(539d549)](https://zhuanlan.zhihu.com/p/1925826891702576935)
 
-## 相关文章
+## 作者相关文章
 
-[深度剖析 Triton编译器 MatMul优化（三）—— TMA](https://zhuanlan.zhihu.com/p/1924011555437155686)
-
-[深度剖析 Triton编译器 MatMul优化（二）—— MMA](https://zhuanlan.zhihu.com/p/1922921325296615496)
+[浅析 Triton 执行流程](https://zhuanlan.zhihu.com/p/712640431)
 
 [深度剖析 Triton编译器 MatMul优化（一）—— FMA](https://zhuanlan.zhihu.com/p/1922542705797465957)
 
-[浅析 Triton 执行流程](https://zhuanlan.zhihu.com/p/712640431)
+[深度剖析 Triton编译器 MatMul优化（二）—— MMA](https://zhuanlan.zhihu.com/p/1922921325296615496)
+
+[深度剖析 Triton编译器 MatMul优化（三）—— TMA](https://zhuanlan.zhihu.com/p/1924011555437155686)
+
+## 📄 License
+
+本项目采用 **MIT License**，详细内容请参阅 [LICENSE](./LICENSE) 文件。
