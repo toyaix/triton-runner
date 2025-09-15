@@ -58,10 +58,6 @@ pip install -e .
 
 [深度剖析 Triton编译器 MatMul优化（三）—— TMA](https://zhuanlan.zhihu.com/p/1924011555437155686)
 
-## ⚠️ Triton版本限制
-
-triton-runner 兼容的 Triton 版本包括 v3.4.0（主要版本）、v3.3.x 和 v3.2.0。
-
 ## 📄 License
 
 本项目采用 **MIT License**，详细内容请参阅 [LICENSE](./LICENSE) 文件。

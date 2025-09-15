@@ -87,7 +87,7 @@ python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 
 Now provide examples for architectures include `sm90 (H100, H200, H20, etc.)`, `sm80 (A100, A30)`, `sm120 (RTX PRO 6000, RTX 5090, etc.)`, `sm86 (A10, RTX 3090, etc.)` or `sm75 (T4, RTX 2080, etc.)`. For these targets, please refer to [examples](./doc/examples_v3.4.0.md).
 
-If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and use kernel cache directory to run your program.
+If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and use this kernel cache directory to run your program.
 
 #### 6. More Triton version examples
 
@@ -132,12 +132,6 @@ python benchmark/launch_latency/bench.py
 
 python benchmark/static_shape/matmul.py
 ```
-
-## ⚠️ Version Compatibility
-
-triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, or v3.2.0**.
-
-Compatibility with other versions of Triton is **not guaranteed** and may lead to unexpected behavior or run failures.
 
 ## 📄 License
 
