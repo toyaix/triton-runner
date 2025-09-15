@@ -34,8 +34,8 @@ pip install -e .
 ## ✨ 功能
 
 - [多层级执行](README.md#multi-level-execution)
-- [TTIR 调试](README.md##ttir-debug)
-- [性能测试](README.md##benchmarks)
+- [TTIR 调试](README.md#ttir-debug)
+- [性能测试](README.md#benchmarks)
 
 
 ## [[开发文档] triton-runner ——— 知乎专栏](https://www.zhihu.com/column/c_1940119129400013405)
