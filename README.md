@@ -47,6 +47,21 @@ See the provided examples in the [triton-runner.org](https://triton-runner.org) 
 
 ### multi-level execution
 
+Triton all compile levels are supported by triton-runner.
+
+```mermaid
+flowchart LR
+
+    A["Python"]:::supported --> B["TTIR(Triton)"]:::supported
+    B --> C["TTGIR(Triton GPU)"]:::supported
+    C --> D["LLIR(LLVM)"]:::supported
+    D --> E["PTX"]:::supported
+    E --> F["cubin"]:::supported
+
+    classDef supported fill:#AED6F1,stroke:#2E86C1,stroke-width:2px,color:#000000;
+
+```
+
 #### 1. Python runner
 
 You can run your Triton code using `@triton_runner.jit` instead of `@triton.jit`. See an example in [examples/python_runner/matmul.py](https://github.com/OpenMLIR/triton-runner/blob/main/examples/python_runner/matmul.py#L12)
