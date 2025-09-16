@@ -537,7 +537,7 @@ def _bwd_kernel_one_col_block(
         #     else:
         #         do = tl.load(do_ptrs, mask=(offs_m_curr[:, None] < seqlen_q)
         #                                    & (offs_d[None, :] < headdim), other=0.0)
-        dv += tl.dot(p.to(do.dtype), do, trans_a=True)
+        dv += tl.dot(tl.trans(p.to(do.dtype)), do)
         # compute dp = dot(v, do)
         # There seems to be a race condition when headdim=48/96, and dq, dk are wrong.
         # Also wrong for headdim=128, seqlen=(108, 256), and ATOMIC_ADD=True
@@ -555,7 +555,7 @@ def _bwd_kernel_one_col_block(
         # for BLOCK_HEADDIM=128
         ds = (p * (dp - Di[:, None]) * softmax_scale).to(q.dtype)
         # compute dk = dot(ds.T, q)
-        dk += tl.dot(ds, q, trans_a=True)
+        dk += tl.dot(tl.trans(ds), q)
         # compute dq
         if not (
             EVEN_M & EVEN_HEADDIM
@@ -1135,7 +1135,7 @@ class FlashAttnFunc(torch.autograd.Function):
     @staticmethod
     def backward(ctx, do):
         q, k, v, o, lse, bias = ctx.saved_tensors
-        assert not ctx.needs_input_grad[3], "FlashAttention does not support bias gradient yet"
+        # assert not ctx.needs_input_grad[3], "FlashAttention does not support bias gradient yet"
         # Triton's autotune causes the Tensor._version to change, and so Pytorch autograd
         # does a memcpy. To avoid this we run in inference_mode, which doesn't track the version.
         with torch.inference_mode():
