@@ -374,6 +374,101 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
         return kernel
 
 
+class RunnerJITFunctionV3_1_0(RunnerJITFunction[KernelInterface[T]]):
+
+    def get_source_dir_type(self, kwargs, options, sigkeys):
+        return super().get_source_dir_type(
+            [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
+
+    def run(self, *args, grid, warmup, **kwargs):
+        # parse options
+        device = driver.active.get_current_device()
+        stream = driver.active.get_current_stream(device)
+        kwargs["debug"] = self.debug
+
+        # Execute pre run hooks with args and kwargs
+        for hook in self.pre_run_hooks:
+            hook(*args, **kwargs)
+
+        if self.binder is None:
+            self.create_binder()
+
+        bound_args, sig_and_spec, constexpr_vals, non_constexpr_vals, excess_kwargs = self.binder(*args, **kwargs)
+
+        # compute cache key
+        key = ''.join(sig_and_spec) + str((constexpr_vals, excess_kwargs))
+        kernel = self.cache[device].get(key, None)
+
+        if kernel is None:
+            # Kernel is not cached; we have to compile.
+            target = driver.active.get_current_target()
+            backend = self.make_backend(target)
+            options = backend.parse_options(kwargs)
+
+            # deprecated arguments
+            assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
+            assert "device" not in kwargs, "device option is deprecated; current device will be used"
+            assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
+            for k in excess_kwargs:
+                if k not in options.__dict__:
+                    raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+
+            bound_vals = tuple(bound_args.values())
+
+            # `None` is nullptr. Implicitly convert to *i8. This needs to be
+            # done here rather than when we build the signature as otherwise
+            # the kernel cache key could not distinguish between byte pointers
+            # and None arguments, resulting in a downstream mismatch:
+            sigkeys = [self.params[i].name for i in self.non_constexpr_indices]
+            sigvals = sig_and_spec[:len(sigkeys)]
+            signature = {k: ('*i8' if (v == 'none') else v) for (k, v) in zip(sigkeys, sigvals)}
+
+            configs = (self._get_config(*bound_vals), )
+            constants = {
+                p.name: v
+                for (v, p) in zip(bound_vals, self.params)
+                if p.is_constexpr or p.num in configs[0].equal_to_1 or v is None
+            }
+            for i, arg in constants.items():
+                if callable(arg):
+                    raise TypeError(f"Callable constexpr at index {i} is not supported")
+
+            if self._call_hook(key, signature, device, constants, options, configs):
+                return None
+            # compile the kernel
+            src = self.ASTSource(self, signature, constants, configs[0])
+            kernel = self.compile(
+                src,
+                target=target,
+                options=options.__dict__,
+            )
+            self.cache[device][key] = kernel
+
+        # Check that used global values have not changed.
+        not_present = object()
+        for (name, globals_dict_id), (val, globals_dict) in self.used_global_vals.items():
+            if (newVal := globals_dict.get(name, not_present)) != val:
+                raise RuntimeError(
+                    f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
+
+        if not warmup:
+            # canonicalize grid
+            assert grid is not None
+            if callable(grid):
+                # Arguments are passed as a dict to `grid`, by contract.
+                # TODO(jlebar): In the new launch API, pass the compiler flags as a
+                # second parameter to `grid`.
+                grid = grid(bound_args)
+            grid_size = len(grid)
+            grid_0 = grid[0]
+            grid_1 = grid[1] if grid_size > 1 else 1
+            grid_2 = grid[2] if grid_size > 2 else 1
+
+            # launch kernel
+            launch_metadata = kernel.launch_metadata(grid, stream, *non_constexpr_vals)
+            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
+                       self.CompiledKernel.launch_enter_hook, self.CompiledKernel.launch_exit_hook, *non_constexpr_vals)
+        return kernel
 # -----------------------------------------------------------------------------
 # jit decorator
 # -----------------------------------------------------------------------------
@@ -440,6 +535,16 @@ def jit(
                 version=version,
                 do_not_specialize=do_not_specialize,
                 do_not_specialize_on_alignment=do_not_specialize_on_alignment,
+                debug=debug,
+                noinline=noinline,
+                repr=repr,
+                launch_metadata=launch_metadata,
+            )
+        elif triton.__version__ == "3.1.0":
+            return RunnerJITFunctionV3_1_0(
+                fn,
+                version=version,
+                do_not_specialize=do_not_specialize,
                 debug=debug,
                 noinline=noinline,
                 repr=repr,

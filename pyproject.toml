@@ -3,16 +3,16 @@ name = "triton-runner"
 description = "Triton multi-level runner, include IR/PTX/cubin."
 
 dependencies = [
-    "triton>=3.2.0",
+    "triton>=3.1.0",
     "termcolor",
 ]
 
 readme = "README.md"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
     { name = "Bob Huang", email = "git@bobhuang.xyz" },
 ]
-license = "MIT" 
+license = "MIT"
 
 [project.urls]
 repository = "https://github.com/OpenMLIR/triton_runner"
