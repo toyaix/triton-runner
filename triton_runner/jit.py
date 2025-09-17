@@ -412,7 +412,18 @@ def jit(
 
     def decorator(fn: T) -> RunnerJITFunction[T]:
         assert callable(fn)
-        if triton.__version__ in ["3.3.0", "3.3.1"]:
+        if triton.__version__ == "3.4.0":
+            return RunnerJITFunctionV3_4_0(
+                fn,
+                version=version,
+                do_not_specialize=do_not_specialize,
+                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
+                debug=debug,
+                noinline=noinline,
+                repr=repr,
+                launch_metadata=launch_metadata,
+            )
+        elif triton.__version__ in ["3.3.0", "3.3.1"]:
             return RunnerJITFunctionV3_3_x(
                 fn,
                 version=version,
@@ -423,19 +434,8 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
-        if triton.__version__ == "3.2.0":
+        elif triton.__version__ == "3.2.0":
             return RunnerJITFunctionV3_2_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        if triton.__version__ == "3.4.0":
-            return RunnerJITFunctionV3_4_0(
                 fn,
                 version=version,
                 do_not_specialize=do_not_specialize,
