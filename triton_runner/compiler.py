@@ -117,18 +117,18 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         codegen_fns = backend.get_codegen_implementation()
     else:
         codegen_fns = backend.get_codegen_implementation(options)
-    if triton.__version__ in ["3.1.0"]:
-        pass
-    else:
-        module_map = backend.get_module_map()
-        try:
-            if src_ext == "ptx":
-                module = src.src
-            elif src_ext not in {"llir", "cubin"}:
+    try:
+        if src_ext == "ptx":
+            module = src.src
+        elif src_ext not in {"llir", "cubin"}:
+            if triton.__version__ in ["3.1.0"]:
+                module = src.make_ir(options, codegen_fns, context)
+            else:
+                module_map = backend.get_module_map()
                 module = src.make_ir(options, codegen_fns, module_map, context)
-        except Exception as e:
-            filter_traceback(e)
-            raise
+    except Exception as e:
+        filter_traceback(e)
+        raise
 
     if ir_source:
         ir_filename = f"{file_name}.{src_ext}"
