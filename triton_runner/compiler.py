@@ -29,7 +29,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         elif src.endswith("cubin"):
             module = Path(src).read_bytes()
         else:
-            if triton.__version__ == "3.2.0":
+            if triton.__version__ in ["3.2.0", "3.1.0"]:
                 src = IRSource(src)
             else:
                 src = IRSource(src, context, backend)
@@ -110,22 +110,25 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
-    if triton.__version__ == "3.2.0":
+    if triton.__version__ in ["3.2.0", "3.1.0"]:
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
         codegen_fns = backend.get_codegen_implementation()
     else:
         codegen_fns = backend.get_codegen_implementation(options)
-    module_map = backend.get_module_map()
-    try:
-        if src_ext == "ptx":
-            module = src.src
-        elif src_ext not in {"llir", "cubin"}:
-            module = src.make_ir(options, codegen_fns, module_map, context)
-    except Exception as e:
-        filter_traceback(e)
-        raise
+    if triton.__version__ in ["3.1.0"]:
+        pass
+    else:
+        module_map = backend.get_module_map()
+        try:
+            if src_ext == "ptx":
+                module = src.src
+            elif src_ext not in {"llir", "cubin"}:
+                module = src.make_ir(options, codegen_fns, module_map, context)
+        except Exception as e:
+            filter_traceback(e)
+            raise
 
     if ir_source:
         ir_filename = f"{file_name}.{src_ext}"
@@ -156,7 +159,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if metadata_json:
         metadata["name"] = metadata_json["name"]
         metadata["shared"] = metadata_json["shared"]
-        if not triton.__version__ == "3.2.0":
+        if not triton.__version__ in ["3.2.0", "3.1.0"]:
             metadata["tmem_size"] = metadata_json["tmem_size"]
             metadata["global_scratch_size"] = metadata_json["global_scratch_size"]
             metadata["global_scratch_align"] = metadata_json["global_scratch_align"]
@@ -178,6 +181,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # TODO: Reconcile the difference here between the ASAN and non-ASAN path with enabling
     # multithreading in the MLIR context
     if not os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
-        context.disable_multithreading()
+        if not triton.__version__ in ["3.1.0"]:
+            context.disable_multithreading()
     # return handle to compiled kernel
     return CompiledKernel(ast_src, metadata_group, hash)
