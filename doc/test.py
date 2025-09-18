@@ -27,7 +27,8 @@ if match:
     lines = get_lines(match)
     pattern = re.compile(rf"shell(.*?)```", re.DOTALL)
     lines.extend(get_lines(pattern.search(get_content("benchmark.md"))))
-    lines.extend(get_lines(pattern.search(get_content("debug_tool.md"))))
+    if triton_version in ["3.4.0"]:
+        lines.extend(get_lines(pattern.search(get_content("debug_tool.md"))))
     fail_cmd = []
     for cmd in lines:
         triton_runner.color_print.blue_print(cmd)
