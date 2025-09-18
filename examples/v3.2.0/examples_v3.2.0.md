@@ -1,8 +1,8 @@
 ### sm90 (H100, H200, H20, etc.)
 ```shell
-python examples/python_runner/matmul-with-tma-v4.py
+python examples/python_runner/matmul-with-dot-v2.py
 
-python examples/ttir_runner/matmul-with-tma/matmul-with-tma-v4.py
+python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
 
 python examples/v3.2.0/ttgir_runner/sm90/matmul-with-dot-v2.py
 

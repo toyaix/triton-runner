@@ -1,3 +1,5 @@
+If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands.
+
 ### sm90 (H100, H200, H20, etc.)
 ```shell
 python examples/python_runner/matmul-with-tma-v4.py
@@ -17,7 +19,7 @@ python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 ```shell
 python examples/python_runner/matmul-with-dot-v2.py
 
-python examples/ttir_runner/matmul-with-dot-v2/matmul-with-dot-v2.py
+python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
 
 python examples/ttgir_runner/sm80/matmul-with-dot-v2.py
 
@@ -47,7 +49,7 @@ python examples/cubin_runner/sm120/matmul-with-tma-v4.py
 ```shell
 python examples/python_runner/matmul-with-dot-v2.py
 
-python examples/ttir_runner/matmul-with-dot-v2/matmul-with-dot-v2.py
+python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
 
 python examples/ttgir_runner/sm86/matmul-with-dot-v2.py
 
