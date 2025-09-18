@@ -21,11 +21,11 @@ def check_kernel_name(kernel_name):
 
 
 def check_triton_version():
-    kernel_version = _metadata.get('triton_version', '3.2.0')
+    kernel_version = _metadata.get('triton_version', '')
     installed_version = triton.__version__
-    if kernel_version != installed_version:
+    if kernel_version and kernel_version != installed_version:
         warnings.warn(f"This kernel Triton v{kernel_version} is different with intstalled v{installed_version}")
-    if installed_version not in ["3.2.0", "3.3.0", "3.3.1", "3.4.0"]:
+    if installed_version not in ["3.1.0", "3.2.0", "3.3.0", "3.3.1", "3.4.0"]:
         warnings.warn("This runner is only support Triton v3.3.x, v3.4.0 or v3.2.0.")
 
 

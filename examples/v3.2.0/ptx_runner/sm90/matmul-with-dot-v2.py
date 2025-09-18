@@ -33,9 +33,7 @@ def matmul_kernel(
         accumulator = tl.dot(a, b, acc=accumulator)
 
     c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_k[None, :] * stride_ck
-    offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
-    offs_ck = pid_k * BLOCK_SIZE_K + tl.arange(0, BLOCK_SIZE_K)
-    c_mask = (offs_cm[:, None] < M) & (offs_ck[None, :] < K)
+    c_mask = (offs_m[:, None] < M) & (offs_k[None, :] < K)
     tl.store(c_ptrs, accumulator, mask=c_mask)
 
 

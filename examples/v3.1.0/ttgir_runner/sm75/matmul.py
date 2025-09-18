@@ -3,7 +3,7 @@ import triton.language as tl
 import torch
 import triton_runner
 
-if triton.__version__ == "3.2.0":
+if triton.__version__ in ["3.2.0", "3.1.0"]:
     DEVICE = torch.cuda.current_device()
 else:
     DEVICE = triton.runtime.driver.active.get_active_torch_device()
@@ -64,7 +64,7 @@ def matmul(a, b):
         c.stride(0), c.stride(1),
         BLOCK_SIZE_M=16,
         BLOCK_SIZE_N=16,
-        ttir_dir=triton_runner.get_file_dir(__file__)
+        ttgir_dir=triton_runner.get_file_dir(__file__)
     )
     return c
 

@@ -1,8 +1,8 @@
 ### sm90 (H100, H200, H20, etc.)
 ```shell
-python examples/python_runner/matmul.py
+python examples/python_runner/matmul-with-tma-v4.py
 
-python examples/ttir_runner/matmul.py
+python examples/ttir_runner/matmul-with-tma/matmul-with-tma-v4.py
 
 python examples/v3.3.x/ttgir_runner/sm90/matmul-with-tma-v3.py
 
@@ -15,9 +15,9 @@ python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 
 ### sm80 (A100, A30)
 ```shell
-python examples/python_runner/matmul.py
+python examples/python_runner/matmul-with-dot-v2.py
 
-python examples/ttir_runner/matmul.py
+python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
 
 python examples/ttgir_runner/sm80/matmul-with-dot-v2.py
 
@@ -30,9 +30,9 @@ python examples/cubin_runner/sm80/matmul-with-dot-v2.py
 
 ### sm120 (RTX PRO 6000, RTX 5090, etc.)
 ```shell
-python examples/python_runner/matmul.py
+python examples/python_runner/matmul-with-tma-v4.py
 
-python examples/ttir_runner/matmul.py
+python examples/ttir_runner/matmul-with-tma/matmul-with-tma-v4.py
 
 python examples/v3.3.x/ttgir_runner/sm120/matmul-with-tma-v3.py
 
@@ -45,9 +45,9 @@ python examples/cubin_runner/sm120/matmul-with-tma-v4.py
 
 ### sm86 (A10, RTX 3090, etc.)
 ```shell
-python examples/python_runner/matmul.py
+python examples/python_runner/matmul-with-dot-v2.py
 
-python examples/ttir_runner/matmul.py
+python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
 
 python examples/ttgir_runner/sm86/matmul-with-dot-v2.py
 
@@ -62,7 +62,7 @@ python examples/cubin_runner/sm86/matmul-with-dot-v2.py
 ```shell
 python examples/python_runner/matmul.py
 
-python examples/ttir_runner/matmul.py
+python examples/ttir_runner/matmul/matmul.py
 
 python examples/ttgir_runner/sm75/matmul.py
 
