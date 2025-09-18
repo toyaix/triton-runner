@@ -3,14 +3,6 @@
 python examples/python_runner/matmul-with-dot-v2.py
 
 python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
-
-python examples/v3.1.0/ttgir_runner/sm90/matmul-with-dot-v2.py
-
-python examples/v3.1.0/llir_runner/sm90/matmul-with-dot-v2.py
-
-python examples/v3.1.0/ptx_runner/sm90/matmul-with-dot-v2.py
-
-python examples/v3.1.0/cubin_runner/sm90/matmul-with-dot-v2.py
 ```
 
 ### sm80 (A100, A30)
@@ -18,12 +10,6 @@ python examples/v3.1.0/cubin_runner/sm90/matmul-with-dot-v2.py
 python examples/python_runner/matmul-with-dot-v2.py
 
 python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
-
-python examples/v3.1.0/ttgir_runner/sm80/matmul-with-dot-v2.py
-
-python examples/v3.1.0/llir_runner/sm80/matmul-with-dot-v2.py
-
-python examples/ptx_runner/sm80/matmul-with-dot-v2.py
 
 python examples/cubin_runner/sm80/matmul-with-dot-v2.py
 ```

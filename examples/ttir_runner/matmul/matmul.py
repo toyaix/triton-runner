@@ -64,7 +64,7 @@ def matmul(a, b):
         c.stride(0), c.stride(1),
         BLOCK_SIZE_M=16,
         BLOCK_SIZE_N=16,
-        ttir_dir=triton_runner.get_file_dir(__file__)
+        ttir_dir=triton_runner.get_file_dir(__file__),
     )
     return c
 
