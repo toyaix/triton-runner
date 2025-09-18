@@ -73,7 +73,6 @@ def matmul(a, b):
         BLOCK_SIZE_M=128,
         BLOCK_SIZE_K=64,
         BLOCK_SIZE_N=64,
-        ptx_dir=triton_runner.get_file_dir(__file__)
     )
 
     return c
