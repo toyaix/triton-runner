@@ -3,12 +3,11 @@ from triton.experimental.gluon._runtime import GluonASTSource, T
 from typing import Optional, Callable, Iterable, Union
 
 
-class GluonJITFunction(RunnerJITFunctionV3_4_0[T]):
+class RunnerGluonJITFunction(RunnerJITFunctionV3_4_0[T]):
 
     def create_binder(self):
         result = super().create_binder()
         self.ASTSource = GluonASTSource
-        # print(ASTSource)
         return result
 
     def is_gluon(self):
@@ -25,7 +24,7 @@ def jit(
     do_not_specialize_on_alignment: Optional[Iterable[int | str]] = None,
     debug: Optional[bool] = None,
     noinline: Optional[bool] = None,
-) -> Union[GluonJITFunction[T], Callable[[T], JITFunction[T]]]:
+) -> Union[RunnerGluonJITFunction[T], Callable[[T], JITFunction[T]]]:
     """
     Decorator for JIT-compiling a function using the Triton compiler.
 
@@ -46,7 +45,7 @@ def jit(
 
     def decorator(fn: T) -> JITFunction[T]:
         assert callable(fn)
-        return GluonJITFunction(
+        return RunnerGluonJITFunction(
             fn,
             version=version,
             do_not_specialize=do_not_specialize,
