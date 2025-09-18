@@ -9,17 +9,25 @@ triton_version = triton.__version__
 if triton_version in ["3.3.0", "3.3.1"]:
     triton_version = "3.3.x"
 
-doc_file_path = os.path.join("doc", f"examples_v{triton_version}.md")
-file_content = open(doc_file_path, "r").read()
+def get_content(file_name):
+    doc_file_path = os.path.join("doc", file_name)
+    return open(doc_file_path, "r").read()
+
+def get_lines(match):
+    return [line.strip() for line in match.group(1).strip().splitlines() if line.strip()]
+
 device = torch.cuda.current_device()
 capability = torch.cuda.get_device_capability(device)
 capability = capability[0] * 10 + capability[1]
 
 pattern = re.compile(rf"### sm{capability}.*?shell(.*?)```", re.DOTALL)
 
-match = pattern.search(file_content)
+match = pattern.search(get_content(f"examples_v{triton_version}.md"))
 if match:
-    lines = [line.strip() for line in match.group(1).strip().splitlines() if line.strip()]
+    lines = get_lines(match)
+    pattern = re.compile(rf"shell(.*?)```", re.DOTALL)
+    lines.extend(get_lines(pattern.search(get_content("benchmark.md"))))
+    lines.extend(get_lines(pattern.search(get_content("debug_tool.md"))))
     fail_cmd = []
     for cmd in lines:
         triton_runner.color_print.blue_print(cmd)
