@@ -141,7 +141,8 @@ import pytest
 import torch
 import triton
 from functools import partial
-from triton.experimental import gluon
+# from triton.experimental import gluon
+from triton_runner import gluon_runner
 from triton.experimental.gluon import language as gl
 
 # %%
@@ -161,7 +162,7 @@ def _enabled(label):
 # the work over all the threads.
 
 
-@gluon.jit
+@gluon_runner.jit
 def memcpy_1d_kernel(in_ptr, out_ptr, xnumel, XBLOCK: gl.constexpr, layout: gl.constexpr):
     pid = gl.program_id(0)
     start = pid * XBLOCK
@@ -451,7 +452,7 @@ if __name__ == "__main__" and _enabled("XBLOCK_R_vs_throughput"):
 # happens in virtual registers, broadcasting is a zero-cost operation.
 
 
-@gluon.jit
+@gluon_runner.jit
 def memcpy_2d_kernel(in_ptr, out_ptr,  #
                      xnumel, ynumel, xstride_in, ystride_in, xstride_out, ystride_out,  #
                      layout: gl.constexpr, XBLOCK: gl.constexpr, YBLOCK: gl.constexpr):
@@ -699,7 +700,7 @@ def get_layout_for_gmem_access(tensor, num_warps):
 # different dimensions for the input and output.
 
 
-@gluon.jit
+@gluon_runner.jit
 def get_mask_and_offsets(start_x, start_y, xnumel, ynumel, xstride, ystride,  #
                          XBLOCK: gl.constexpr, YBLOCK: gl.constexpr, layout: gl.constexpr):
     indices_x = start_x + gl.arange(0, XBLOCK, layout=gl.SliceLayout(dim=1, parent=layout))
@@ -710,7 +711,7 @@ def get_mask_and_offsets(start_x, start_y, xnumel, ynumel, xstride, ystride,  #
     return mask, offsets
 
 
-@gluon.jit
+@gluon_runner.jit
 def memcpy_2d_inout_kernel(in_ptr, out_ptr,  #
                            xnumel, ynumel, xstride_in, ystride_in, xstride_out, ystride_out,  #
                            layout_in: gl.constexpr, layout_out: gl.constexpr,  #
