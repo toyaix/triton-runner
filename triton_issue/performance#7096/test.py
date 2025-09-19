@@ -65,25 +65,8 @@ def matmul(a, b):
     )
     return c
 
-def benchmark_matmul(size, warmup_iters=3, timed_iters=1000):
-
-
-    for _ in range(warmup_iters):
-        matmul(a, b)
-
-    start = torch.cuda.Event(enable_timing=True)
-    end = torch.cuda.Event(enable_timing=True)
-
-    start.record()
-    for _ in range(timed_iters):
-        matmul(a, b)
-    end.record()
-
-    torch.cuda.synchronize()
-    return start.elapsed_time(end) / timed_iters
-
 for size in [512, 1024, 1536, 2048, 4096]:
     a = torch.randn(size, size, device="cuda", dtype=torch.float16)
     b = torch.randn(size, size, device="cuda", dtype=torch.float16)
-    avg_time = do_bench(lambda: matmul(a, b), warmup=3, rep=1000)
+    avg_time = do_bench(lambda: matmul(a, b))
     print(f"{size}x{size}: {avg_time:.4f}ms")
