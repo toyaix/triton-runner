@@ -9,7 +9,7 @@ import sys
 from contextlib import contextmanager
 from typing import Any, Dict, List
 from triton import language as tl
-from triton import runtime
+from .driver import get_device_interface, get_empty_cache_for_benchmark, clear_cache
 
 
 def nvsmi(attrs):
@@ -146,19 +146,19 @@ def do_bench(fn, warmup=25, rep=100, grad_to_none=None, quantiles=None, return_m
     """
     assert return_mode in ["min", "max", "mean", "median", "all"]
 
-    di = runtime.driver.active.get_device_interface()
+    di = get_device_interface()
 
     fn()
     di.synchronize()
 
-    cache = runtime.driver.active.get_empty_cache_for_benchmark()
+    cache = get_empty_cache_for_benchmark()
 
     # Estimate the runtime of the function
     start_event = di.Event(enable_timing=True)
     end_event = di.Event(enable_timing=True)
     start_event.record()
     for _ in range(5):
-        runtime.driver.active.clear_cache(cache)
+        clear_cache(cache)
         fn()
     end_event.record()
     di.synchronize()
@@ -181,7 +181,7 @@ def do_bench(fn, warmup=25, rep=100, grad_to_none=None, quantiles=None, return_m
             for x in grad_to_none:
                 x.grad = None
         # we clear the L2 cache before each run
-        runtime.driver.active.clear_cache(cache)
+        clear_cache(cache)
         # record time of `fn`
         start_event[i].record()
         fn()
