@@ -46,7 +46,6 @@ import math
 import torch
 import triton
 import triton.language as tl
-import triton_runner
 
 
 # Disabling autotune for now, set num_warps=4 if headdim=64 and num_warps=8 if headdim=128
@@ -65,7 +64,7 @@ import triton_runner
         "EVEN_HEADDIM": lambda args: args["headdim"] == args["BLOCK_HEADDIM"],
     }
 )
-@triton_runner.jit
+@triton.jit
 def _fwd_kernel(
     Q,
     K,
@@ -287,7 +286,7 @@ def _fwd_kernel(
             )
 
 
-@triton_runner.jit
+@triton.jit
 def _bwd_preprocess_do_o_dot(
     Out,
     DO,
@@ -332,7 +331,7 @@ def _bwd_preprocess_do_o_dot(
     tl.store(Delta + off_hb * seqlen_q_rounded + offs_m, delta)
 
 
-@triton_runner.jit
+@triton.jit
 def _bwd_store_dk_dv(
     dk_ptrs,
     dv_ptrs,
@@ -364,7 +363,7 @@ def _bwd_store_dk_dv(
             tl.store(dk_ptrs, dk, mask=(offs_n[:, None] < seqlen_k) & (offs_d[None, :] < headdim))
 
 
-@triton_runner.jit
+@triton.jit
 def _bwd_kernel_one_col_block(
     start_n,
     Q,
@@ -667,7 +666,7 @@ def init_to_zero(name):
         "EVEN_HEADDIM": lambda args: args["headdim"] == args["BLOCK_HEADDIM"],
     }
 )
-@triton_runner.jit
+@triton.jit
 def _bwd_kernel(
     Q,
     K,
