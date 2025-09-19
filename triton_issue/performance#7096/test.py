@@ -6,12 +6,6 @@ from triton_runner.testing import do_bench
 print(f"GPU: {torch.cuda.get_device_name()}")
 print(f"Triton version: {triton.__version__}")
 
-@triton.autotune(
-    configs=[
-        triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 64, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4)
-    ],
-    key=['M', 'N', 'K'],
-)
 @triton.jit
 def matmul_kernel(
         a_ptr, b_ptr, c_ptr,
@@ -66,6 +60,8 @@ def matmul(a, b):
         a.stride(0), a.stride(1),
         b.stride(0), b.stride(1),
         c.stride(0), c.stride(1),
+        BLOCK_SIZE_M=64, BLOCK_SIZE_N=128, BLOCK_SIZE_K=64,
+        GROUP_SIZE_M=8, num_stages=4, num_warps=4
     )
     return c
 
