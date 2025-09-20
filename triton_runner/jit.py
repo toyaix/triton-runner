@@ -545,7 +545,7 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
-        elif triton.__version__ == "3.1.0":
+        elif triton.__version__ in ["3.1.0", "3.0.0"]:
             return RunnerJITFunctionV3_1_0(
                 fn,
                 version=version,
