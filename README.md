@@ -53,14 +53,14 @@ Triton’s all compilation levels are supported by triton-runner. [Gluon](https:
 flowchart LR
 
     subgraph Triton
-        A["Python<br>Triton"]:::supported --> B["TTIR<br>TritonIR"]:::supported
+        A["Python<br>Triton"]:::supported --> B["TTIR<br>Triton IR"]:::supported
         Gluon["Python<br>Gluon"]:::unsupported --> B
-        B --> C["TTGIR<br>Triton GPUIR"]:::supported
+        B --> C["TTGIR<br>Triton GPU IR"]:::supported
+        C --> D["LLIR<br>LLVM IR"]:::supported
     end
 
     subgraph Backend
-        C --> D["LLIR<br>LLVM IR"]:::supported
-        D --> E["PTX<br>Parallel Thread Execution"]:::supported
+        D --> E["PTX"]:::supported
         E --> F["cubin<br>CUDA Binary"]:::supported
     end
 
