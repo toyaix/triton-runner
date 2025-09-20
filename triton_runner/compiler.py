@@ -29,7 +29,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         elif src.endswith("cubin"):
             module = Path(src).read_bytes()
         else:
-            if triton.__version__ in ["3.2.0", "3.1.0"]:
+            if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
                 src = IRSource(src)
             else:
                 src = IRSource(src, context, backend)
