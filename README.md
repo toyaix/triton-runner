@@ -57,9 +57,10 @@ flowchart LR
 
     subgraph Triton
         A["Python<br>Triton"]:::supported --> B["TTIR<br>Triton IR"]:::supported
-        Gluon["Python<br>Gluon"]:::unsupported --> B
         B --> C["TTGIR<br>Triton GPU IR"]:::supported
         C --> D["LLIR<br>LLVM IR"]:::supported
+
+        Gluon["Python<br>Gluon"]:::unsupported --> C
     end
 
     subgraph Backend
