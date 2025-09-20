@@ -47,9 +47,12 @@ See the provided examples in the [triton-runner.org](https://triton-runner.org) 
 
 ### I. multi-level execution
 
-Triton’s all compilation levels are supported by triton-runner. [Gluon](https://github.com/triton-lang/triton/tree/main/python/tutorials/gluon) will be supported soon.
+Almost all of Triton’s compilation levels are supported by triton-runner. [Gluon](https://github.com/triton-lang/triton/tree/main/python/tutorials/gluon) will be supported soon.
 
 ```mermaid
+---
+title: Triton Compilation Pipeline
+---
 flowchart LR
 
     subgraph Triton
