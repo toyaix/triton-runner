@@ -1,7 +1,9 @@
 import torch
 import triton
 from triton import language as tl
-from triton_runner.testing import do_bench
+from triton_runner.testing import do_bench, assert_close
+import triton_runner
+import os
 
 print(f"GPU: {torch.cuda.get_device_name()}")
 print(f"Triton version: {triton.__version__}")
@@ -69,5 +71,6 @@ def matmul(a, b):
 for size in [512, 1024, 1536, 2048, 4096]:
     a = torch.randn(size, size, device="cuda", dtype=torch.float16)
     b = torch.randn(size, size, device="cuda", dtype=torch.float16)
+    assert_close(matmul(a, b), a @ b, atol=1e-1, rtol=1e-1)
     avg_time = do_bench(lambda: matmul(a, b))
     print(f"{size}x{size}: {avg_time:.4f}ms")
