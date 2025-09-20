@@ -5,6 +5,8 @@ import triton
 
 
 batch_size, nheads, d, seqlen = 1, 4, 64, 16
+torch.random.manual_seed(0)
+
 dtype = torch.bfloat16
 q, k, v, o, do = [
     torch.randn([batch_size, seqlen, nheads, d], dtype=dtype, device="cuda")
@@ -27,3 +29,4 @@ with torch.inference_mode():
         dk,
         dv
     )
+    print(do)
