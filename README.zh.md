@@ -33,14 +33,21 @@ pip install -e .
 
 ## ✨ 功能
 
-- [多层级执行](README.md#multi-level-execution)
-- [TTIR 调试](README.md#ttir-debug)
-- [性能测试](README.md#benchmarks)
+- [一、 多层级执行](README.md#i-multi-level-execution)
+- [二、 💡使用 cubin runner 解决 Triton issue](README.md#ii-use-cubin-runner-to-avoid-triton-issue)
+- [三、 TTIR 调试](README.md#iii-ttir-debug)
+- [四、 性能测试](README.md#iv-benchmarks)
+
+## 使用文档
+
+当前文档为空，最新版本会实时更新在[[尝试] 算子开发 ——— 知乎专栏](https://www.zhihu.com/column/c_1900572918569760497)。
 
 
 ## [[开发文档] triton-runner ——— 知乎专栏](https://www.zhihu.com/column/c_1940119129400013405)
 
 以下是当前文档内容，最新版本会实时更新在[知乎专栏](https://www.zhihu.com/column/c_1940119129400013405)。
+
+[Triton Runner v0.2.0 : 支持调试，多版本支持(4b85c7a)](https://zhuanlan.zhihu.com/p/1951383935830454570)
 
 [Triton多层级runner v0.1.5：支持缓存机制，Benchmark更友好 (9c28df1)](https://zhuanlan.zhihu.com/p/1931261279072396108)
 

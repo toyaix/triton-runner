@@ -16,9 +16,10 @@ triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, v3.2.0, v3.1
 
 ## ✨ Features
 
-- [multi-level execution](#multi-level-execution)
-- [TTIR Debug](#ttir-debug)
-- [Benchmark performance](#benchmarks)
+- [I. multi-level execution](#i-multi-level-execution)
+- [II. 💡use cubin runner to solve Triton issue](#ii-use-cubin-runner-to-solve-triton-issue)
+- [III. TTIR Debug](#iii-ttir-debug)
+- [IV. Benchmark performance](#iv-benchmarks)
 
 ## 📦 Installation
 
@@ -47,19 +48,29 @@ See the provided examples in the [triton-runner.org](https://triton-runner.org) 
 
 ### I. multi-level execution
 
-Triton’s all compilation levels are supported by triton-runner.
+Almost all of Triton’s compilation levels are supported by triton-runner. [Gluon](https://github.com/triton-lang/triton/tree/main/python/tutorials/gluon) will be supported soon.
 
 ```mermaid
+---
+title: Triton Compilation Pipeline
+---
 flowchart LR
 
-    A["Python"]:::supported --> B["TTIR(Triton)"]:::supported
-    B --> C["TTGIR(Triton GPU)"]:::supported
-    C --> D["LLIR(LLVM)"]:::supported
-    D --> E["PTX"]:::supported
-    E --> F["cubin"]:::supported
+    subgraph Triton
+        A["Python<br>Triton"]:::supported --> B["TTIR<br>Triton IR"]:::supported
+        B --> C["TTGIR<br>Triton GPU IR"]:::supported
+        C --> D["LLIR<br>LLVM IR"]:::supported
+
+        Gluon["Python<br>Gluon"]:::unsupported --> C
+    end
+
+    subgraph Backend
+        D --> E["PTX"]:::supported
+        E --> F["cubin<br>CUDA Binary"]:::supported
+    end
 
     classDef supported fill:#AED6F1,stroke:#2E86C1,stroke-width:2px,color:#000000;
-
+    classDef unsupported fill:#F5B7B1,stroke:#C0392B,stroke-width:2px,color:#000000;
 ```
 
 #### 1. Python runner
@@ -108,9 +119,9 @@ If your GPU does not have one of the above compute capabilities, you can use `TR
 
 If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
 
-### II. 💡 use cubin runner to avoid Triton issue
+### II. use cubin runner to solve Triton issue
 
-To avoid Triton’s performance and shared memory issues as shown in the [triton_issue](triton_issue) folder, we use the cubin runner.
+To solve Triton’s performance and shared memory issues as shown in the [triton_issue](triton_issue) folder, we use the cubin runner.
 
 ### III. TTIR Debug
 
