@@ -17,7 +17,7 @@ triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, v3.2.0, v3.1
 ## ✨ Features
 
 - [I. multi-level execution](#i-multi-level-execution)
-- [II. 💡use cubin runner to avoid Triton issue](#ii-use-cubin-runner-to-avoid-triton-issue)
+- [II. 💡use cubin runner to solve Triton issue](#ii-use-cubin-runner-to-solve-triton-issue)
 - [III. TTIR Debug](#iii-ttir-debug)
 - [IV. Benchmark performance](#iv-benchmarks)
 
@@ -119,9 +119,9 @@ If your GPU does not have one of the above compute capabilities, you can use `TR
 
 If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
 
-### II. use cubin runner to avoid Triton issue
+### II. use cubin runner to solve Triton issue
 
-To avoid Triton’s performance and shared memory issues as shown in the [triton_issue](triton_issue) folder, we use the cubin runner.
+To solve Triton’s performance and shared memory issues as shown in the [triton_issue](triton_issue) folder, we use the cubin runner.
 
 ### III. TTIR Debug
 
