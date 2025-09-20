@@ -12,7 +12,7 @@ Multi-Level Triton Runner Tool 🔧
 
 triton-runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
-triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, v3.2.0 or v3.1.0**, and may not work with other versions.
+triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, v3.2.0, v3.1.0 or v3.0.0**, and may not work with other versions.
 
 ## ✨ Features
 
@@ -106,7 +106,7 @@ If your GPU does not have one of the above compute capabilities, you can use `TR
 
 #### 6. More Triton version examples
 
-If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands.
+If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
 
 ### TTIR Debug
 
