@@ -160,9 +160,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         metadata["name"] = metadata_json["name"]
         metadata["shared"] = metadata_json["shared"]
         if not triton.__version__ in ["3.2.0", "3.1.0"]:
-            metadata["tmem_size"] = metadata_json["tmem_size"]
-            metadata["global_scratch_size"] = metadata_json["global_scratch_size"]
-            metadata["global_scratch_align"] = metadata_json["global_scratch_align"]
+            metadata["tmem_size"] = metadata_json.get("tmem_size", 0)
+            metadata["global_scratch_size"] = metadata_json.get("global_scratch_size", 0)
+            metadata["global_scratch_align"] = metadata_json.get("global_scratch_align", 1)
 
     # write-back metadata
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
