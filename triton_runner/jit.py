@@ -555,6 +555,8 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
+        else:
+            raise RuntimeError(f"Can't support Triton v{triton.__version__}.")
 
     if fn is not None:
         return decorator(fn)
