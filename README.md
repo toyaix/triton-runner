@@ -12,7 +12,7 @@ Multi-Level Triton Runner Tool 🔧
 
 triton-runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
-triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, v3.2.0 or v3.1.0**, and may not work with other versions.
+triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, v3.2.0, v3.1.0 or v3.0.0**, and may not work with other versions.
 
 ## ✨ Features
 
@@ -45,7 +45,7 @@ pip install -e .
 
 See the provided examples in the [triton-runner.org](https://triton-runner.org) repository for your first run.
 
-### multi-level execution
+### I. multi-level execution
 
 Triton’s all compilation levels are supported by triton-runner.
 
@@ -106,9 +106,13 @@ If your GPU does not have one of the above compute capabilities, you can use `TR
 
 #### 6. More Triton version examples
 
-If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands.
+If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
 
-### TTIR Debug
+### II. 💡 use cubin runner to avoid Triton issue
+
+To avoid Triton’s performance and shared memory issues as shown in the [triton_issue](triton_issue) folder, we use the cubin runner.
+
+### III. TTIR Debug
 
 Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging.
 
@@ -136,7 +140,7 @@ python debug_tool/ttir/06-attention/debug_out.py
 python debug_tool/ttir/07-debug_not_f32/debug_bf16.py
 ```
 
-### Benchmarks
+### IV. Benchmarks
 
 Benchmarks Referencing [TritonBench](https://github.com/pytorch-labs/tritonbench)
   - `launch_latency`: Measures kernel launch overhead.
