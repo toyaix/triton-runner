@@ -50,17 +50,15 @@ See the provided examples in the [triton-runner.org](https://triton-runner.org) 
 Triton’s all compilation levels are supported by triton-runner. [Gluon](https://github.com/triton-lang/triton/tree/main/python/tutorials/gluon) will be supported soon.
 
 ```mermaid
-flowchart TB
+flowchart LR
 
     subgraph Triton
-        direction LR
         A["Python<br>Triton"]:::supported --> B["TTIR<br>TritonIR"]:::supported
         Gluon["Python<br>Gluon"]:::unsupported --> B
         B --> C["TTGIR<br>Triton GPUIR"]:::supported
     end
 
     subgraph Backend
-        direction LR
         C --> D["LLIR<br>LLVM IR"]:::supported
         D --> E["PTX<br>Parallel Thread Execution"]:::supported
         E --> F["cubin<br>CUDA Binary"]:::supported
