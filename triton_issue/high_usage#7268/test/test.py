@@ -29,4 +29,4 @@ with torch.inference_mode():
         dk,
         dv
     )
-    print(do)
+    print(do.min().item(), do.max().item(), do.mean().item(), do.std().item())
