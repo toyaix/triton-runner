@@ -22,8 +22,12 @@ Triton version: 3.4.0
 4096x4096: 0.8852ms
 ```
 
+Fix use cubin with triton_runner in [fix.py:67](performance%237096/fix.py#L67)
+
 ## [Higher shared_memory usage in Triton 3.3](https://github.com/triton-lang/triton/issues/7268)
 
 Reproducer on NVIDIA GeForce RTX 4090
 
-[triton_issue/high_usage#7268/_bwd_kernel_v3.2.0.json](triton_issue/high_usage#7268/_bwd_kernel_v3.2.0.json) has `"shared": 98304` and [triton_issue/high_usage#7268/_bwd_kernel_v3.3.0.json](triton_issue/high_usage#7268/_bwd_kernel_v3.3.0.json) has `"shared": 114688`
+[high_usage#7268/v3.2.0_cache/_bwd_kernel.json](high_usage%237268/v3.2.0_cache/_bwd_kernel.json) has `"shared": 98304` and [high_usage#7268/v3.3x.0_cache/_bwd_kernel.json](high_usage%237268/v3.3.0_cache/_bwd_kernel.json) has `"shared": 114688`
+
+Fix use cubin with triton_runner in [flash_attn_triton_runner.py:152](high_usage%237268/fix/flash_attn_triton_runner.py#L152)
