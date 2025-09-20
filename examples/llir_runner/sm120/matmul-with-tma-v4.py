@@ -2,7 +2,7 @@ import triton
 import triton.language as tl
 import torch
 
-if triton.__version__ in ["3.2.0", "3.1.0"]:
+if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
     DEVICE = torch.cuda.current_device()
 else:
     DEVICE = triton.runtime.driver.active.get_active_torch_device()
