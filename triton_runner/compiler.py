@@ -184,3 +184,26 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             context.disable_multithreading()
     # return handle to compiled kernel
     return CompiledKernel(ast_src, metadata_group, hash)
+
+
+def get_source_ir(src, target=None, options=None):
+    if target is None:
+        target = driver.active.get_current_target()
+    assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
+    backend = make_backend(target)
+
+    extra_options = src.parse_options()
+    options = backend.parse_options(dict(options or dict(), **extra_options))
+
+    context = ir.context()
+    ir.load_dialects(context)
+    backend.load_dialects(context)
+
+    codegen_fns = backend.get_codegen_implementation(options)
+    module_map = backend.get_module_map()
+    try:
+        module = src.make_ir(options, codegen_fns, module_map, context)
+    except Exception as e:
+        filter_traceback(e)
+        raise
+    return module
