@@ -48,7 +48,7 @@ See the provided examples in the [triton-runner.org](https://triton-runner.org) 
 
 ### I. multi-level execution
 
-Almost all of Triton’s compilation levels are supported by triton-runner. [Gluon](https://github.com/triton-lang/triton/tree/main/python/tutorials/gluon) will be supported soon.
+All of Triton’s compilation levels are supported by triton-runner.
 
 ```mermaid
 ---
@@ -61,7 +61,7 @@ flowchart LR
         B --> C["TTGIR<br>Triton GPU IR"]:::supported
         C --> D["LLIR<br>LLVM IR"]:::supported
 
-        Gluon["Python<br>Gluon"]:::unsupported --> C
+        Gluon["Python<br>Gluon"]:::supported --> C
     end
 
     subgraph Backend
@@ -120,6 +120,16 @@ If your GPU does not have one of the above compute capabilities, you can use `TR
 #### 6. More Triton version examples
 
 If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
+
+### 7. Gluon runner(main branch)
+
+Only two cases work for now, please wait for the Triton v3.5.0 release.
+
+```shell
+python examples/gloun_runner/01-intro.py
+
+python examples/gloun_runner/02-layouts.py
+```
 
 ### II. use cubin runner to solve Triton issue
 
