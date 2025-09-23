@@ -91,8 +91,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # run compilation pipeline  and populate metadata
     stages = dict()
     if triton.__version__ == "3.4.0":
-        from triton.backends.compiler import Language
-        backend.add_stages(stages, options, Language.TRITON)
+        backend.add_stages(stages, options, src.language)
     else:
         backend.add_stages(stages, options)
     if isinstance(src, ASTSource) or isinstance(src, IRSource):

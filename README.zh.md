@@ -40,8 +40,9 @@ pip install -e .
 
 ## 使用文档
 
-当前文档为空，最新版本会实时更新在[[尝试] 算子开发 ——— 知乎专栏](https://www.zhihu.com/column/c_1900572918569760497)。
+以下是当前文档内容，最新版本会实时更新在[[尝试] 算子开发 ——— 知乎专栏](https://www.zhihu.com/column/c_1900572918569760497)。
 
+[GPU调试新利器？Triton Runner使用文档(v.2.2)](https://zhuanlan.zhihu.com/p/1953369848705971938)
 
 ## [[开发文档] triton-runner ——— 知乎专栏](https://www.zhihu.com/column/c_1940119129400013405)
 
@@ -49,7 +50,7 @@ pip install -e .
 
 [Triton Runner v0.2.0 : 支持调试，多版本支持(4b85c7a)](https://zhuanlan.zhihu.com/p/1951383935830454570)
 
-[Triton多层级runner v0.1.5：支持缓存机制，Benchmark更友好 (9c28df1)](https://zhuanlan.zhihu.com/p/1931261279072396108)
+[Triton多层级runner v0.1.5：支持缓存机制，Benchmark更友好(9c28df1)](https://zhuanlan.zhihu.com/p/1931261279072396108)
 
 [Triton黑魔法：多层级 runner 工具(795ff3d)](https://zhuanlan.zhihu.com/p/1927486699484717368)
 
