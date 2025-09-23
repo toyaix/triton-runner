@@ -73,6 +73,8 @@ flowchart LR
     classDef unsupported fill:#F5B7B1,stroke:#C0392B,stroke-width:2px,color:#000000;
 ```
 
+TLX (Minimally Invasive Paths to Performance Portability) will be supported in [Meta/Triton](https://github.com/facebookexperimental/triton/tree/tlx) after it is uploaded to PyPI.
+
 #### 1. Python runner
 
 You can run your Triton code using `@triton_runner.jit` instead of `@triton.jit`. See an example in [examples/python_runner/matmul.py](https://github.com/OpenMLIR/triton-runner/blob/main/examples/python_runner/matmul.py#L12)
