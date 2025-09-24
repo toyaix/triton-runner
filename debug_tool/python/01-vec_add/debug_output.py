@@ -61,8 +61,9 @@ def add(x: torch.Tensor, y: torch.Tensor):
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
     #  - `triton.jit`'ed functions can be indexed with a launch grid to obtain a callable GPU kernel.
     #  - Don't forget to pass meta-parameters as keywords arguments.
-    add_kernel[grid](x, y, output, n_elements, debug_tensor=debug_tensor, BLOCK_SIZE=BLOCK_SIZE)
-
+    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE,
+                     debug_tensor=debug_tensor,
+    )
     triton_runner.color_print.blue_print(f"debug {debug_tensor}")
     debug_torch = x + y
     max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE] - debug_tensor))
