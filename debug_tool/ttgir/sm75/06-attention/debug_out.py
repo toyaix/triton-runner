@@ -270,8 +270,8 @@ class _attention(torch.autograd.Function):
 
 
         debug_tensor = torch.empty((BLOCK_M, HEAD_DIM_K), dtype=torch.float32, device=q.device)
-        # debug_value can be "%69"(acc / z[:, None])
-        debug_value = "%69"
+        # debug_value can be "%90"(acc / z[:, None])
+        debug_value = "%90"
 
         _attn_fwd[grid](
             q,
@@ -307,7 +307,7 @@ class _attention(torch.autograd.Function):
             BLOCK_M=BLOCK_M,
             BLOCK_N=BLOCK_N,
             num_stages=2,
-            ttir_dir=triton_runner.get_file_dir(__file__),
+            ttgir_dir=triton_runner.get_file_dir(__file__),
             debug_tensor=debug_tensor,
             debug_value=debug_value,
         )
