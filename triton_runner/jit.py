@@ -48,11 +48,12 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         return pattern.sub(replacer, full_text, count=1)
 
-    def inject_debug_store(self, full_text, ssa_value):
+    def inject_ssa_ir_debug_store(self, full_text, ssa_value):
         pattern = re.compile(
             rf'^(?P<indent>\s*){ssa_value}\s*=\s*'
             r'(?P<op>\S+)\s+'
-            r'.*?:\s*tensor<(?P<size>(?:\d+x)*\d+)(?:x[^>]*)?>'
+            r'.*?:\s*tensor<(?P<size>(?:\d+x)*\d+)(?:x[^,>]*)?'
+            r'(?:,\s*(?P<encoding>[^>]+))?>'
             r'.*?loc\((?P<loc>#[^)]+)\)',
             re.MULTILINE
         )
@@ -63,12 +64,13 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 op = match.group("op")
                 size = match.group("size")
                 loc = match.group("loc")
-                return get_injected_ir(ssa_value, op, original_line, indent, size, loc)
+                encoding = match.group("encoding")
+                return get_injected_ir(ssa_value, op, original_line, indent, size, encoding, loc)
             return replacer
         replacer_with_text = make_replacer(full_text)
         return pattern.sub(replacer_with_text, full_text, count=1)
 
-    def inject_dump_debug_store(self, full_text):
+    def inject_dump_op_debug_store(self, full_text):
         ssa_value = r'%\d+'
         pattern = re.compile(
             rf'^(?P<indent>[ \t]*)'
@@ -88,7 +90,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 size = match.group("size")
                 loc = match.group("loc")
                 ssa_value = match.group("ssa_value")
-                return get_injected_ir(ssa_value, op, original_line, indent, size, loc)
+                return get_injected_ir(ssa_value, op, original_line, indent, size, None, loc)
             return replacer
         replacer_with_text = make_replacer(full_text)
         return pattern.sub(replacer_with_text, full_text, count=1)
@@ -141,21 +143,18 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
 
             if self.need_debug(kwargs):
-                if source_dir_type == "ttir_dir":
-                    signature["debug_tensor"] = "*fp32"
-                    bound_args["debug_tensor"] = kwargs["debug_tensor"]
-                else:
+                if  not source_dir_type in ["ttir_dir", "ttgir_dir"]:
                     src = self.ASTSource(self, signature, constexprs, attrs)
                     module = get_source_ir(src, target=target, options=options.__dict__)
                     runner_cache_dir =  os.path.join(knobs.cache.dir, "runner_cache")
                     os.makedirs(runner_cache_dir, exist_ok=True)
                     debug_content = self.insert_debug_tensor_param(str(module))
-                    debug_content = self.inject_dump_debug_store(debug_content)
+                    debug_content = self.inject_dump_op_debug_store(debug_content)
                     src = os.path.join(runner_cache_dir, f"{self.__name__}-debug.ttir")
                     with open(src, "w") as file:
                         file.write(debug_content)
-                    signature["debug_tensor"] = "*fp32"
-                    bound_args["debug_tensor"] = kwargs["debug_tensor"]
+                signature["debug_tensor"] = "*fp32"
+                bound_args["debug_tensor"] = kwargs["debug_tensor"]
 
             if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs],
                                warmup):
@@ -166,14 +165,14 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             if source_dir_type:
                 source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
                 src = os.path.join(kwargs[source_dir_type], source_file_name)
-                if self.need_debug(kwargs) and source_dir_type == "ttir_dir":
+                if self.need_debug(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
                     if not os.path.exists(src):
                         src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
                     if not os.path.exists(src):
-                        raise RuntimeError("Check .ttir/.source file for debugging.")
+                        raise RuntimeError("Check .source/.ttir/.ttgir file for debugging.")
                     debug_content = self.insert_debug_tensor_param(open(src, "r").read())
-                    debug_content = self.inject_debug_store(debug_content, kwargs["debug_value"])
-                    src = os.path.join(kwargs[source_dir_type], "debug.ttir")
+                    debug_content = self.inject_ssa_ir_debug_store(debug_content, kwargs["debug_value"])
+                    src = os.path.join(kwargs[source_dir_type], f"debug.{source_dir_type[:-4]}")
                     with open(src, "w") as file:
                         file.write(debug_content)
                 if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:

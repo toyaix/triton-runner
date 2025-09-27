@@ -22,12 +22,12 @@ def get_injected_ir_end(indent):
 {indent}// triton_runner debug end"""
 
 
-def get_1d_injected_ir(ssa_value, original_line, indent, size, loc):
+def get_1d_injected_ir(ssa_value, original_line, indent, size, encoding, loc):
     return f"""{get_injected_ir_begin(original_line, indent, loc)}
-{indent}  %debug_range          = tt.make_range {{end = {size} : i32, start = 0 : i32}} : tensor<{size}xi32> {loc}
-{indent}  %debug_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>> {loc}
-{indent}  %debug_ptr            = tt.addptr %debug_splat, %debug_range : tensor<{size}x!tt.ptr<f32>>, tensor<{size}xi32> {loc}
-{indent}  tt.store %debug_ptr, {ssa_value} : tensor<{size}x!tt.ptr<f32>> {loc}
+{indent}  %debug_range          = tt.make_range {{end = {size} : i32, start = 0 : i32}} : tensor<{size}xi32{encoding}> {loc}
+{indent}  %debug_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>{encoding}> {loc}
+{indent}  %debug_ptr            = tt.addptr %debug_splat, %debug_range : tensor<{size}x!tt.ptr<f32>{encoding}>, tensor<{size}xi32{encoding}> {loc}
+{indent}  tt.store %debug_ptr, {ssa_value} : tensor<{size}x!tt.ptr<f32>{encoding}> {loc}
 {get_injected_ir_end(indent)}
 """
 
@@ -51,13 +51,14 @@ def get_2d_injected_ir(ssa_value, original_line, indent, size, loc):
 """
 
 
-def get_injected_ir(ssa_value, op, original_line, indent, size, loc):
+def get_injected_ir(ssa_value, op, original_line, indent, size, encoding, loc):
     loc = f"loc({loc})"
+    encoding = f", {encoding}" if encoding else ""
     if size.count("x") == 0:
-        warning_debug_mode_ssa_and_op(ssa_value, op, loc, size)
-        return get_1d_injected_ir(ssa_value, original_line, indent, size, loc)
+        warning_debug_mode_ssa_and_op(ssa_value, op, loc, size, encoding)
+        return get_1d_injected_ir(ssa_value, original_line, indent, size, encoding, loc)
     elif size.count("x") == 1:
-        warning_debug_mode_ssa_and_op(ssa_value, op, loc, size)
+        warning_debug_mode_ssa_and_op(ssa_value, op, loc, size, encoding)
         return get_2d_injected_ir(ssa_value, original_line, indent, size, loc)
     else:
         warning_size_not_supported(ssa_value, op, loc, size)

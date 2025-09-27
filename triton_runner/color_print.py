@@ -2,8 +2,9 @@ import termcolor
 import os
 
 
-def warning_debug_mode_ssa_and_op(ssa, op, loc, size):
-    blue_print(f"[triton-runner] In debug mode, ssa={ssa}, op={op}, loc={loc}, size={size}")
+def warning_debug_mode_ssa_and_op(ssa, op, loc, size, encoding):
+    encoding = f" with encoding={encoding[2:]}" if encoding != "" else ""
+    blue_print(f"[triton-runner] In debug mode, ssa={ssa}, op={op}, loc={loc}, size={size}{encoding}")
 
 def blue_print(text):
     print(termcolor.colored(text, "blue"), flush=True)
