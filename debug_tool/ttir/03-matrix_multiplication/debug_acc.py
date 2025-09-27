@@ -42,7 +42,7 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
     debug_tensor = torch.empty((BLOCK_SIZE_M, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
-    # debug_value can be "%44"(acc in loop)
+    # debug_value can be "%45"(acc in loop)
     debug_value = "%45"
 
     matrix_multiplication_kernel[grid](
