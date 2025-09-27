@@ -42,8 +42,8 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
     debug_tensor = torch.empty((BLOCK_SIZE_M, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
-    # debug_value can be "%45"(acc in loop)
-    debug_value = "%45"
+    # debug_value can be "%54"(acc in loop)
+    debug_value = "%54"
 
     matrix_multiplication_kernel[grid](
         a, b, c,
@@ -53,7 +53,7 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
         c.stride(0), c.stride(1),
         BLOCK_SIZE_M=BLOCK_SIZE_M,
         BLOCK_SIZE_K=BLOCK_SIZE_K,
-        ttir_dir=triton_runner.get_file_dir(__file__),
+        ttgir_dir=triton_runner.get_file_dir(__file__),
         debug_tensor=debug_tensor,
         debug_value=debug_value,
     )

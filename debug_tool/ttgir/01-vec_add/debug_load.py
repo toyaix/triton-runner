@@ -2,9 +2,11 @@ import triton
 import triton.language as tl
 import torch
 import triton_runner
-import triton_runner.language as dl
 
-DEVICE = triton.runtime.driver.active.get_active_torch_device()
+if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
+    DEVICE = torch.cuda.current_device()
+else:
+    DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 @triton_runner.jit
 def add_kernel(x_ptr,  # *Pointer* to first input vector.
@@ -30,11 +32,6 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
     x = tl.load(x_ptr + offsets, mask=mask)
     y = tl.load(y_ptr + offsets, mask=mask)
     output = x + y
-
-    # ===== DEBUG START =====
-    dl.dump(output)
-    # ===== DEBUG END =====
-
     # Write x + y back to DRAM.
     tl.store(output_ptr + offsets, output, mask=mask)
 
@@ -56,16 +53,20 @@ def add(x: torch.Tensor, y: torch.Tensor):
 
     BLOCK_SIZE = 1024
     debug_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
+    # debug_value can be "%9"(x), "%12"(y)
+    debug_value = "%9"
 
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
     #  - `triton.jit`'ed functions can be indexed with a launch grid to obtain a callable GPU kernel.
     #  - Don't forget to pass meta-parameters as keywords arguments.
     add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE,
+                     ttgir_dir=triton_runner.get_file_dir(__file__),
                      debug_tensor=debug_tensor,
+                     debug_value=debug_value,
     )
     triton_runner.color_print.blue_print(f"debug {debug_tensor}")
-    debug_torch = x + y
+    debug_torch = x if debug_value == "%9" else y
     max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE] - debug_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still
@@ -75,6 +76,7 @@ def add(x: torch.Tensor, y: torch.Tensor):
 
 # %%
 # We can now use the above function to compute the element-wise sum of two `torch.tensor` objects and test its correctness:
+
 if __name__ == "__main__":
     size = 98432
     x = torch.rand(size, device=DEVICE)
