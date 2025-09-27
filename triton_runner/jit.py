@@ -27,6 +27,13 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             if k in runner_args_set:
                 return k
 
+    def get_runner_source_dir_str(self, kwargs):
+        runner_args_set = self.get_runner_args_set()
+        for k in kwargs:
+            if k in runner_args_set:
+                return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
+        return ""
+
 
 class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
@@ -52,12 +59,14 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
         pattern = re.compile(
             rf'^(?P<indent>\s*){ssa_value}\s*=\s*'
             r'(?P<op>\S+)\s+'
-            r'.*?:\s*tensor<'
+            r'.*'
+            r'tensor<'
             r'(?P<size>(?:\d+x)*\d+)'
             r'(?:x(?:[^,<>]|<[^>]*>)+)?'
             r'(?:,\s*(?P<encoding>#[^>]+))?'
             r'>'
-            r'.*?loc\((?P<loc>#[^)]+)\)',
+            r'[^<]*?'
+            r'loc\((?P<loc>#[^)]+)\)',
             re.MULTILINE
         )
         def make_replacer(full_text):
@@ -119,6 +128,10 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         # compute cache key
         key = str(specialization) + str(options)
+        if "debug_value" in kwargs:
+            key += kwargs["debug_value"]
+        if (runner_source_dir_str := super().get_runner_source_dir_str(kwargs)):
+            key += runner_source_dir_str
         kernel = kernel_cache.get(key, None)
 
         # Kernel is not cached; we have to compile.
