@@ -18,9 +18,10 @@ triton-runner is compatible with **Triton v3.4.0 (primary), v3.3.x, v3.2.0, v3.1
 
 - [I. multi-level execution](#i-multi-level-execution)
 - [II. 💡use cubin runner to solve Triton issue](#ii-use-cubin-runner-to-solve-triton-issue)
-- [III. TTIR Debug](#iii-ttir-debug)
-- [IV. Benchmark performance](#iv-benchmarks)
-- [V. Python Debug(main branch)](#v-python-debugmain-branch)
+- [III. Python Debug](#iii-python-debug)
+- [IV. TTIR Debug](#iv-ttir-debug)
+- [V. TTGIR Debug](#v-ttgir-debug)
+- [VI. Benchmarks](#vi-benchmarks)
 
 ## 📦 Installation
 

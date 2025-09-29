@@ -35,8 +35,10 @@ pip install -e .
 
 - [一、 多层级执行](README.md#i-multi-level-execution)
 - [二、 💡使用 cubin runner 解决 Triton issue](README.md#ii-use-cubin-runner-to-avoid-triton-issue)
-- [三、 TTIR 调试](README.md#iii-ttir-debug)
-- [四、 性能测试](README.md#iv-benchmarks)
+- [三、 Python 调试](README.md#iii-python-debug)
+- [四、 TTIR 调试](README.md#iv-ttir-debug)
+- [五、 TTGIR 调试](README.md#v-ttgir-debug)
+- [六、 Benchmarks](README.md#vi-benchmarks)
 
 ## 使用文档
 
