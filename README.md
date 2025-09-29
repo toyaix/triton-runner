@@ -103,7 +103,7 @@ In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also nee
 
 If your architecture is `sm90`(Hopper), you can run the example using the TTGIR runner with `python examples/llir_runner/sm90/matmul-with-tma-v4.py`.
 
-### 7. Gluon runner
+#### 5. Gluon runner
 
 Gluon is a GPU programming language based on the same compiler stack as Triton.
 But unlike Triton, Gluon is a lower-level language that gives the user more
@@ -117,7 +117,7 @@ python examples/gloun_runner/01-intro.py
 python examples/gloun_runner/02-layouts.py
 ```
 
-#### 8. Hopper examples with Triton v3.4.0
+#### 6. Hopper examples with Triton v3.4.0
 
 I provide examples for different architectures and Triton versions. Here's example commands for multi-level targeting `sm90 (H100, H200, H20, etc.)` with Triton v3.4.0.
 
@@ -137,13 +137,13 @@ python examples/cubin_runner/sm90/matmul-with-tma-v4.py
 python examples/gloun_runner/01-intro.py
 ```
 
-#### 9. More architectures examples
+#### 7. More architectures examples
 
 Now provide examples for architectures include `sm90 (H100, H200, H20, etc.)`, `sm80 (A100, A30)`, `sm120 (RTX PRO 6000, RTX 5090, etc.)`, `sm86 (A10, RTX 3090, etc.)` or `sm75 (T4, RTX 2080, etc.)`. For these targets, please refer to [examples](./doc/examples_v3.4.0.md).
 
 If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and use this kernel cache directory to run your program.
 
-#### 10. More Triton version examples
+#### 8. More Triton version examples
 
 If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
 
