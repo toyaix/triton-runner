@@ -88,13 +88,36 @@ In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also nee
 
 You can run the example with `python examples/ttir_runner/matmul/matmul.py`.
 
-#### 3. TTGIR/LLIR/PTX/cubin runner
+#### 3. TTGIR  Runner
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need to provide the corresponding file. Like the TTGIR runner, You can place it in the same directory as the current Python file and use `ttgir_dir=triton_runner.get_file_dir(__file__)`. Since all of them are architecture-specific, be sure to use the corresponding metadata JSON file. See an example in [examples/ttgir_runner/sm90/matmul-with-tma-v4.py](https://github.com/OpenMLIR/triton-runner/blob/main/examples/ttgir_runner/sm90/matmul-with-tma-v4.py#L76).
+TTGIR (Triton GPU IR) is architecture-aware. In the IR, you might see a target annotation like ttg.target = "cuda:xx", which specifies the GPU backend.
+
+So seem like TTIR runner, See an example in [examples/ttgir_runner/sm90/matmul-with-tma-v4.py](https://github.com/OpenMLIR/triton-runner/blob/main/examples/ttgir_runner/sm90/matmul-with-tma-v4.py#L76).
 
 If your architecture is `sm90`(Hopper), you can run the example using the TTGIR runner with `python examples/ttgir_runner/sm90/matmul-with-tma-v4.py`.
 
-#### 4. Hopper examples with Triton v3.4.0
+
+#### 4. LLIR/PTX/cubin runner
+
+In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need to provide the corresponding file. Like the TTGIR runner, You can place it in the same directory as the current Python file and use `ttgir_dir=triton_runner.get_file_dir(__file__)`. Since all of them are architecture-specific, be sure to use the corresponding metadata JSON file. See an example in [examples/llir_runner/sm90/matmul-with-tma-v4.py](https://github.com/OpenMLIR/triton-runner/blob/main/examples/llir_runner/sm90/matmul-with-tma-v4.py#L76).
+
+If your architecture is `sm90`(Hopper), you can run the example using the TTGIR runner with `python examples/llir_runner/sm90/matmul-with-tma-v4.py`.
+
+### 7. Gluon runner
+
+Gluon is a GPU programming language based on the same compiler stack as Triton.
+But unlike Triton, Gluon is a lower-level language that gives the user more
+control and responsibility when implementing kernels.
+
+Only two cases work for now, please wait for the Triton v3.5.0 release.
+
+```shell
+python examples/gloun_runner/01-intro.py
+
+python examples/gloun_runner/02-layouts.py
+```
+
+#### 8. Hopper examples with Triton v3.4.0
 
 I provide examples for different architectures and Triton versions. Here's example commands for multi-level targeting `sm90 (H100, H200, H20, etc.)` with Triton v3.4.0.
 
@@ -110,73 +133,26 @@ python examples/llir_runner/sm90/matmul-with-tma-v4.py
 python examples/ptx_runner/sm90/matmul-with-tma-v4.py
 
 python examples/cubin_runner/sm90/matmul-with-tma-v4.py
+
+python examples/gloun_runner/01-intro.py
 ```
 
-#### 5. More architectures examples
+#### 9. More architectures examples
 
 Now provide examples for architectures include `sm90 (H100, H200, H20, etc.)`, `sm80 (A100, A30)`, `sm120 (RTX PRO 6000, RTX 5090, etc.)`, `sm86 (A10, RTX 3090, etc.)` or `sm75 (T4, RTX 2080, etc.)`. For these targets, please refer to [examples](./doc/examples_v3.4.0.md).
 
 If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and use this kernel cache directory to run your program.
 
-#### 6. More Triton version examples
+#### 10. More Triton version examples
 
 If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
 
-### 7. Gluon runner(main branch)
-
-Only two cases work for now, please wait for the Triton v3.5.0 release.
-
-```shell
-python examples/gloun_runner/01-intro.py
-
-python examples/gloun_runner/02-layouts.py
-```
 
 ### II. use cubin runner to solve Triton issue
 
 To solve Triton’s performance and shared memory issues as shown in the [triton_issue](triton_issue) folder, we use the cubin runner.
 
-### III. TTIR Debug
-
-Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging.
-
-```shell
-python debug_tool/ttir/01-vector_add/debug_load.py
-python debug_tool/ttir/01-vector_add/debug_addf.py
-
-python debug_tool/ttir/02-matrix_transpose/debug_2d_load.py
-python debug_tool/ttir/02-matrix_transpose/debug_2d_trans.py
-
-python debug_tool/ttir/03-matrix_multiplication/debug_acc.py
-
-python debug_tool/ttir/04-softmax/debug_maxnumf.py
-python debug_tool/ttir/04-softmax/debug_addf-sum.py
-python debug_tool/ttir/04-softmax/debug_subf.py
-python debug_tool/ttir/04-softmax/debug_exp-exp_shifted.py
-python debug_tool/ttir/04-softmax/debug_divf-normalize_by_sum.py
-
-python debug_tool/ttir/05-softmax_lse/debug_log_acc.py
-python debug_tool/ttir/05-softmax_lse/debug_max_acc.py
-python debug_tool/ttir/05-softmax_lse/debug_more.py
-
-python debug_tool/ttir/06-attention/debug_out.py
-
-python debug_tool/ttir/07-debug_not_f32/debug_bf16.py
-```
-
-### IV. Benchmarks
-
-Benchmarks Referencing [TritonBench](https://github.com/pytorch-labs/tritonbench)
-  - `launch_latency`: Measures kernel launch overhead.
-  - `matmul`: Provides a benchmark for matrix multiplication performance.
-
-```shell
-python benchmark/launch_latency/bench.py
-
-python benchmark/static_shape/matmul.py
-```
-
-### V. Python Debug(main branch)
+### III. Python Debug
 
 Debugging is supported for Python in Triton v3.4.0. Here are some example commands for debugging.
 
@@ -209,7 +185,36 @@ python debug_tool/python/06-attention/debug_out.py
 python debug_tool/python/07-debug_not_f32/debug_bf16.py
 ```
 
-### V. TTGIR Debug(main branch)
+### IV. TTIR Debug
+
+Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging.
+
+```shell
+python debug_tool/ttir/01-vector_add/debug_load.py
+python debug_tool/ttir/01-vector_add/debug_addf.py
+
+python debug_tool/ttir/02-matrix_transpose/debug_2d_load.py
+python debug_tool/ttir/02-matrix_transpose/debug_2d_trans.py
+
+python debug_tool/ttir/03-matrix_multiplication/debug_acc.py
+
+python debug_tool/ttir/04-softmax/debug_maxnumf.py
+python debug_tool/ttir/04-softmax/debug_addf-sum.py
+python debug_tool/ttir/04-softmax/debug_subf.py
+python debug_tool/ttir/04-softmax/debug_exp-exp_shifted.py
+python debug_tool/ttir/04-softmax/debug_divf-normalize_by_sum.py
+
+python debug_tool/ttir/05-softmax_lse/debug_log_acc.py
+python debug_tool/ttir/05-softmax_lse/debug_max_acc.py
+python debug_tool/ttir/05-softmax_lse/debug_more.py
+
+python debug_tool/ttir/06-attention/debug_out.py
+
+python debug_tool/ttir/07-debug_not_f32/debug_bf16.py
+```
+
+
+### V. TTGIR Debug
 
 Debugging is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging.
 
@@ -234,6 +239,19 @@ python debug_tool/ttgir/05-softmax_lse/debug_more.py
 
 python debug_tool/ttgir/06-attention/debug_out.py
 ```
+
+### VI. Benchmarks
+
+Benchmarks Referencing [TritonBench](https://github.com/pytorch-labs/tritonbench)
+  - `launch_latency`: Measures kernel launch overhead.
+  - `matmul`: Provides a benchmark for matrix multiplication performance.
+
+```shell
+python benchmark/launch_latency/bench.py
+
+python benchmark/static_shape/matmul.py
+```
+
 
 ## 📄 License
 
