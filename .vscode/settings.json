@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "*.ttir": "mlir",
+        "*.ttgir": "mlir",
+        "*.llir": "mlir",
+        "*.ptx": "mlir",
+    },
+    "files.trimTrailingWhitespace": true,
+    "[mlir]": {
+        "files.trimTrailingWhitespace": false
+    },
+}
