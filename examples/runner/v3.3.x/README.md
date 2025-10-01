@@ -38,7 +38,7 @@ python examples/runner/v3.3.x/ttgir/sm120/matmul-with-tma-v3.py
 
 python examples/runner/v3.3.x/llir/sm120/matmul-with-tma-v3.py
 
-python examples/runner/v3.3.x/ptx/sm90/matmul-with-tma-v3.py
+python examples/runner/v3.4.0/ptx/sm120/matmul-with-tma-v4.py
 
 python examples/runner/v3.4.0/cubin/sm120/matmul-with-tma-v4.py
 ```
