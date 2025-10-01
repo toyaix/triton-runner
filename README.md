@@ -179,7 +179,7 @@ flowchart LR
 
 #### 1. Python Debug
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called debug_tensor, and simply pass it to the kernel through the debug_tensor parameter. Here are some example commands for debugging.
+In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called debug_tensor, and simply pass it to the kernel through the debug_tensor parameter. Here are some example commands for debugging. See more in [examples/debugging/README.md](./examples/debugging/README.md#1-python-debug).
 
 ```shell
 python examples/debugging/python/01-vec_add/debug_output.py
@@ -191,7 +191,7 @@ python examples/debugging/python/06-attention/debug_out.py
 
 #### 2. TTIR Debug
 
-Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging.
+Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging. See more in [examples/debugging/README.md](./examples/debugging/README.md#2-ttir-debug).
 
 ```shell
 python examples/debugging/ttir/01-vector_add/debug_addf.py
@@ -203,7 +203,7 @@ python examples/debugging/ttir/06-attention/debug_out.py
 
 #### 3. TTGIR Debug
 
-Debugging is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging.
+Debugging is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging. See more in [examples/debugging/README.md](./examples/debugging/README.md#3-ttgir-debug).
 
 ```shell
 python examples/debugging/ttgir/01-vec_add/debug_addf.py
