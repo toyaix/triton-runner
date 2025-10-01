@@ -221,7 +221,13 @@ def bench_memcpy_impl(input, output, impl):
 
 def bench_memcpy(impl):
     torch.manual_seed(0)
+    total_memory = torch.cuda.get_device_properties(device="cuda").total_memory
+    allocated_memory = torch.cuda.memory_allocated(device="cuda")
+    reserved_memory = torch.cuda.memory_reserved(device="cuda")
+    free_memory = total_memory - allocated_memory - reserved_memory
     xnumel = 2 << 30
+    if xnumel * 4 * 2 > free_memory:
+        xnumel = 2 << 29
     input = torch.randn(xnumel, device="cuda")
     output = torch.empty_like(input)
 
@@ -515,9 +521,16 @@ def test_memcpy_2d(XBLOCK, YBLOCK, xnumel, ynumel, transposed, num_warps):
 
 
 def bench_memcpy_2d(impl, transposed=False):
+    total_memory = torch.cuda.get_device_properties(device="cuda").total_memory
+    allocated_memory = torch.cuda.memory_allocated(device="cuda")
+    reserved_memory = torch.cuda.memory_reserved(device="cuda")
+    free_memory = total_memory - allocated_memory - reserved_memory
     # 8 GB tensor, but spread across 2 dimensions.
     xnumel = 32 * 1024
     ynumel = 64 * 1024
+    if xnumel * ynumel * 4 * 2 > free_memory:
+        xnumel = 16 * 1024
+        ynumel = 32 * 1024
     input = torch.randn((xnumel, ynumel), device="cuda")
     output = torch.empty_like(input)
     input = input.T if transposed else input
@@ -591,9 +604,16 @@ if __name__ == "__main__" and _enabled("memcpy_2d_layout"):
 if __name__ == "__main__" and _enabled("memcpy_2d_contig"):
     print("Non-contiguous memcpy")
     print("=====================")
+    total_memory = torch.cuda.get_device_properties(device="cuda").total_memory
+    allocated_memory = torch.cuda.memory_allocated(device="cuda")
+    reserved_memory = torch.cuda.memory_reserved(device="cuda")
+    free_memory = total_memory - allocated_memory - reserved_memory
     # 8 GB tensor.
     xnumel = 32 * 1024
     ynumel = 64 * 1024
+    if xnumel * ynumel * 4 * 2 > free_memory:
+        xnumel = 16 * 1024
+        ynumel = 32 * 1024
     input = torch.randn((xnumel, ynumel), device="cuda")
     # Take a view over every other row.
     input = input[::2]
@@ -640,7 +660,17 @@ if __name__ == "__main__" and _enabled("memcpy_2d_inout"):
     print("=========================")
 
     # Input is contiguous along dim 1.
-    input = torch.randn((32 * 1024, 32 * 1024), device="cuda")
+    total_memory = torch.cuda.get_device_properties(device="cuda").total_memory
+    allocated_memory = torch.cuda.memory_allocated(device="cuda")
+    reserved_memory = torch.cuda.memory_reserved(device="cuda")
+    free_memory = total_memory - allocated_memory - reserved_memory
+    # 8 GB tensor.
+    xnumel = 32 * 1024
+    ynumel = 64 * 1024
+    if xnumel * ynumel * 4 * 2 > free_memory:
+        xnumel = 16 * 1024
+        ynumel = 32 * 1024
+    input = torch.randn((xnumel, ynumel), device="cuda")
 
     # Output is contiguous along dim 0.
     output = torch.empty((input.shape[1], input.shape[0]), device="cuda").T
@@ -742,6 +772,12 @@ def memcpy_2d_inout(input, output, num_warps=4):
     assert input.shape == output.shape, "input and output must have the same shape"
     XBLOCK = 128
     YBLOCK = 128
+    from triton.runtime.driver import driver
+    device = driver.active.get_current_device()
+    max_shared_mem = driver.active.utils.get_device_properties(device)["max_shared_mem"]
+    if max_shared_mem in [65536]:
+        XBLOCK = 64
+        YBLOCK = 64
     layout_in = get_layout_for_gmem_access(input, num_warps)
     layout_out = get_layout_for_gmem_access(output, num_warps)
     grid = (triton.cdiv(input.shape[0], XBLOCK), triton.cdiv(input.shape[1], YBLOCK))
