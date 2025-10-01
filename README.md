@@ -283,3 +283,9 @@ To solve Triton’s performance and shared memory issues as shown in the [doc/so
 
 This project is licensed under the **MIT License**.
 See the [LICENSE](./LICENSE) file for more details.
+
+This project includes code from:
+
+- Triton (MIT License): https://github.com/triton-lang/triton
+
+- TritonBench (BSD 3-Clause License): https://github.com/pytorch-labs/tritonbench
