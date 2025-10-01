@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
+from . import __version__
 
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None):
@@ -75,7 +76,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_path = metadata_group.get(metadata_filename)
     always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
     if not always_compile and metadata_path is not None:
-        print_triton_cache_dir(metadata_path, always_compile)
+        print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
         return CompiledKernel(ast_src, metadata_group, hash)
     # initialize metadata
@@ -87,12 +88,16 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         **env_vars,
     }
     metadata["triton_version"] = triton.__version__
+    metadata["triton_runner_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()
     if triton.__version__ == "3.4.0":
         from .pass_stages import add_stages
-        add_stages(backend, stages, options, src.language)
-        # backend.add_stages(stages, options, src.language)
+        if isinstance(src, IRSource):
+            add_stages(backend, stages, options, src.language)
+        else:
+            from triton.backends.compiler import Language
+            add_stages(backend, stages, options, Language.TRITON)
     else:
         backend.add_stages(stages, options)
     if isinstance(src, ASTSource) or isinstance(src, IRSource):

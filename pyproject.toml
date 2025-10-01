@@ -1,6 +1,6 @@
 [project]
 name = "triton-runner"
-description = "Triton multi-level runner, include IR/PTX/cubin."
+description = "Multi-Level Triton Runner supporting Python, IR, PTX, and cubin."
 
 dependencies = [
     "triton>=3.0.0",
@@ -8,14 +8,14 @@ dependencies = [
 ]
 
 readme = "README.md"
-version = "0.2.2"
+version = "0.2.6"
 authors = [
     { name = "Bob Huang", email = "git@bobhuang.xyz" },
 ]
 license = "MIT"
 
 [project.urls]
-repository = "https://github.com/OpenMLIR/triton_runner"
+repository = "https://github.com/toyaix/triton-runner"
 homepage = "https://triton-runner.org"
 
 [build-system]
