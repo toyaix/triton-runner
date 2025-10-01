@@ -1,4 +1,4 @@
-Here's example commands for multi-level targeting `sm90 (H100, H200, H20, etc.)` with Triton **v3.4.0**. Please refer to the other examples directory based on your Triton version:
+Example commands for the multi-level runner with Triton **v3.4.0**. For other Triton versions, see the corresponding examples directory.
 - For Triton v3.3.1 or v3.3.0, in [examples/runner/v3.3.x](./../examples/runner/v3.3.x).
 - For Triton v3.2.0, in [examples/runner/v3.2.0](./../examples/runner/v3.2.0).
 - For Triton v3.1.0, in [examples/runner/v3.1.0](./../examples/runner/v3.1.0).

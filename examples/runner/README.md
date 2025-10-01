@@ -1,76 +1,81 @@
-If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands.
+Example commands for the multi-level runner with Triton **v3.4.0**. For other Triton versions, see the corresponding examples directory.
+- For Triton v3.3.1 or v3.3.0, in [examples/runner/v3.3.x](./v3.3.x).
+- For Triton v3.2.0, in [examples/runner/v3.2.0](./v3.2.0).
+- For Triton v3.1.0, in [examples/runner/v3.1.0](./v3.1.0).
+- For Triton v3.0.0, in [examples/runner/v3.0.0](./v3.0.0).
+
 
 ### sm90 (H100, H200, H20, etc.)
 ```shell
-python examples/python_runner/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/python/matmul-with-tma-v4.py
 
-python examples/ttir_runner/matmul-with-tma/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ttir/matmul-with-tma/matmul-with-tma-v4.py
 
-python examples/ttgir_runner/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py
 
-python examples/llir_runner/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/llir/sm90/matmul-with-tma-v4.py
 
-python examples/ptx_runner/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ptx/sm90/matmul-with-tma-v4.py
 
-python examples/cubin_runner/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/cubin/sm90/matmul-with-tma-v4.py
 ```
 
 ### sm80 (A100, A30)
 ```shell
-python examples/python_runner/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/python/matmul-with-dot-v2.py
 
-python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/ttir/matmul-with-dot/matmul-with-dot-v2.py
 
-python examples/ttgir_runner/sm80/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/ttgir/sm80/matmul-with-dot-v2.py
 
-python examples/llir_runner/sm80/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/llir/sm80/matmul-with-dot-v2.py
 
-python examples/ptx_runner/sm80/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/ptx/sm80/matmul-with-dot-v2.py
 
-python examples/cubin_runner/sm80/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/cubin/sm80/matmul-with-dot-v2.py
 ```
 
 ### sm120 (RTX PRO 6000, RTX 5090, etc.)
 ```shell
-python examples/python_runner/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/python/matmul-with-tma-v4.py
 
-python examples/ttir_runner/matmul-with-tma/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ttir/matmul-with-tma/matmul-with-tma-v4.py
 
-python examples/ttgir_runner/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ttgir/sm120/matmul-with-tma-v4.py
 
-python examples/llir_runner/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/llir/sm120/matmul-with-tma-v4.py
 
-python examples/ptx_runner/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ptx/sm120/matmul-with-tma-v4.py
 
-python examples/cubin_runner/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/cubin/sm120/matmul-with-tma-v4.py
 ```
 
 ### sm86 (A10, RTX 3090, etc.)
 ```shell
-python examples/python_runner/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/python/matmul-with-dot-v2.py
 
-python examples/ttir_runner/matmul-with-dot/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/ttir/matmul-with-dot/matmul-with-dot-v2.py
 
-python examples/ttgir_runner/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/ttgir/sm86/matmul-with-dot-v2.py
 
-python examples/llir_runner/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/llir/sm86/matmul-with-dot-v2.py
 
-python examples/ptx_runner/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/ptx/sm86/matmul-with-dot-v2.py
 
-python examples/cubin_runner/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.4.0/cubin/sm86/matmul-with-dot-v2.py
 ```
 
 ### sm75 (T4, RTX 2080, etc.)
 ```shell
-python examples/python_runner/matmul.py
+python examples/runner/v3.4.0/python/matmul.py
 
-python examples/ttir_runner/matmul/matmul.py
+python examples/runner/v3.4.0/ttir/matmul/matmul.py
 
-python examples/ttgir_runner/sm75/matmul.py
+python examples/runner/v3.4.0/ttgir/sm75/matmul.py
 
-python examples/llir_runner/sm75/matmul.py
+python examples/runner/v3.4.0/llir/sm75/matmul.py
 
-python examples/ptx_runner/sm75/matmul.py
+python examples/runner/v3.4.0/ptx/sm75/matmul.py
 
-python examples/cubin_runner/sm75/matmul.py
+python examples/runner/v3.4.0/cubin/sm75/matmul.py
 ```
