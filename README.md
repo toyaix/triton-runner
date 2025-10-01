@@ -132,7 +132,7 @@ python examples/runner/v3.4.0/gluon/01-intro.py
 
 #### 7. More Architectures Examples
 
-For [architecture-specific](https://developer.nvidia.com/cuda-gpus) example commands, please refer to the examples/runner directory:
+For [architecture-specific](https://developer.nvidia.com/cuda-gpus) example commands, please refer to the [examples/runner](./examples/runner) directory:
 - sm90: Hopper (H100, H200, H20, etc.)
 - sm80: Ampere (A100, A30)
 - sm120: Blackwell (RTX PRO 6000, RTX 5090, etc.)
@@ -144,11 +144,11 @@ If your GPU does not have one of the above compute capabilities, you can use `TR
 #### 8. More Triton Version Examples
 
 Please refer to the appropriate examples directory based on your Triton version:
-- For Triton v3.4.0, use [examples_v3.4.0]().
-- For Triton v3.3.1 or v3.3.0, use [examples_v3.3.x]().
-- For Triton v3.2.0, use [examples_v3.2.0]().
-- For Triton v3.1.0, use [examples_v3.1.0]().
-- For Triton v3.0.0, use [examples_v3.0.0]().
+- For Triton v3.4.0, in [examples/runner/v3.4.0](./examples/runner/v3.4.0).
+- For Triton v3.3.1 or v3.3.0, in [examples/runner/v3.3.x](./examples/runner/v3.3.x).
+- For Triton v3.2.0, in [examples/runner/v3.2.0](./examples/runner/v3.2.0).
+- For Triton v3.1.0, in [examples/runner/v3.1.0](./examples/runner/v3.1.0).
+- For Triton v3.0.0, in [examples/runner/v3.0.0](./examples/runner/v3.0.0).
 
 ### II. Multi-Level Debugging
 
