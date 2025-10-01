@@ -39,4 +39,5 @@ cmake-build-*
 .DS_Store
 
 **/debug.ttir
+**/debug.ttgir
 triton_runner/README.md
