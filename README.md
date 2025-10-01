@@ -22,7 +22,7 @@ Triton Runner supports multi-level debugging across Python/TTIR/TTGIR on Triton 
 - [I. Multi-level Execution](#i-multi-level-execution)
 - [II. Multi-level Debug](#ii-multi-level-debug)
 - [III. Benchmarks](#iii-benchmarks)
-- [IV. Solving Triton Issues](#iv-solve-triton-issue)
+- [IV. Solving Triton Issues](#iv-solving-triton-issues)
 
 ## 📦 Installation
 
