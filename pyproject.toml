@@ -1,6 +1,6 @@
 [project]
 name = "triton-runner"
-description = "Triton multi-level runner, include IR/PTX/cubin."
+description = "Multi-Level Triton Runner, include IR/PTX/cubin."
 
 dependencies = [
     "triton>=3.0.0",
@@ -15,7 +15,7 @@ authors = [
 license = "MIT"
 
 [project.urls]
-repository = "https://github.com/OpenMLIR/triton_runner"
+repository = "https://github.com/toyaix/triton-runner"
 homepage = "https://triton-runner.org"
 
 [build-system]
