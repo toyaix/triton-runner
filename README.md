@@ -276,7 +276,7 @@ python benchmark/static_shape/matmul.py
 
 ### IV. Solving Triton Issues
 
-To solve Triton’s performance and shared memory issues as shown in the [triton_issues](./triton_issues) folder, we use the cubin Runner.
+To solve Triton’s performance and shared memory issues as shown in the [doc/solving_triton_issues](./doc/solving_triton_issues/) folder, we use the cubin Runner.
 
 
 ## 📄 License
