@@ -1,6 +1,6 @@
 ## [Triton 3.3 Performance Regression on Small Gemms](https://github.com/triton-lang/triton/issues/7096)
 
-Reproducer in [performance-7096/test.py](https://github.com/OpenMLIR/triton-runner/blob/main/triton_issue/performance-7096/test.py) with Triton v3.4.0 [testing.do_bench](https://github.com/triton-lang/triton/blob/v3.4.0/python/triton/testing.py)
+Reproducer in [performance-7096/test.py](./performance-7096/test.py) with Triton v3.4.0 [testing.do_bench](https://github.com/triton-lang/triton/blob/v3.4.0/python/triton/testing.py)
 
 ```
 GPU: NVIDIA GeForce RTX 4090
@@ -22,12 +22,12 @@ Triton version: 3.4.0
 4096x4096: 0.8852ms
 ```
 
-Fix use cubin with triton_runner in [fix.py:67](https://github.com/OpenMLIR/triton-runner/blob/main/triton_issue/performance-7096/fix.py#L67)
+Fix use cubin with triton_runner in [fix.py:67](./performance-7096/fix.py#L67)
 
 ## [Higher shared_memory usage in Triton 3.3](https://github.com/triton-lang/triton/issues/7268)
 
 Reproducer on NVIDIA GeForce RTX 4090
 
-[high_usage-7268/v3.2.0_cache/_bwd_kernel.json](https://github.com/OpenMLIR/triton-runner/blob/main/triton_issue/high_usage-7268/v3.2.0_cache/_bwd_kernel.json) has `"shared": 98304` and [high_usage-7268/v3.3x.0_cache/_bwd_kernel.json](https://github.com/OpenMLIR/triton-runner/blob/main/triton_issue/high_usage-7268/v3.3.0_cache/_bwd_kernel.json) has `"shared": 114688`
+[high_usage-7268/v3.2.0_cache/_bwd_kernel.json](./high_usage-7268/v3.2.0_cache/_bwd_kernel.json) has `"shared": 98304` and [high_usage-7268/v3.3x.0_cache/_bwd_kernel.json](./high_usage-7268/v3.3.0_cache/_bwd_kernel.json) has `"shared": 114688`
 
-Fix use cubin with triton_runner in [flash_attn_triton_runner.py:152](https://github.com/OpenMLIR/triton-runner/blob/main/triton_issue/high_usage-7268/fix/flash_attn_triton_runner.py#L152)
+Fix use cubin with triton_runner in [flash_attn_triton_runner.py:152](./high_usage-7268/fix/flash_attn_triton_runner.py#L152)
