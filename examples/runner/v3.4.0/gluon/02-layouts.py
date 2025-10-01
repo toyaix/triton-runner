@@ -775,7 +775,7 @@ def memcpy_2d_inout(input, output, num_warps=4):
     from triton.runtime.driver import driver
     device = driver.active.get_current_device()
     max_shared_mem = driver.active.utils.get_device_properties(device)["max_shared_mem"]
-    if max_shared_mem in [65536]:
+    if max_shared_mem in [65536, 101376]:
         XBLOCK = 64
         YBLOCK = 64
     layout_in = get_layout_for_gmem_access(input, num_warps)
