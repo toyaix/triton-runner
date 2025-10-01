@@ -182,11 +182,11 @@ flowchart LR
 In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called debug_tensor, and simply pass it to the kernel through the debug_tensor parameter. Here are some example commands for debugging.
 
 ```shell
-python examples/debug/python/01-vec_add/debug_output.py
-python examples/debug/python/03-matrix_multiplication/debug_acc.py
-python examples/debug/python/04-softmax/debug_max_in_loop.py
-python examples/debug/python/05-softmax_lse/debug_log_acc.py
-python examples/debug/python/06-attention/debug_out.py
+python examples/debugging/python/01-vec_add/debug_output.py
+python examples/debugging/python/03-matrix_multiplication/debug_acc.py
+python examples/debugging/python/04-softmax/debug_max_in_loop.py
+python examples/debugging/python/05-softmax_lse/debug_log_acc.py
+python examples/debugging/python/06-attention/debug_out.py
 ```
 
 #### 2. TTIR Debug
@@ -194,11 +194,11 @@ python examples/debug/python/06-attention/debug_out.py
 Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging.
 
 ```shell
-python examples/debug/ttir/01-vector_add/debug_addf.py
-python examples/debug/ttir/03-matrix_multiplication/debug_acc.py
-python examples/debug/ttir/04-softmax/debug_maxnumf.py
-python examples/debug/ttir/05-softmax_lse/debug_more.py
-python examples/debug/ttir/06-attention/debug_out.py
+python examples/debugging/ttir/01-vector_add/debug_addf.py
+python examples/debugging/ttir/03-matrix_multiplication/debug_acc.py
+python examples/debugging/ttir/04-softmax/debug_maxnumf.py
+python examples/debugging/ttir/05-softmax_lse/debug_more.py
+python examples/debugging/ttir/06-attention/debug_out.py
 ```
 
 #### 3. TTGIR Debug
@@ -206,11 +206,11 @@ python examples/debug/ttir/06-attention/debug_out.py
 Debugging is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging.
 
 ```shell
-python examples/debug/ttgir/01-vec_add/debug_addf.py
-python examples/debug/ttgir/03-matrix_multiplication/debug_acc.py
-python examples/debug/ttgir/04-softmax/debug_maxnumf.py
-python examples/debug/ttgir/05-softmax_lse/debug_more.py
-python examples/debug/ttgir/06-attention/debug_out.py
+python examples/debugging/ttgir/01-vec_add/debug_addf.py
+python examples/debugging/ttgir/03-matrix_multiplication/debug_acc.py
+python examples/debugging/ttgir/04-softmax/debug_maxnumf.py
+python examples/debugging/ttgir/05-softmax_lse/debug_more.py
+python examples/debugging/ttgir/06-attention/debug_out.py
 ```
 
 ### III. Benchmarks
