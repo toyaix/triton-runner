@@ -9,9 +9,8 @@ triton_version = triton.__version__
 if triton_version in ["3.3.0", "3.3.1"]:
     triton_version = "3.3.x"
 
-def get_content(file_name):
-    doc_file_path = os.path.join("doc", file_name)
-    return open(doc_file_path, "r").read()
+def get_content(file_path):
+    return open(file_path, "r").read()
 
 def get_lines(match):
     return [line.strip() for line in match.group(1).strip().splitlines() if line.strip()]
@@ -21,14 +20,17 @@ capability = torch.cuda.get_device_capability(device)
 capability = capability[0] * 10 + capability[1]
 
 pattern = re.compile(rf"### sm{capability}.*?shell(.*?)```", re.DOTALL)
-
-match = pattern.search(get_content(f"examples_v{triton_version}.md"))
+runner_file_path = os.path.join("examples", "runner", f"v{triton_version}", "README.md")
+match = pattern.search(get_content(runner_file_path))
 if match:
     lines = get_lines(match)
     pattern = re.compile(rf"shell(.*?)```", re.DOTALL)
-    lines.extend(get_lines(pattern.search(get_content("benchmark.md"))))
+    bench_file_path = os.path.join("doc", "benchmark.md")
+    lines.extend(get_lines(pattern.search(get_content(bench_file_path))))
     if triton_version in ["3.4.0"]:
-        lines.extend(get_lines(pattern.search(get_content("debug_tool.md"))))
+        debug_file_path = os.path.join("doc", "debugging.md")
+        for i, m in enumerate(pattern.finditer((get_content(debug_file_path)), 1)):
+            lines.extend(get_lines(m))
     fail_cmd = []
     for cmd in lines:
         triton_runner.color_print.blue_print(cmd)
