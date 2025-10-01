@@ -1,5 +1,5 @@
 <h3 align="center">
-Multi-Level Triton Runner Tool 🔧
+Multi-Level Triton Runner(Debugging) 🔧
 </h3>
 
 <p align="center">
@@ -19,7 +19,7 @@ Triton Runner supports multi-level debugging across Python/TTIR/TTGIR on Triton 
 ## ✨ Features
 
 - [I. Multi-Level Runner](#i-multi-level-runner)
-- [II. Multi-Level Debug](#ii-multi-level-debug)
+- [II. Multi-Level Debugging](#ii-multi-level-debugging)
 - [III. Benchmarks](#iii-benchmarks)
 - [IV. Solving Triton Issues](#iv-solving-triton-issues)
 
@@ -139,7 +139,7 @@ If your GPU does not have one of the above compute capabilities, you can use `TR
 If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
 
 
-### II. Multi-Level Debug
+### II. Multi-Level Debugging
 
 Python/TTIR/TTGIR now support debugging on Triton v3.4.0.
 

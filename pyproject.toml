@@ -1,6 +1,6 @@
 [project]
 name = "triton-runner"
-description = "Multi-Level Triton Runner, include IR/PTX/cubin."
+description = "Multi-Level Triton Runner supporting Python, IR, PTX, and cubin."
 
 dependencies = [
     "triton>=3.0.0",

@@ -1,5 +1,5 @@
 <h3 align="center">
-Multi-Level Triton Runner Tool 🔧
+Multi-Level Triton Runner(Debugging) 🔧
 </h3>
 
 <p align="center">
@@ -36,7 +36,7 @@ pip install -e .
 ## ✨ 功能
 
 - [一、 多层级执行](README.md#i-multi-level-runner)
-- [二、 多层级调试](README.md#ii-multi-level-debug)
+- [二、 多层级调试](README.md#ii-multi-level-debugging)
 - [三、 Benchmarks](README.md#iii-benchmarks)
 - [四、 解决Triton Issue](README.md#iv-solving-triton-issues)
 
