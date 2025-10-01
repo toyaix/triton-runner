@@ -42,7 +42,7 @@ python examples/runner/v3.2.0/ttgir/sm86/matmul-with-dot-v2.py
 
 python examples/runner/v3.2.0/llir/sm86/matmul-with-dot-v2.py
 
-python examples/ptx/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.1.0/ptx/sm86/matmul-with-dot-v2.py
 
 python examples/runner/v3.4.0/cubin/sm86/matmul-with-dot-v2.py
 ```
