@@ -122,24 +122,33 @@ I provide examples for different architectures and Triton versions. Here's examp
 
 ```shell
 python examples/runner/v3.4.0/python/matmul-with-tma-v4.py
-python examples/runner/v3.4.0/python/ttir/matmul-with-tma/matmul-with-tma-v4.py
-python examples/runner/v3.4.0/python/ttgir/sm90/matmul-with-tma-v4.py
-python examples/runner/v3.4.0/python/llir/sm90/matmul-with-tma-v4.py
-python examples/runner/v3.4.0/python/ptx/sm90/matmul-with-tma-v4.py
-python examples/runner/v3.4.0/python/cubin/sm90/matmul-with-tma-v4.py
-python examples/runner/v3.4.0/python/gluon/01-intro.py
+python examples/runner/v3.4.0/ttir/matmul-with-tma/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/llir/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ptx/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/cubin/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/gluon/01-intro.py
 ```
 
 #### 7. More Architectures Examples
 
-Now provide examples for architectures include `sm90 (H100, H200, H20, etc.)`, `sm80 (A100, A30)`, `sm120 (RTX PRO 6000, RTX 5090, etc.)`, `sm86 (A10, RTX 3090, etc.)` or `sm75 (T4, RTX 2080, etc.)`. For these targets, please refer to [examples](./doc/examples_v3.4.0.md).
+For [architecture-specific](https://developer.nvidia.com/cuda-gpus) example commands, please refer to the examples/runner directory:
+- sm90: Hopper (H100, H200, H20, etc.)
+- sm80: Ampere (A100, A30)
+- sm120: Blackwell (RTX PRO 6000, RTX 5090, etc.)
+- sm86: Ampere (A10, RTX 3090, etc.)
+- sm75: Turing (T4, RTX 2080, etc.)
 
 If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and use this kernel cache directory to run your program.
 
 #### 8. More Triton Version Examples
 
-If your Triton version is v3.3.1 or v3.3.0, please refer to [examples_v3.3.x](./doc/examples_v3.3.x.md) for example commands. If your Triton version is v3.2.0, please refer to [examples_v3.2.0](./doc/examples_v3.2.0.md) for example commands. If your Triton version is v3.1.0, please refer to [examples_v3.1.0](./doc/examples_v3.1.0.md) for example commands. If your Triton version is v3.0.0, please refer to [examples_v3.0.0](./doc/examples_v3.0.0.md) for example commands.
-
+Please refer to the appropriate examples directory based on your Triton version:
+- For Triton v3.4.0, use [examples_v3.4.0]().
+- For Triton v3.3.1 or v3.3.0, use [examples_v3.3.x]().
+- For Triton v3.2.0, use [examples_v3.2.0]().
+- For Triton v3.1.0, use [examples_v3.1.0]().
+- For Triton v3.0.0, use [examples_v3.0.0]().
 
 ### II. Multi-Level Debugging
 
