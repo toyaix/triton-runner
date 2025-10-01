@@ -81,7 +81,9 @@ TLX (Minimally Invasive Paths to Performance Portability) will be supported in [
 
 You can run your Triton code using `@triton_runner.jit` instead of `@triton.jit`. See an example in [examples/runner/v3.4.0/python/matmul.py](./examples/runner/v3.4.0/python/matmul.py#L12)
 
-You can run the example with `python examples/runner/v3.4.0/python/matmul.py`. After running successfully, you should see output like `[triton-runner] Triton cache saved`.
+You can run the example with `python examples/runner/v3.4.0/python/matmul.py`. After running successfully, you should see output like `[Triton Runner] Triton kernel`.
+
+If the kernel cache is hit, the following message will be displayed: `[Triton Runner] Triton kernel cache hit and saved at`. This indicates that the kernel was compiled and cached during a previous run.
 
 #### 2. TTIR Runner
 
@@ -91,11 +93,11 @@ You can run the example with `python examples/runner/v3.4.0/ttir/matmul/matmul.p
 
 #### 3. TTGIR Runner
 
-TTGIR (Triton GPU IR) is architecture-aware. In the IR, you might see a target annotation like `ttg.target = "cuda:90"`, which specifies the GPU backend.
+TTGIR(Triton GPU IR) is architecture-aware and upwardly compatible. In the `.ttgir` file, you might see a target annotation like `ttg.target = "cuda:90"`, which specifies the GPU backend.
 
-Similar to the TTIR runner, you need to provide a `.ttgir` file and specify its location in the program. See an example in [examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py](./examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py#L76).
+Similar to the `TTIR Runner`, you need to provide a `.ttgir` file and specify its location in the program. See an example in [examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py](./examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py#L76).
 
-If your architecture is `sm90`(Hopper), you can run the example using the TTGIR runner with `python examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py`.
+Because TTGIR is upwardly compatible, you can run the example using the `TTGIR Runner` with `python examples/runner/v3.4.0/ttgir/sm75/matmul.py`.
 
 #### 4. LLIR/PTX/cubin Runner
 
