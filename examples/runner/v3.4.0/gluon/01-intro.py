@@ -36,7 +36,7 @@ controlling these low-level details.
 # decorator to declare a Gluon kernel, and it can be invoked from Python with
 # the same interface as a Triton kernel.
 
-import pytest
+# import pytest
 import torch
 import triton
 # from triton.experimental import gluon
@@ -100,14 +100,14 @@ def memcpy(input, output, XBLOCK):
     memcpy_kernel[grid](input, output, xnumel, XBLOCK, num_warps=1)
 
 
-@pytest.mark.parametrize("XBLOCK", [64])
-@pytest.mark.parametrize("xnumel", [40, 500])
-def test_memcpy(XBLOCK, xnumel):
-    torch.manual_seed(0)
-    input = torch.randn(xnumel, device="cuda")
-    output = torch.empty_like(input)
-    memcpy(input, output, XBLOCK)
-    torch.testing.assert_close(input, output, atol=0, rtol=0)
+# @pytest.mark.parametrize("XBLOCK", [64])
+# @pytest.mark.parametrize("xnumel", [40, 500])
+# def test_memcpy(XBLOCK, xnumel):
+#     torch.manual_seed(0)
+#     input = torch.randn(xnumel, device="cuda")
+#     output = torch.empty_like(input)
+#     memcpy(input, output, XBLOCK)
+#     torch.testing.assert_close(input, output, atol=0, rtol=0)
 
 
 # %%

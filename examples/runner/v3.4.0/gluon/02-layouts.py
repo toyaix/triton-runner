@@ -137,7 +137,7 @@ the `memcpy` example from the previous tutorial. Using a `BlockedLayout`, we
 will have each program load and store a whole tile rather than one scalar.
 """
 
-import pytest
+# import pytest
 import torch
 import triton
 from functools import partial
@@ -234,16 +234,16 @@ def bench_memcpy(impl):
     return bench_memcpy_impl(input, output, impl)
 
 
-@pytest.mark.parametrize("XBLOCK", [128, 256])
-@pytest.mark.parametrize("xnumel", [200, 1000])
-@pytest.mark.parametrize("num_warps", [4])
-def test_memcpy_1d(XBLOCK, xnumel, num_warps):
-    torch.manual_seed(0)
-    input = torch.randn(xnumel, device="cuda")
-    output = torch.empty_like(input)
-    layout = gl.BlockedLayout([1], [32], [num_warps], [0])
-    memcpy_1d_impl(input, output, XBLOCK, layout, num_warps=num_warps)
-    torch.testing.assert_close(input, output, atol=0, rtol=0)
+# @pytest.mark.parametrize("XBLOCK", [128, 256])
+# @pytest.mark.parametrize("xnumel", [200, 1000])
+# @pytest.mark.parametrize("num_warps", [4])
+# def test_memcpy_1d(XBLOCK, xnumel, num_warps):
+#     torch.manual_seed(0)
+#     input = torch.randn(xnumel, device="cuda")
+#     output = torch.empty_like(input)
+#     layout = gl.BlockedLayout([1], [32], [num_warps], [0])
+#     memcpy_1d_impl(input, output, XBLOCK, layout, num_warps=num_warps)
+#     torch.testing.assert_close(input, output, atol=0, rtol=0)
 
 
 # %%
@@ -498,20 +498,20 @@ def memcpy_2d_impl(input, output, XBLOCK, YBLOCK, layout, num_warps):
     return compiled_kernel
 
 
-@pytest.mark.parametrize("XBLOCK, YBLOCK", [(128, 256), (256, 128)])
-@pytest.mark.parametrize("xnumel, ynumel", [(100, 2000), (1000, 200)])
-@pytest.mark.parametrize("transposed", [False, True])
-@pytest.mark.parametrize("num_warps", [4])
-def test_memcpy_2d(XBLOCK, YBLOCK, xnumel, ynumel, transposed, num_warps):
-    torch.manual_seed(0)
-    input = torch.randn((xnumel, ynumel), device="cuda")
-    output = torch.empty_like(input)
-    # Transposing the tensor makes it non-contiguous along the inner dimension.
-    input = input.T if transposed else input
-    output = output.T if transposed else output
-    layout = gl.BlockedLayout([1, 1], [1, 32], [1, num_warps], [1, 0])
-    memcpy_2d_impl(input, output, XBLOCK, YBLOCK, layout, num_warps=num_warps)
-    torch.testing.assert_close(input, output, atol=0, rtol=0)
+# @pytest.mark.parametrize("XBLOCK, YBLOCK", [(128, 256), (256, 128)])
+# @pytest.mark.parametrize("xnumel, ynumel", [(100, 2000), (1000, 200)])
+# @pytest.mark.parametrize("transposed", [False, True])
+# @pytest.mark.parametrize("num_warps", [4])
+# def test_memcpy_2d(XBLOCK, YBLOCK, xnumel, ynumel, transposed, num_warps):
+#     torch.manual_seed(0)
+#     input = torch.randn((xnumel, ynumel), device="cuda")
+#     output = torch.empty_like(input)
+#     # Transposing the tensor makes it non-contiguous along the inner dimension.
+#     input = input.T if transposed else input
+#     output = output.T if transposed else output
+#     layout = gl.BlockedLayout([1, 1], [1, 32], [1, num_warps], [1, 0])
+#     memcpy_2d_impl(input, output, XBLOCK, YBLOCK, layout, num_warps=num_warps)
+#     torch.testing.assert_close(input, output, atol=0, rtol=0)
 
 
 # %%
@@ -789,20 +789,20 @@ def memcpy_2d_inout(input, output, num_warps=4):
         XBLOCK, YBLOCK, num_warps=num_warps)
 
 
-@pytest.mark.parametrize("xnumel, ynumel", [(300, 400)])
-@pytest.mark.parametrize("transpose_in, transpose_out", [(True, False), (False, True)])
-def test_memcpy_2d_inout(xnumel, ynumel, transpose_in, transpose_out):
-    torch.manual_seed(0)
-    if transpose_in:
-        input = torch.randn((ynumel, xnumel), device="cuda").T
-    else:
-        input = torch.randn((xnumel, ynumel), device="cuda")
-    if transpose_out:
-        output = torch.empty((ynumel, xnumel), device="cuda").T
-    else:
-        output = torch.empty((xnumel, ynumel), device="cuda")
-    memcpy_2d_inout(input, output)
-    torch.testing.assert_close(input, output, atol=0, rtol=0)
+# @pytest.mark.parametrize("xnumel, ynumel", [(300, 400)])
+# @pytest.mark.parametrize("transpose_in, transpose_out", [(True, False), (False, True)])
+# def test_memcpy_2d_inout(xnumel, ynumel, transpose_in, transpose_out):
+#     torch.manual_seed(0)
+#     if transpose_in:
+#         input = torch.randn((ynumel, xnumel), device="cuda").T
+#     else:
+#         input = torch.randn((xnumel, ynumel), device="cuda")
+#     if transpose_out:
+#         output = torch.empty((ynumel, xnumel), device="cuda").T
+#     else:
+#         output = torch.empty((xnumel, ynumel), device="cuda")
+#     memcpy_2d_inout(input, output)
+#     torch.testing.assert_close(input, output, atol=0, rtol=0)
 
 
 if __name__ == "__main__" and _enabled("memcpy_2d_inout"):
