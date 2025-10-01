@@ -110,8 +110,8 @@ Gluon is a GPU programming language based on the same compiler stack as Triton. 
 Only two cases work for now, please wait for the Triton v3.5.0 release.
 
 ```shell
-python examples/runner/v3.4.0/python/gloun/01-intro.py
-python examples/runner/v3.4.0/python/gloun/02-layouts.py
+python examples/runner/v3.4.0/gluon/01-intro.py
+python examples/runner/v3.4.0/gluon/02-layouts.py
 ```
 
 #### 6. Hopper Examples
@@ -125,7 +125,7 @@ python examples/runner/v3.4.0/python/ttgir/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/python/llir/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/python/ptx/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/python/cubin/sm90/matmul-with-tma-v4.py
-python examples/runner/v3.4.0/python/gloun/01-intro.py
+python examples/runner/v3.4.0/python/gluon/01-intro.py
 ```
 
 #### 7. More Architectures Examples
