@@ -10,9 +10,11 @@ Multi-Level Triton Runner Tool 🔧
 <a href="README.md"><b>English</b></a> | <a><b>中文</b></a>
 </p>
 
-triton-runner 是一个面向 [OpenAI/Triton](https://github.com/triton-lang/triton) 的多层级 runner 工具，用于调试 Triton IR，支持在多个编译阶段直接运行 GPU kernel，包括 ttir、ttgir、llir、ptx、cubin。该工具旨在提升 Triton 用户对编译流程的可观测性与可控性，同时降低对 Triton 源码的编译Pass pipeline的限制，从而进行性能调优和调试。
+Triton Runner 是一个面向 [OpenAI/Triton](https://github.com/triton-lang/triton) 的多层级 runner 工具，用于调试 Triton IR，支持在多个编译阶段直接运行 GPU kernel，包括 TTIR(Triton IR)、TTGIR(Triton GPU IR)、LLIR(LLVM IR)、PTX、cubin。该工具旨在提升 Triton 用户对编译流程的可观测性与可控性，同时降低对 Triton 源码的编译Pass pipeline的限制，从而进行性能调优和调试。
 
-triton-runner 兼容 **Triton v3.4.0 (主要版本), v3.3.x, v3.2.0, v3.1.0 or v3.0.0**。
+Triton Runner 兼容 Triton **v3.4.0(主要版本)**, v3.3.x, v3.2.0, v3.1.0 or v3.0.0。
+
+Triton Runner 还提供了在 Triton v3.4.0 的1D/2D tensor调试。
 
 ## 快速安装
 
@@ -34,11 +36,10 @@ pip install -e .
 ## ✨ 功能
 
 - [一、 多层级执行](README.md#i-multi-level-execution)
-- [二、 💡使用 cubin runner 解决 Triton issue](README.md#ii-use-cubin-runner-to-solve-triton-issue)
-- [三、 Python 调试](README.md#iii-python-debug)
-- [四、 TTIR 调试](README.md#iv-ttir-debug)
-- [五、 TTGIR 调试](README.md#v-ttgir-debug)
-- [六、 Benchmarks](README.md#vi-benchmarks)
+- [二、 多层级调试](README.md#ii-multi-level-debug)
+- [三、 Benchmarks](README.md#iii-benchmarks)
+- [四、 解决Triton Issue](README.md#iv-solving-triton-issues)
+
 
 ## 使用文档
 
@@ -67,7 +68,3 @@ pip install -e .
 [深度剖析 Triton编译器 MatMul优化（二）—— MMA](https://zhuanlan.zhihu.com/p/1922921325296615496)
 
 [深度剖析 Triton编译器 MatMul优化（三）—— TMA](https://zhuanlan.zhihu.com/p/1924011555437155686)
-
-## 📄 License
-
-本项目采用 **MIT License**，详细内容请参阅 [LICENSE](./LICENSE) 文件。
