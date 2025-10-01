@@ -30,15 +30,15 @@ python examples/runner/v3.4.0/cubin/sm80/matmul-with-dot-v2.py
 
 ### sm120 (RTX PRO 6000, RTX 5090, etc.)
 ```shell
-python examples/runner/v3.4.0/python/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/python/matmul-with-dot-v2.py
 
-python examples/runner/v3.4.0/ttir/matmul-with-tma/matmul-with-tma-v4.py
+python examples/runner/v3.4.0/ttir/matmul-with-dot/matmul-with-dot-v2.py
 
 python examples/runner/v3.3.x/ttgir/sm120/matmul-with-tma-v3.py
 
 python examples/runner/v3.3.x/llir/sm120/matmul-with-tma-v3.py
 
-python examples/ptx/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.3.x/ptx/sm90/matmul-with-tma-v3.py
 
 python examples/runner/v3.4.0/cubin/sm120/matmul-with-tma-v4.py
 ```
