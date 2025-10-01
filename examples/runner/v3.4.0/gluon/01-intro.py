@@ -145,7 +145,13 @@ def memcpy_autotune(input, output):
 
 if __name__ == "__main__":
     torch.manual_seed(0)
+    total_memory = torch.cuda.get_device_properties(device="cuda").total_memory
+    allocated_memory = torch.cuda.memory_allocated(device="cuda")
+    reserved_memory = torch.cuda.memory_reserved(device="cuda")
+    free_memory = total_memory - allocated_memory - reserved_memory
     xnumel = 2 << 30
+    if xnumel * 4 * 2 > free_memory:
+        xnumel = 2 << 29
     input = torch.randn(xnumel, device="cuda")
     output = torch.empty_like(input)
 
