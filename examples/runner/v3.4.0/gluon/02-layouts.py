@@ -666,10 +666,10 @@ if __name__ == "__main__" and _enabled("memcpy_2d_inout"):
     free_memory = total_memory - allocated_memory - reserved_memory
     # 8 GB tensor.
     xnumel = 32 * 1024
-    ynumel = 64 * 1024
+    ynumel = 32 * 1024
     if xnumel * ynumel * 4 * 2 > free_memory:
         xnumel = 16 * 1024
-        ynumel = 32 * 1024
+        ynumel = 16 * 1024
     input = torch.randn((xnumel, ynumel), device="cuda")
 
     # Output is contiguous along dim 0.
