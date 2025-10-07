@@ -13,8 +13,6 @@ from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
 
-if triton.__version__ not in ["3.5.0"]:
-    from triton.compiler.compiler import triton_key
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None):
     if target is None:
@@ -54,7 +52,12 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         src_hash = hashlib.sha256(module).hexdigest()
     else:
         src_hash = hashlib.sha256(module.encode("utf-8")).hexdigest()
-    key = f"{triton_key()}-{src_hash}-{backend.hash()}-{options.hash()}-{str(sorted(env_vars.items()))}"
+    if triton.__version__ in ["3.5.0"]:
+        from triton.runtime.cache import get_cache_key
+        key = get_cache_key(src, backend, options, env_vars=env_vars)
+    else:
+        from triton.compiler.compiler import triton_key
+        key = f"{triton_key()}-{src_hash}-{backend.hash()}-{options.hash()}-{str(sorted(env_vars.items()))}"
     hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
     fn_cache_manager = get_cache_manager(hash)
     # For dumping/overriding only hash the source as we want it to be independent of triton

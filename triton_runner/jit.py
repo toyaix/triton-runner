@@ -37,6 +37,40 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
+
+    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup):
+        from triton import knobs
+
+        kernel_cache, _, target, backend, _ = self.device_caches[device]
+
+        if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
+            return None
+        src = self.ASTSource(self, signature, constexprs, attrs)
+
+        # TODO: don't support _async_compile
+        # async_mode = _async_compile.active_mode.get()
+        # if async_mode is not None:
+
+        #     env_vars = get_cache_invalidating_env_vars()
+        #     cache_key = get_cache_key(src, backend, options, env_vars)
+
+        #     def async_compile():
+        #         return self.compile(src, target=target, options=options.__dict__, _env_vars=env_vars)
+
+        #     def finalize_compile(kernel):
+        #         kernel_cache[key] = kernel
+        #         self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options,
+        #                         [attrs], warmup)
+
+        #     kernel = async_mode.submit(cache_key, async_compile, finalize_compile)
+        # else:
+        kernel = native_compile(src, src, {}, target=target, options=options.__dict__)
+        # kernel = self.compile(src, target=target, options=options.__dict__)
+        kernel_cache[key] = kernel
+        self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
+                        warmup)
+        return kernel
+
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
