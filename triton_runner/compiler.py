@@ -13,6 +13,14 @@ from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
 
+if triton.__version__ in ["3.5.0"]:
+    from triton.runtime.cache import triton_key
+else:
+    from triton.compiler.compiler import triton_key
+
+def get_cache_key(src_hash, backend, backend_options, env_vars):
+    key = f"{triton_key()}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
+    return key
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None):
     if target is None:
@@ -53,8 +61,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     else:
         src_hash = hashlib.sha256(module.encode("utf-8")).hexdigest()
     if triton.__version__ in ["3.5.0"]:
-        from triton.runtime.cache import get_cache_key
-        key = get_cache_key(src, backend, options, env_vars=env_vars)
+        key = get_cache_key(src_hash, backend, options, env_vars=env_vars)
     else:
         from triton.compiler.compiler import triton_key
         key = f"{triton_key()}-{src_hash}-{backend.hash()}-{options.hash()}-{str(sorted(env_vars.items()))}"
@@ -104,7 +111,11 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             from triton.backends.compiler import Language
             add_stages(backend, stages, options, Language.TRITON)
     elif triton.__version__ in ["3.5.0"]:
-        backend.add_stages(stages, options, src.language)
+        if isinstance(src, IRSource):
+            backend.add_stages(stages, options, src.language)
+        else:
+            from triton.backends.compiler import Language
+            backend.add_stages(stages, options, Language.TRITON)
     else:
         backend.add_stages(stages, options)
     if isinstance(src, ASTSource) or isinstance(src, IRSource):
@@ -179,6 +190,8 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             metadata["tmem_size"] = metadata_json.get("tmem_size", 0)
             metadata["global_scratch_size"] = metadata_json.get("global_scratch_size", 0)
             metadata["global_scratch_align"] = metadata_json.get("global_scratch_align", 1)
+            metadata["profile_scratch_size"] = metadata_json.get("profile_scratch_size", 0)
+            metadata["profile_scratch_align"] = metadata_json.get("profile_scratch_align", 1)
 
     # write-back metadata
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
