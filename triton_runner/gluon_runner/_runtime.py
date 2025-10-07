@@ -1,9 +1,22 @@
-from ..jit import RunnerJITFunctionV3_4_0, JITFunction
+from ..jit import RunnerJITFunctionV3_5_0, RunnerJITFunctionV3_4_0, RunnerJITFunction, JITFunction
 from triton.experimental.gluon._runtime import GluonASTSource, T
 from typing import Optional, Callable, Iterable, Union
+import triton
 
 
-class RunnerGluonJITFunction(RunnerJITFunctionV3_4_0[T]):
+class RunnerGluonJITFunction(RunnerJITFunction[T]):
+    pass
+
+class RunnerGluonJITFunctionV3_5_0(RunnerJITFunctionV3_5_0[T]):
+    def create_binder(self):
+        result = super().create_binder()
+        self.ASTSource = GluonASTSource
+        return result
+
+    def is_gluon(self):
+        return True
+
+class RunnerGluonJITFunctionV3_4_0(RunnerJITFunctionV3_4_0[T]):
 
     def create_binder(self):
         result = super().create_binder()
@@ -45,16 +58,30 @@ def jit(
 
     def decorator(fn: T) -> JITFunction[T]:
         assert callable(fn)
-        return RunnerGluonJITFunction(
-            fn,
-            version=version,
-            do_not_specialize=do_not_specialize,
-            do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-            debug=debug,
-            noinline=noinline,
-            repr=repr,
-            launch_metadata=launch_metadata,
-        )
+        if triton.__version__ == "3.5.0":
+            return RunnerGluonJITFunctionV3_5_0(
+                fn,
+                version=version,
+                do_not_specialize=do_not_specialize,
+                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
+                debug=debug,
+                noinline=noinline,
+                repr=repr,
+                launch_metadata=launch_metadata,
+            )
+        elif triton.__version__ == "3.4.0":
+            return RunnerGluonJITFunctionV3_4_0(
+                fn,
+                version=version,
+                do_not_specialize=do_not_specialize,
+                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
+                debug=debug,
+                noinline=noinline,
+                repr=repr,
+                launch_metadata=launch_metadata,
+            )
+        else:
+            raise RuntimeError(f"Can't support Triton v{triton.__version__}.")
 
     if fn is not None:
         return decorator(fn)
