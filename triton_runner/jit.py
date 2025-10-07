@@ -35,6 +35,64 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         return ""
 
 
+class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
+
+    def run(self, *args, grid, warmup, **kwargs):
+        from triton import knobs
+        from triton.runtime.jit import compute_cache_key
+
+        kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
+
+        # parse options
+        device = driver.active.get_current_device()
+        stream = driver.active.get_current_stream(device)
+
+        # Execute pre run hooks with args and kwargs
+        for hook in self.pre_run_hooks:
+            hook(*args, **kwargs)
+
+        kernel_cache, kernel_key_cache, target, backend, binder = self.device_caches[device]
+        # specialization is list[tuple[str, Any]], where first element of tuple is
+        # the type and the second parameter is the 'specialization' value.
+        bound_args, specialization, options = binder(*args, **kwargs)
+
+        key = compute_cache_key(kernel_key_cache, specialization, options)
+        kernel = kernel_cache.get(key, None)
+
+        # Kernel is not cached; we have to compile.
+        if kernel is None:
+            options, signature, constexprs, attrs = self._pack_args(backend, kwargs, bound_args, specialization,
+                                                                    options)
+
+            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+            if kernel is None:
+                return None
+
+        # Check that used global values have not changed.
+        not_present = object()
+        for (name, _), (val, globals_dict) in self.used_global_vals.items():
+            if (newVal := globals_dict.get(name, not_present)) != val:
+                raise RuntimeError(
+                    f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
+
+        if not warmup:
+            # canonicalize grid
+            assert grid is not None
+            if callable(grid):
+                grid = grid(bound_args)
+            grid_size = len(grid)
+            grid_0 = grid[0]
+            grid_1 = grid[1] if grid_size > 1 else 1
+            grid_2 = grid[2] if grid_size > 2 else 1
+            if hasattr(kernel, "result"):
+                kernel = kernel.result()
+            # launch kernel
+            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
+                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
+        return kernel
+
+
 class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
     def get_source_dir_type(self, kwargs, options, sigkeys):
@@ -570,7 +628,18 @@ def jit(
 
     def decorator(fn: T) -> RunnerJITFunction[T]:
         assert callable(fn)
-        if triton.__version__ == "3.4.0":
+        if triton.__version__ == "3.5.0":
+            return RunnerJITFunctionV3_5_0(
+                fn,
+                version=version,
+                do_not_specialize=do_not_specialize,
+                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
+                debug=debug,
+                noinline=noinline,
+                repr=repr,
+                launch_metadata=launch_metadata,
+            )
+        elif triton.__version__ == "3.4.0":
             return RunnerJITFunctionV3_4_0(
                 fn,
                 version=version,

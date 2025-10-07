@@ -1,7 +1,7 @@
 from triton.runtime import driver
 from triton.runtime.cache import get_cache_manager, get_dump_manager, get_override_manager
 from triton.backends.compiler import GPUTarget
-from triton.compiler.compiler import make_backend, triton_key, parse, filter_traceback
+from triton.compiler.compiler import make_backend, parse, filter_traceback
 from triton.compiler.compiler import ASTSource, IRSource, CompiledKernel
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
 import triton
@@ -13,6 +13,8 @@ from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
 
+if triton.__version__ not in ["3.5.0"]:
+    from triton.compiler.compiler import triton_key
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None):
     if target is None:
