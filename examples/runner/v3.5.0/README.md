@@ -11,4 +11,7 @@ python examples/runner/v3.4.0/llir/sm75/matmul.py
 python examples/runner/v3.4.0/ptx/sm75/matmul.py
 
 python examples/runner/v3.4.0/cubin/sm75/matmul.py
+
+python examples/runner/v3.4.0/gluon/01-intro.py
+python examples/runner/v3.4.0/gluon/02-layouts.py
 ```
