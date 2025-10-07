@@ -41,14 +41,25 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
         return super().get_source_dir_type(
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
-    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup):
+    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs):
         from triton import knobs
 
         kernel_cache, _, target, backend, _ = self.device_caches[device]
 
         if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
             return None
-        src = self.ASTSource(self, signature, constexprs, attrs)
+        # src = self.ASTSource(self, signature, constexprs, attrs)
+        ast_src = self.ASTSource(self, signature, constexprs, attrs)
+        metadata_json = {}
+        if source_dir_type:
+            source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
+            src = os.path.join(kwargs[source_dir_type], source_file_name)
+            if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
+                json_file_name = f"{self.__name__}.json"
+                json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+                metadata_json = json.loads(open(json_path, "r").read())
+        else:
+            src = ast_src
 
         # TODO: don't support _async_compile
         # async_mode = _async_compile.active_mode.get()
@@ -67,7 +78,7 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
         #     kernel = async_mode.submit(cache_key, async_compile, finalize_compile)
         # else:
-        kernel = native_compile(src, src, {}, target=target, options=options.__dict__)
+        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
         # kernel = self.compile(src, target=target, options=options.__dict__)
         kernel_cache[key] = kernel
         self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
@@ -98,7 +109,7 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
         attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
         attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
 
-        return options, signature, constexprs, attrs
+        return options, signature, constexprs, attrs, source_dir_type
 
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
@@ -124,10 +135,9 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
         # Kernel is not cached; we have to compile.
         if kernel is None:
-            options, signature, constexprs, attrs = self._pack_args(backend, kwargs, bound_args, specialization,
-                                                                    options)
-
-            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+            options, signature, constexprs, attrs, source_dir_type = self._pack_args(
+                backend, kwargs, bound_args, specialization, options)
+            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs)
             if kernel is None:
                 return None
 
