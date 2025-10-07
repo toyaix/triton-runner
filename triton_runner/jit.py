@@ -37,6 +37,9 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
+    def get_source_dir_type(self, kwargs, options, sigkeys):
+        return super().get_source_dir_type(
+            [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup):
         from triton import knobs
@@ -70,6 +73,32 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
         self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                         warmup)
         return kernel
+
+    def _pack_args(self, backend, kwargs, bound_args, specialization, options):
+        from triton._utils import find_paths_if, get_iterable_path
+        # options
+        options = backend.parse_options(kwargs)
+        # signature
+        sigkeys = [x.name for x in self.params]
+        sigvals = [x[0] for x in specialization]
+        signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
+        # check arguments
+        assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
+        assert "device" not in kwargs, "device option is deprecated; current device will be used"
+        assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
+        # for k in kwargs:
+        #     if k not in options.__dict__ and k not in sigkeys:
+        #         raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+        source_dir_type = self.get_source_dir_type(kwargs, options, sigkeys)
+        # constexprs
+        constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
+        constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
+        # attributes
+        attrvals = [x[1] for x in specialization]
+        attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
+        attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
+
+        return options, signature, constexprs, attrs
 
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs

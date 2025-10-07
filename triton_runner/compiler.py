@@ -96,13 +96,15 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata["triton_runner_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()
-    if triton.__version__ == "3.4.0":
+    if triton.__version__ in ["3.4.0"]:
         from .pass_stages import add_stages
         if isinstance(src, IRSource):
             add_stages(backend, stages, options, src.language)
         else:
             from triton.backends.compiler import Language
             add_stages(backend, stages, options, Language.TRITON)
+    elif triton.__version__ in ["3.5.0"]:
+        backend.add_stages(stages, options, src.language)
     else:
         backend.add_stages(stages, options)
     if isinstance(src, ASTSource) or isinstance(src, IRSource):
@@ -134,6 +136,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         elif src_ext not in {"llir", "cubin"}:
             if triton.__version__ in ["3.1.0", "3.0.0"]:
                 module = src.make_ir(options, codegen_fns, context)
+            elif triton.__version__ in ["3.5.0"]:
+                module_map = backend.get_module_map()
+                module = src.make_ir(target, options, codegen_fns, module_map, context)
             else:
                 module_map = backend.get_module_map()
                 module = src.make_ir(options, codegen_fns, module_map, context)
