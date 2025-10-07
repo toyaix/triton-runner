@@ -105,13 +105,13 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     stages = dict()
     if triton.__version__ in ["3.4.0"]:
         from .pass_stages import add_stages
-        if isinstance(src, IRSource):
+        if not isinstance(src, str):
             add_stages(backend, stages, options, src.language)
         else:
             from triton.backends.compiler import Language
             add_stages(backend, stages, options, Language.TRITON)
     elif triton.__version__ in ["3.5.0"]:
-        if isinstance(src, IRSource):
+        if not isinstance(src, str):
             backend.add_stages(stages, options, src.language)
         else:
             from triton.backends.compiler import Language

@@ -5,6 +5,9 @@ import triton
 
 
 class RunnerGluonJITFunction(RunnerJITFunction[T]):
+    pass
+
+class RunnerGluonJITFunctionV3_5_0(RunnerJITFunctionV3_5_0[T]):
     def create_binder(self):
         result = super().create_binder()
         self.ASTSource = GluonASTSource
@@ -13,11 +16,15 @@ class RunnerGluonJITFunction(RunnerJITFunction[T]):
     def is_gluon(self):
         return True
 
-class RunnerGluonJITFunctionV3_5_0(RunnerJITFunctionV3_5_0[T]):
-    pass
-
 class RunnerGluonJITFunctionV3_4_0(RunnerJITFunctionV3_4_0[T]):
-    pass
+
+    def create_binder(self):
+        result = super().create_binder()
+        self.ASTSource = GluonASTSource
+        return result
+
+    def is_gluon(self):
+        return True
 
 
 def jit(
