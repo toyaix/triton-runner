@@ -22,7 +22,7 @@ def dump(x, off=0, pid_0=0, pid_1=0, pid_2=0, _semantic=None):
     then_block = _semantic.builder.create_block()
     _semantic.builder.set_insertion_point_to_start(then_block)
     dump_val = _semantic.add(x, 0, False)
-    x.handle.set_attr("tt.dump", ir.make_attr([1], x.handle.get_context()))
+    dump_val.handle.set_attr("tt.dump", ir.make_attr([1], x.handle.get_context()))
     then_block.merge_block_before(if_op.get_then_block())
     _semantic.builder.restore_insertion_point(ip)
     _semantic.builder.set_loc(last_loc)
