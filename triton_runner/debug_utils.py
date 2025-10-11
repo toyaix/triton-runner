@@ -14,8 +14,7 @@ def get_injected_ir_begin(original_line, indent, loc, python_dump):
 {indent}%debug_cmpi_eq_x_y      = arith.andi %debug_cmpi_eq_x, %debug_cmpi_eq_y : i1 {loc}
 {indent}%debug_cmpi_eq_x_y_z    = arith.andi %debug_cmpi_eq_x_y, %debug_cmpi_eq_z : i1 {loc}
 {indent}scf.if %debug_cmpi_eq_x_y_z {{"""
-    return f"""{original_line}
-
+    return f"""{original_line}\n
 {indent}// triton_runner debug start{if_begin}"""
 
 def get_injected_ir_end(indent, python_dump):
@@ -24,17 +23,20 @@ def get_injected_ir_end(indent, python_dump):
     return f"""{if_end}{indent}// triton_runner debug end"""
 
 
-def get_1d_injected_ir(ssa_value, original_line, indent, size, encoding, loc, python_dump):
+def get_1d_injected_ir(ssa_value, original_line, indent, size, encoding, loc, python_dump, offset_line):
     ir_indent = indent if python_dump else f"{indent}  "
+    off_ir = f"{offset_line}" if python_dump else f"arith.constant 0 : i32 {loc}"
     return f"""{get_injected_ir_begin(original_line, indent, loc, python_dump)}
 {ir_indent}%debug_range          = tt.make_range {{end = {size} : i32, start = 0 : i32}} : tensor<{size}xi32{encoding}> {loc}
-{ir_indent}%debug_splat          = tt.splat %debug_tensor : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>{encoding}> {loc}
+{ir_indent}%off_val              = {off_ir}
+{ir_indent}%debug_with_offset    = tt.addptr %debug_tensor, %off_val : !tt.ptr<f32>, i32 loc(#loc1)
+{ir_indent}%debug_splat          = tt.splat %debug_with_offset : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>{encoding}> {loc}
 {ir_indent}%debug_ptr            = tt.addptr %debug_splat, %debug_range : tensor<{size}x!tt.ptr<f32>{encoding}>, tensor<{size}xi32{encoding}> {loc}
 {ir_indent}tt.store %debug_ptr, {ssa_value} : tensor<{size}x!tt.ptr<f32>{encoding}> {loc}
 {get_injected_ir_end(indent, python_dump)}
 """
 
-def get_2d_injected_ir_without_encoding(ssa_value, original_line, indent, size, loc, python_dump):
+def get_2d_injected_ir_without_encoding(ssa_value, original_line, indent, size, loc, python_dump, offset_line):
     size_0, size_1 = size.split('x')
     return f"""{get_injected_ir_begin(original_line, indent, loc, python_dump)}
 {indent}  %debug_range_1        = tt.make_range {{end = {size_1} : i32, start = 0 : i32}} : tensor<{size_1}xi32> {loc}
@@ -74,18 +76,18 @@ def get_2d_injected_ir_with_encoding(ssa_value, original_line, indent, size, enc
 """
 
 
-def get_injected_ir(ssa_value, op, original_line, indent, size, encoding, loc, python_dump=False):
+def get_injected_ir(ssa_value, op, original_line, indent, size, encoding, loc, python_dump=False, offset_val=""):
     loc = f"loc({loc})"
     encoding = f", {encoding}" if encoding else ""
     if size.count("x") == 0:
         warning_debug_mode_ssa_and_op(ssa_value, op, loc, size, encoding)
-        return get_1d_injected_ir(ssa_value, original_line, indent, size, encoding, loc, python_dump)
+        return get_1d_injected_ir(ssa_value, original_line, indent, size, encoding, loc, python_dump, offset_val)
     elif size.count("x") == 1:
         warning_debug_mode_ssa_and_op(ssa_value, op, loc, size, encoding)
         if encoding:
             return get_2d_injected_ir_with_encoding(ssa_value, original_line, indent, size, encoding, loc)
         else:
-            return get_2d_injected_ir_without_encoding(ssa_value, original_line, indent, size, loc, python_dump)
+            return get_2d_injected_ir_without_encoding(ssa_value, original_line, indent, size, loc, python_dump, offset_val)
     else:
         warning_size_not_supported(ssa_value, op, loc, size)
         return original_line
