@@ -239,11 +239,11 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 return get_injected_ir(ssa_value, op, clean_line, indent, size, None, loc,
                                        python_dump=True, offset_val=offset_val)
             return replacer
-        while True:
+        replacer_with_text = make_replacer(full_text)
+        full_text, count = pattern.subn(replacer_with_text, full_text)
+        while count > 0:
             replacer_with_text = make_replacer(full_text)
             full_text, count = pattern.subn(replacer_with_text, full_text, count=1)
-            if count == 0:
-                break
         return full_text
 
     def run(self, *args, grid, warmup, **kwargs):
