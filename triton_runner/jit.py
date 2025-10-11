@@ -233,7 +233,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 size = match.group("size")
                 loc = match.group("loc")
                 ssa_value = match.group("ssa_value")
-                return get_injected_ir(ssa_value, op, original_line, indent, size, None, loc)
+                return get_injected_ir(ssa_value, op, original_line, indent, size, None, loc, python_dump=True)
             return replacer
         replacer_with_text = make_replacer(full_text)
         return pattern.sub(replacer_with_text, full_text, count=1)
