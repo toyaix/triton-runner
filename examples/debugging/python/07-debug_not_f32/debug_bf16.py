@@ -33,7 +33,7 @@ def matrix_multiplication_kernel(
         b = tl.load(b_ptrs + stride_bn * n)
 
         # ===== DEBUG START =====
-        dl.dump(b.to(tl.float32))
+        dl.dump(b)
         # ===== DEBUG END =====
 
         accumulator += a * b
