@@ -6,6 +6,8 @@ In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also nee
 
 ```shell
 python examples/debugging/python/01-vec_add/debug_output.py
+python examples/debugging/python/01-vec_add/debug_with_grid.py
+python examples/debugging/python/01-vec_add/debug_with_offset.py
 python examples/debugging/python/01-vec_add/debug_x.py
 python examples/debugging/python/01-vec_add/debug_y.py
 
@@ -14,6 +16,8 @@ python examples/debugging/python/02-matrix_transpose/debug_2d_trans.py
 
 python examples/debugging/python/03-matrix_multiplication/debug_acc.py
 python examples/debugging/python/03-matrix_multiplication/debug_out.py
+python examples/debugging/python/03-matrix_multiplication/debug_with_grid.py
+python examples/debugging/python/03-matrix_multiplication/debug_with_offset.py
 
 python examples/debugging/python/04-softmax/debug_exp_shifted.py
 python examples/debugging/python/04-softmax/debug_max_in_loop.py
@@ -25,6 +29,7 @@ python examples/debugging/python/04-softmax/debug_sum_out_loop.py
 
 python examples/debugging/python/05-softmax_lse/debug_log_acc.py
 python examples/debugging/python/05-softmax_lse/debug_max_acc.py
+python examples/debugging/python/05-softmax_lse/debug_more_with_offset.py
 
 python examples/debugging/python/06-attention/debug_out.py
 
