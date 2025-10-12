@@ -3,7 +3,7 @@ Multi-Level Triton Runner(Debugging) 🔧
 </h3>
 
 <p align="center">
-<a href="./doc/"><b>文档</b></a> | <a href="https://zhuanlan.zhihu.com/column/c_1940119129400013405"><b>开发文档</b></a> ｜ <a href="https://triton-runner.org"><b>🔗 triton-runner.org</b></a>
+<a href="https://www.zhihu.com/column/c_1959013459611059049"><b>用户文档</b></a> | <a href="https://zhuanlan.zhihu.com/column/c_1940119129400013405"><b>开发文档</b></a> | <a href="./doc/"><b>使用示例文档</b></a> ｜ <a href="https://triton-runner.org"><b>🔗 triton-runner.org</b></a>
 </p>
 
 <p align="center">
