@@ -41,13 +41,13 @@ pip install -e .
 - [四、 解决Triton Issue](README.md#iv-solving-triton-issues)
 
 
-## [[用户文档] Triton Runner ——— 知乎专栏](https://www.zhihu.com/column/c_1959013459611059049)
+## [用户文档](https://www.zhihu.com/column/c_1959013459611059049)
 
 内容可能会有滞后，最新请到[知乎专栏](https://www.zhihu.com/column/c_1959013459611059049)查看，也欢迎订阅专栏 ❤️。
 
 [Triton Runner：项目介绍](https://zhuanlan.zhihu.com/p/1953369848705971938)
 
-## [[开发文档] Triton Runner ——— 知乎专栏](https://www.zhihu.com/column/c_1940119129400013405)
+## [开发文档](https://www.zhihu.com/column/c_1940119129400013405)
 
 内容可能会有滞后，最新请到[知乎专栏](https://www.zhihu.com/column/c_1940119129400013405)查看。
 
