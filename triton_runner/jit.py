@@ -222,21 +222,29 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             r'(?P<args>[^\n{}]*)'
             r'\{(?P<attrs>[^\n}]*\btt\.dump\s*=\s*[^\n}]+)\}\s*'
             r':\s*tensor<(?P<size>(?:\d+x)*\d+)(?:x[^\n>]*)?>'
-            r'[^\n]*?loc\((?P<loc>#[^)]+)\)',
+            r'[^\n]*?loc\((?P<loc>#[^)]+)\)'
+            r'\n.*=\s*(?P<offset_val>.*)',
             re.MULTILINE
         )
         def make_replacer(full_text):
             def replacer(match):
-                original_line = match.group(0)
+                original_line = match.group(0).split('\n')[0]
                 indent = match.group("indent")
                 op = match.group("op")
                 size = match.group("size")
                 loc = match.group("loc")
                 ssa_value = match.group("ssa_value")
-                return get_injected_ir(ssa_value, op, original_line, indent, size, None, loc, python_dump=True)
+                offset_val = match.group("offset_val")
+                clean_line = re.sub(r"\s*\{[^{}]*\}", "", original_line)
+                return get_injected_ir(ssa_value, op, clean_line, indent, size, None, loc,
+                                       python_dump=True, offset_val=offset_val)
             return replacer
         replacer_with_text = make_replacer(full_text)
-        return pattern.sub(replacer_with_text, full_text, count=1)
+        full_text, count = pattern.subn(replacer_with_text, full_text)
+        while count > 0:
+            replacer_with_text = make_replacer(full_text)
+            full_text, count = pattern.subn(replacer_with_text, full_text, count=1)
+        return full_text
 
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs

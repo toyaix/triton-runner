@@ -5,7 +5,7 @@ from typing import List
 from triton.language.core import builtin
 
 @builtin
-def dump(x, off=0, pid_0=0, pid_1=0, pid_2=0, _semantic=None):
+def dump(x, offset=0, pid_0=0, pid_1=0, pid_2=0, _semantic=None):
     query_pid_0 = _semantic.program_id(0)
     query_pid_1 = _semantic.program_id(1)
     query_pid_2 = _semantic.program_id(2)
@@ -21,8 +21,11 @@ def dump(x, off=0, pid_0=0, pid_1=0, pid_2=0, _semantic=None):
     ip, last_loc = _semantic.builder.get_insertion_point(), _semantic.builder.get_loc()
     then_block = _semantic.builder.create_block()
     _semantic.builder.set_insertion_point_to_start(then_block)
+    scalar_offset = _semantic.make_scalar(offset, tl.int32)
+    const_zero = _semantic.make_scalar(0, tl.int32)
     dump_val = _semantic.add(x, 0, False)
     dump_val.handle.set_attr("tt.dump", ir.make_attr([1], x.handle.get_context()))
+    offset_val = _semantic.add(scalar_offset, const_zero, False)
     then_block.merge_block_before(if_op.get_then_block())
     _semantic.builder.restore_insertion_point(ip)
     _semantic.builder.set_loc(last_loc)
