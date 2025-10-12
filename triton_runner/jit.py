@@ -313,6 +313,9 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
 
             if self.need_debug(kwargs):
+                debug_tensor = kwargs["debug_tensor"]
+                from .color_print import check_debug_tensor_dtype
+                check_debug_tensor_dtype(debug_tensor)
                 if  not source_dir_type in ["ttir_dir", "ttgir_dir"]:
                     src = self.ASTSource(self, signature, constexprs, attrs)
                     module = get_source_ir(src, target=target, options=options.__dict__)
@@ -323,8 +326,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                     src = os.path.join(runner_cache_dir, f"{self.__name__}-debug.ttir")
                     with open(src, "w") as file:
                         file.write(debug_content)
-                signature["debug_tensor"] = "*fp32"
-                bound_args["debug_tensor"] = kwargs["debug_tensor"]
+                signature["debug_tensor"], bound_args["debug_tensor"] = "*fp32", debug_tensor
 
             if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs],
                                warmup):
