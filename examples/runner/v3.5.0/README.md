@@ -4,7 +4,7 @@ python examples/runner/v3.4.0/python/matmul-with-tma-v4.py
 
 python examples/runner/v3.4.0/ttir/matmul-with-tma/matmul-with-tma-v4.py
 
-python examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.5.0/ttgir/sm90/matmul-with-tma-v4.py
 
 python examples/runner/v3.4.0/llir/sm90/matmul-with-tma-v4.py
 
