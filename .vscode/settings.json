@@ -4,6 +4,7 @@
         "*.ttgir": "mlir",
         "*.llir": "mlir",
         "*.ptx": "mlir",
+        "*.source": "mlir",
     },
     "files.trimTrailingWhitespace": true,
     "[mlir]": {
