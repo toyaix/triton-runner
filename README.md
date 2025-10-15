@@ -12,7 +12,7 @@ Multi-Level Triton Runner(Debugging) 🔧
 
 Triton Runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
-Triton Runner is compatible with Triton 3.5.0, **v3.4.0 (primary)**, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.
+Triton Runner is compatible with Triton v3.5.0, **v3.4.0 (primary)**, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.
 
 Triton Runner supports multi-level debugging across Python/TTIR/TTGIR on Triton **v3.4.0**.
 
@@ -109,7 +109,7 @@ If your architecture is `sm90`(Hopper), you can run the example using the TTGIR 
 
 Gluon is a GPU programming language based on the same compiler stack as Triton. But unlike Triton, Gluon is a lower-level language that gives the user more control and responsibility when implementing kernels.
 
-Only two cases work for now, please wait for the Triton v3.5.0 release.
+Currently, only two cases are supported. Triton v3.5.0 has just been released, please wait for future updates.
 
 ```shell
 python examples/runner/v3.4.0/gluon/01-intro.py
