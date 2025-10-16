@@ -14,14 +14,14 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
     def get_runner_args_set(self):
         return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "cubin_dir"}
 
-    def get_debugger_args_set(self):
-        return {"debug_tensor", "debug_value"}
+    def get_dump_args_set(self):
+        return {"dump_tensor", "dump_value"}
 
     def get_source_dir_type(self, need_check_lst):
         runner_args_set = self.get_runner_args_set()
-        debugger_args_set = self.get_debugger_args_set()
+        dump_args_set = self.get_dump_args_set()
         for k in need_check_lst:
-            if not k in runner_args_set | debugger_args_set:
+            if not k in runner_args_set | dump_args_set:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         for k in need_check_lst:
             if k in runner_args_set:
@@ -187,21 +187,21 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
         return super().get_source_dir_type(
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
-    def need_debug(self, kwargs):
-        return "debug_tensor" in kwargs
-        # return "debug_tensor" in kwargs and "debug_value" in kwargs and "ttir_dir" in kwargs
+    def need_dump(self, kwargs):
+        return "dump_tensor" in kwargs
+        # return "dump_tensor" in kwargs and "dump_value" in kwargs and "ttir_dir" in kwargs
 
-    def insert_debug_tensor_param(self, full_text):
+    def insert_dump_tensor_param(self, full_text):
         pattern = re.compile(r'(tt\.func\s+public\s+@\w+\s*)\((.*?)\)(\s*attributes\s*{[^}]*}\s*{)', re.DOTALL)
 
         def replacer(match):
             prefix, args_str, suffix = match.groups()
-            new_args_str = args_str + ', %debug_tensor: !tt.ptr<f32>'
+            new_args_str = args_str + ', %dump_tensor: !tt.ptr<f32>'
             return f"{prefix}({new_args_str}){suffix}"
 
         return pattern.sub(replacer, full_text, count=1)
 
-    def inject_ssa_ir_debug_store(self, full_text, ssa_value):
+    def inject_ssa_ir_dump_store(self, full_text, ssa_value):
         pattern = re.compile(
             rf'^(?P<indent>\s*){ssa_value}\s*=\s*'
             r'(?P<op>\S+)\s+'
@@ -228,7 +228,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
         replacer_with_text = make_replacer(full_text)
         return pattern.sub(replacer_with_text, full_text, count=1)
 
-    def inject_dump_op_debug_store(self, full_text):
+    def inject_dump_op_dump_store(self, full_text):
         ssa_value = r'%\d+'
         pattern = re.compile(
             rf'^(?P<indent>[ \t]*)'
@@ -282,8 +282,8 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         # compute cache key
         key = str(specialization) + str(options)
-        if "debug_value" in kwargs:
-            key += kwargs["debug_value"]
+        if "dump_value" in kwargs:
+            key += kwargs["dump_value"]
         if (runner_source_dir_str := super().get_runner_source_dir_str(kwargs)):
             key += runner_source_dir_str
         kernel = kernel_cache.get(key, None)
@@ -312,21 +312,21 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
             attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
 
-            if self.need_debug(kwargs):
-                debug_tensor = kwargs["debug_tensor"]
-                from .color_print import check_debug_tensor_dtype
-                check_debug_tensor_dtype(debug_tensor)
+            if self.need_dump(kwargs):
+                dump_tensor = kwargs["dump_tensor"]
+                from .color_print import check_dump_tensor_dtype
+                check_dump_tensor_dtype(dump_tensor)
                 if  not source_dir_type in ["ttir_dir", "ttgir_dir"]:
                     src = self.ASTSource(self, signature, constexprs, attrs)
                     module = get_source_ir(src, target=target, options=options.__dict__)
                     runner_cache_dir =  os.path.join(knobs.cache.dir, "runner_cache")
                     os.makedirs(runner_cache_dir, exist_ok=True)
-                    debug_content = self.insert_debug_tensor_param(str(module))
-                    debug_content = self.inject_dump_op_debug_store(debug_content)
-                    src = os.path.join(runner_cache_dir, f"{self.__name__}-debug.ttir")
+                    dump_content = self.insert_dump_tensor_param(str(module))
+                    dump_content = self.inject_dump_op_dump_store(dump_content)
+                    src = os.path.join(runner_cache_dir, f"{self.__name__}-dump.ttir")
                     with open(src, "w") as file:
-                        file.write(debug_content)
-                signature["debug_tensor"], bound_args["debug_tensor"] = "*fp32", debug_tensor
+                        file.write(dump_content)
+                signature["dump_tensor"], bound_args["dump_tensor"] = "*fp32", dump_tensor
 
             if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs],
                                warmup):
@@ -337,21 +337,21 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             if source_dir_type:
                 source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
                 src = os.path.join(kwargs[source_dir_type], source_file_name)
-                if self.need_debug(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
+                if self.need_dump(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
                     if not os.path.exists(src):
                         src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
                     if not os.path.exists(src):
                         raise RuntimeError("Check .source/.ttir/.ttgir file for dump.")
-                    debug_content = self.insert_debug_tensor_param(open(src, "r").read())
-                    debug_content = self.inject_ssa_ir_debug_store(debug_content, kwargs["debug_value"])
-                    src = os.path.join(kwargs[source_dir_type], f"debug.{source_dir_type[:-4]}")
+                    dump_content = self.insert_dump_tensor_param(open(src, "r").read())
+                    dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"])
+                    src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
                     with open(src, "w") as file:
-                        file.write(debug_content)
+                        file.write(dump_content)
                 if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
                     json_file_name = f"{self.__name__}.json"
                     json_path = os.path.join(kwargs[source_dir_type], json_file_name)
                     metadata_json = json.loads(open(json_path, "r").read())
-            elif self.need_debug(kwargs):
+            elif self.need_dump(kwargs):
                 source_dir_type = "ttir_dir"
             else:
                 src = ast_src
