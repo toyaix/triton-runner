@@ -34,6 +34,22 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
         return ""
 
+    def runner_compile(self, ast_src, kwargs, target, options):
+        metadata_json = {}
+        source_dir_type = self.get_runner_source_dir_str(kwargs)
+        if source_dir_type:
+            source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
+            src = os.path.join(kwargs[source_dir_type], source_file_name)
+            if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
+                json_file_name = f"{self.__name__}.json"
+                json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+                metadata_json = json.loads(open(json_path, "r").read())
+        else:
+            src = ast_src
+
+        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
+        return kernel
+
 
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
@@ -419,7 +435,11 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
                 return None
             # compile the kernel
             src = self.ASTSource(self, signature, constexprs, attrs)
-            kernel = self.compile(src, target=target, options=options.__dict__)
+
+            # [Triton Runner] change compile
+            kernel = self.runner_compile(src, kwargs, target, options)
+            # kernel = self.compile(src, target=target, options=options.__dict__)
+
             kernel_cache[key] = kernel
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                             warmup)
