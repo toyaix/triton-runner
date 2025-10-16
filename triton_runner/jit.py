@@ -341,7 +341,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                     if not os.path.exists(src):
                         src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
                     if not os.path.exists(src):
-                        raise RuntimeError("Check .source/.ttir/.ttgir file for debugging.")
+                        raise RuntimeError("Check .source/.ttir/.ttgir file for dump.")
                     debug_content = self.insert_debug_tensor_param(open(src, "r").read())
                     debug_content = self.inject_ssa_ir_debug_store(debug_content, kwargs["debug_value"])
                     src = os.path.join(kwargs[source_dir_type], f"debug.{source_dir_type[:-4]}")
