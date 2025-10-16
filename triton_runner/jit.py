@@ -39,9 +39,10 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         if source_dir_type:
             source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
             src = os.path.join(kwargs[source_dir_type], source_file_name)
-            if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
-                json_file_name = f"{self.__name__}.json"
-                json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+            json_file_name = f"{self.__name__}.json"
+            json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+            json_type_lst = {"cubin_dir", "llir_dir", "ptx_dir", "ttgir_dir"}
+            if source_dir_type in json_type_lst and os.path.exists(json_path):
                 metadata_json = json.loads(open(json_path, "r").read())
         else:
             src = ast_src
