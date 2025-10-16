@@ -64,6 +64,7 @@ flowchart LR
         C --> D["LLIR<br>LLVM IR"]:::supported
 
         Gluon["Python<br>Gluon"]:::supported --> C
+        TLX["Python<br>TLX"]:::supported --> B
     end
 
     subgraph Backend
@@ -75,7 +76,7 @@ flowchart LR
     classDef unsupported fill:#F5B7B1,stroke:#C0392B,stroke-width:2px,color:#000000;
 ```
 
-TLX (Minimally Invasive Paths to Performance Portability) will be supported in [Meta/Triton](https://github.com/facebookexperimental/triton/tree/tlx) after it is uploaded to PyPI.
+[TLX](https://github.com/facebookexperimental/triton/tree/tlx) (Minimally Invasive Paths to Performance Portability) is supported in [examples/runner/tlx](examples/runner/tlx).
 
 #### 1. Python Runner
 
@@ -98,6 +99,8 @@ TTGIR(Triton GPU IR) is architecture-aware and upwardly compatible. In the `.ttg
 Similar to the `TTIR Runner`, you need to provide a `.ttgir` file and specify its location in the program. See an example in [examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py](./examples/runner/v3.4.0/ttgir/sm90/matmul-with-tma-v4.py#L76).
 
 Because TTGIR is upwardly compatible, you can run the example using the `TTGIR Runner` with `python examples/runner/v3.4.0/ttgir/sm75/matmul.py`.
+
+If you got `torch.AcceleratorError: CUDA error: an illegal instruction was encountered`, please add corresponding metadata JSON file.
 
 #### 4. LLIR/PTX/cubin Runner
 
