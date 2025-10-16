@@ -187,6 +187,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         metadata["name"] = metadata_json["name"]
         metadata["shared"] = metadata_json["shared"]
         if not triton.__version__ in ["3.2.0", "3.1.0"]:
+            metadata["cluster_dims"] = metadata_json.get("cluster_dims", (1,1,1))
+            metadata["tensordesc_meta"] = metadata_json.get("tensordesc_meta", None)
+            metadata["num_warps"] = metadata_json.get("num_warps", 4)
             metadata["tmem_size"] = metadata_json.get("tmem_size", 0)
             metadata["global_scratch_size"] = metadata_json.get("global_scratch_size", 0)
             metadata["global_scratch_align"] = metadata_json.get("global_scratch_align", 1)
