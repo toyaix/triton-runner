@@ -34,9 +34,8 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
         return ""
 
-    def runner_compile(self, ast_src, kwargs, target, options):
+    def runner_compile(self, ast_src, source_dir_type, kwargs, target, options):
         metadata_json = {}
-        source_dir_type = self.get_runner_source_dir_str(kwargs)
         if source_dir_type:
             source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
             src = os.path.join(kwargs[source_dir_type], source_file_name)
@@ -47,8 +46,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         else:
             src = ast_src
 
-        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
-        return kernel
+        return native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
 
 
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
@@ -386,6 +384,10 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
 class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
 
+    def get_source_dir_type(self, kwargs, options, sigkeys):
+        return super().get_source_dir_type(
+            [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
+
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
         from triton._utils import find_paths_if, get_iterable_path
@@ -420,9 +422,13 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
             assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
             assert "device" not in kwargs, "device option is deprecated; current device will be used"
             assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
-            for k in kwargs:
-                if k not in options.__dict__ and k not in sigkeys:
-                    raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+
+            # [Triton Runner] change check keyword argument
+            source_dir_type = self.get_source_dir_type(kwargs, options, sigkeys)
+            # for k in kwargs:
+            #     if k not in options.__dict__ and k not in sigkeys:
+            #         raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+
             # constexprs
             constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
             constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
@@ -437,7 +443,7 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
             src = self.ASTSource(self, signature, constexprs, attrs)
 
             # [Triton Runner] change compile
-            kernel = self.runner_compile(src, kwargs, target, options)
+            kernel = self.runner_compile(src, source_dir_type, kwargs, target, options)
             # kernel = self.compile(src, target=target, options=options.__dict__)
 
             kernel_cache[key] = kernel
