@@ -1,5 +1,5 @@
 <h3 align="center">
-Multi-Level Triton Runner(Debugging) 🔧
+Multi-Level Triton Runner(Dump) 🔧
 </h3>
 
 <p align="center">
@@ -14,12 +14,12 @@ Triton Runner is a lightweight, multi-level execution engine for [OpenAI/Triton]
 
 Triton Runner is compatible with Triton v3.5.0, **v3.4.0 (primary)**, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.
 
-Triton Runner supports multi-level debugging across Python/TTIR/TTGIR on Triton **v3.4.0**.
+Triton Runner supports multi-level dump across Python/TTIR/TTGIR on Triton **v3.4.0**.
 
 ## ✨ Features
 
 - [I. Multi-Level Runner](#i-multi-level-runner)
-- [II. Multi-Level Debugging](#ii-multi-level-debugging)
+- [II. Multi-Level Dump](#ii-multi-level-dump)
 - [III. Benchmarks](#iii-benchmarks)
 - [IV. Solving Triton Issues](#iv-solving-triton-issues)
 
@@ -154,9 +154,9 @@ Please refer to the appropriate examples directory based on your Triton version:
 - For Triton v3.1.0, in [examples/runner/v3.1.0](./examples/runner/v3.1.0).
 - For Triton v3.0.0, in [examples/runner/v3.0.0](./examples/runner/v3.0.0).
 
-### II. Multi-Level Debugging
+### II. Multi-Level Dump
 
-Python/TTIR/TTGIR now support debugging on Triton v3.4.0.
+Python/TTIR/TTGIR now support dump on Triton v3.4.0.
 
 ```mermaid
 ---
@@ -183,38 +183,38 @@ flowchart LR
 
 #### 1. Python Debug
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called debug_tensor, and simply pass it to the kernel through the debug_tensor parameter. Here are some example commands for debugging. See more in [examples/debugging/README.md](./examples/debugging/README.md#1-python-debug).
+In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called debug_tensor, and simply pass it to the kernel through the debug_tensor parameter. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#1-python-debug).
 
 ```shell
-python examples/debugging/python/01-vec_add/debug_output.py
-python examples/debugging/python/03-matrix_multiplication/debug_acc.py
-python examples/debugging/python/04-softmax/debug_max_in_loop.py
-python examples/debugging/python/05-softmax_lse/debug_log_acc.py
-python examples/debugging/python/06-attention/debug_out.py
+python examples/dump/python/01-vec_add/debug_output.py
+python examples/dump/python/03-matrix_multiplication/debug_acc.py
+python examples/dump/python/04-softmax/debug_max_in_loop.py
+python examples/dump/python/05-softmax_lse/debug_log_acc.py
+python examples/dump/python/06-attention/debug_out.py
 ```
 
 #### 2. TTIR Debug
 
-Debugging is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging. See more in [examples/debugging/README.md](./examples/debugging/README.md#2-ttir-debug).
+Dump is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#2-ttir-debug).
 
 ```shell
-python examples/debugging/ttir/01-vector_add/debug_addf.py
-python examples/debugging/ttir/03-matrix_multiplication/debug_acc.py
-python examples/debugging/ttir/04-softmax/debug_maxnumf.py
-python examples/debugging/ttir/05-softmax_lse/debug_more.py
-python examples/debugging/ttir/06-attention/debug_out.py
+python examples/dump/ttir/01-vector_add/debug_addf.py
+python examples/dump/ttir/03-matrix_multiplication/debug_acc.py
+python examples/dump/ttir/04-softmax/debug_maxnumf.py
+python examples/dump/ttir/05-softmax_lse/debug_more.py
+python examples/dump/ttir/06-attention/debug_out.py
 ```
 
 #### 3. TTGIR Debug
 
-Debugging is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for debugging. See more in [examples/debugging/README.md](./examples/debugging/README.md#3-ttgir-debug).
+Dump is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#3-ttgir-debug).
 
 ```shell
-python examples/debugging/ttgir/01-vec_add/debug_addf.py
-python examples/debugging/ttgir/03-matrix_multiplication/debug_acc.py
-python examples/debugging/ttgir/04-softmax/debug_maxnumf.py
-python examples/debugging/ttgir/05-softmax_lse/debug_more.py
-python examples/debugging/ttgir/06-attention/debug_out.py
+python examples/dump/ttgir/01-vec_add/debug_addf.py
+python examples/dump/ttgir/03-matrix_multiplication/debug_acc.py
+python examples/dump/ttgir/04-softmax/debug_maxnumf.py
+python examples/dump/ttgir/05-softmax_lse/debug_more.py
+python examples/dump/ttgir/06-attention/debug_out.py
 ```
 
 ### III. Benchmarks
