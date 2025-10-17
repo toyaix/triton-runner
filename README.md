@@ -181,40 +181,40 @@ flowchart LR
     classDef unsupported fill:#F5B7B1,stroke:#C0392B,stroke-width:2px,color:#000000;
 ```
 
-#### 1. Python Debug
+#### 1. Python Dump
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called dump_tensor, and simply pass it to the kernel through the dump_tensor parameter. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#1-python-debug).
+In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called dump_tensor, and simply pass it to the kernel through the dump_tensor parameter. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#1-python-dump).
 
 ```shell
-python examples/dump/python/01-vec_add/debug_output.py
-python examples/dump/python/03-matrix_multiplication/debug_acc.py
-python examples/dump/python/04-softmax/debug_max_in_loop.py
-python examples/dump/python/05-softmax_lse/debug_log_acc.py
-python examples/dump/python/06-attention/debug_out.py
+python examples/dump/python/01-vec_add/dump_output.py
+python examples/dump/python/03-matrix_multiplication/dump_acc.py
+python examples/dump/python/04-softmax/dump_max_in_loop.py
+python examples/dump/python/05-softmax_lse/dump_log_acc.py
+python examples/dump/python/06-attention/dump_out.py
 ```
 
-#### 2. TTIR Debug
+#### 2. TTIR Dump
 
-Dump is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#2-ttir-debug).
+Dump is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#2-ttir-dump).
 
 ```shell
-python examples/dump/ttir/01-vector_add/debug_addf.py
-python examples/dump/ttir/03-matrix_multiplication/debug_acc.py
-python examples/dump/ttir/04-softmax/debug_maxnumf.py
-python examples/dump/ttir/05-softmax_lse/debug_more.py
-python examples/dump/ttir/06-attention/debug_out.py
+python examples/dump/ttir/01-vector_add/dump_addf.py
+python examples/dump/ttir/03-matrix_multiplication/dump_acc.py
+python examples/dump/ttir/04-softmax/dump_maxnumf.py
+python examples/dump/ttir/05-softmax_lse/dump_more.py
+python examples/dump/ttir/06-attention/dump_out.py
 ```
 
-#### 3. TTGIR Debug
+#### 3. TTGIR Dump
 
-Dump is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#3-ttgir-debug).
+Dump is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans` in Triton v3.4.0. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#3-ttgir-dump).
 
 ```shell
-python examples/dump/ttgir/01-vec_add/debug_addf.py
-python examples/dump/ttgir/03-matrix_multiplication/debug_acc.py
-python examples/dump/ttgir/04-softmax/debug_maxnumf.py
-python examples/dump/ttgir/05-softmax_lse/debug_more.py
-python examples/dump/ttgir/06-attention/debug_out.py
+python examples/dump/ttgir/01-vec_add/dump_addf.py
+python examples/dump/ttgir/03-matrix_multiplication/dump_acc.py
+python examples/dump/ttgir/04-softmax/dump_maxnumf.py
+python examples/dump/ttgir/05-softmax_lse/dump_more.py
+python examples/dump/ttgir/06-attention/dump_out.py
 ```
 
 ### III. Benchmarks
