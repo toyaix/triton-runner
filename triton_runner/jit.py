@@ -6,7 +6,7 @@ from .compiler import native_compile, get_source_ir
 import os
 import json
 import re
-from .debug_utils import get_injected_ir
+from .dump_utils import get_injected_ir
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
