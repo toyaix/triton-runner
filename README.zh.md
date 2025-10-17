@@ -45,7 +45,15 @@ pip install -e .
 
 内容可能会有滞后，最新请到[知乎专栏](https://www.zhihu.com/column/c_1959013459611059049)查看，也欢迎订阅专栏 ❤️。
 
-[Triton Runner：项目介绍](https://zhuanlan.zhihu.com/p/1953369848705971938)
+[Triton Runner：项目介绍及展望](https://zhuanlan.zhihu.com/p/1953369848705971938)
+
+[Triton Runner：多层级执行](https://zhuanlan.zhihu.com/p/1962780277102314198)
+
+[Triton Runner：多层级执行实战](https://zhuanlan.zhihu.com/p/1962781206987903833)
+
+[Triton Runner：多层级dump](https://zhuanlan.zhihu.com/p/1962781753031763780)
+
+[Triton Runner：benchmark](https://zhuanlan.zhihu.com/p/1962782889830781511)
 
 ## [开发文档](https://www.zhihu.com/column/c_1940119129400013405)
 
