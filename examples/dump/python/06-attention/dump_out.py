@@ -3,9 +3,11 @@
 import torch
 import triton
 import triton.language as tl
+import triton_runner
+import triton_runner.language as dl
 
 
-@triton.jit
+@triton_runner.jit
 def _attn_fwd(
     Q,
     K,
@@ -146,6 +148,11 @@ def _attn_fwd(
     sink = tl.math.exp(sink - m_i)
     z = l_i + sink
     acc = acc / z[:, None]
+
+    # ===== DEBUG START =====
+    dl.dump(acc)
+    # ===== DEBUG END =====
+
     # m_i += tl.math.log(l_i)
     # m_ptrs = M + off_hz * N_Q_CTX + offs_m
     # tl.store(m_ptrs, m_i)
@@ -239,6 +246,8 @@ class _attention(torch.autograd.Function):
     def forward(ctx, q, k, v, sinks, sm_scale, bandwidth, start_q):
         assert len(start_q) == 1
         # move top to avoid view
+        dump_torch = torch_attn(q, k, v, sinks, sm_scale, sliding_window, start_q)
+
         bs, n_ctx, n_kv_heads, repeat_kv, HEAD_DIM_Q = q.shape
         bs, n_kv_ctx, n_kv_heads, HEAD_DIM_K = k.shape
         bs, n_kv_ctx, n_kv_heads, HEAD_DIM_V = v.shape
@@ -265,6 +274,8 @@ class _attention(torch.autograd.Function):
         o = torch.empty_like(q)
         # M = torch.empty((bs, n_heads, n_ctx + m_pad_size), device=q.device, dtype=torch.float32)
         grid = (triton.cdiv(n_ctx, BLOCK_M), bs * n_heads, 1)
+
+        dump_tensor = torch.empty((BLOCK_M, HEAD_DIM_K), dtype=torch.float32, device=q.device)
 
         _attn_fwd[grid](
             q,
@@ -300,7 +311,12 @@ class _attention(torch.autograd.Function):
             BLOCK_M=BLOCK_M,
             BLOCK_N=BLOCK_N,
             num_stages=2,
+            dump_tensor=dump_tensor,
         )
+        triton_runner.color_print.blue_print(f"debug {dump_tensor}")
+        dump_torch = dump_torch.view(bs * n_ctx, n_heads * HEAD_DIM_V)
+        max_diff = torch.max(torch.abs(dump_torch[:BLOCK_M, :HEAD_DIM_K] - dump_tensor))
+        triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
 
         # ctx.save_for_backward(q, k, v, sinks, o, M, start_q)
         # ctx.sm_scale = sm_scale

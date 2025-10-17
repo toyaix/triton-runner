@@ -13,7 +13,6 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
                y_ptr,  # *Pointer* to second input vector.
                output_ptr,  # *Pointer* to output vector.
                n_elements,  # Size of the vector.
-               dump_tensor,
                BLOCK_SIZE: tl.constexpr,  # Number of elements each program should process.
                # NOTE: `constexpr` so it can be used as a shape value.
                ):
@@ -33,17 +32,6 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
     x = tl.load(x_ptr + offsets, mask=mask)
     y = tl.load(y_ptr + offsets, mask=mask)
     output = x + y
-
-    # ===== DEBUG START =====
-    pid_x = tl.program_id(axis=0)
-    pid_y = tl.program_id(axis=1)
-    pid_z = tl.program_id(axis=2)
-    # only save once
-    if (pid_x == 0 and pid_y == 0) and pid_z == 0:
-        off = tl.arange(0, BLOCK_SIZE)
-        tl.store(dump_tensor + off, output)
-    # ===== DEBUG END =====
-
     # Write x + y back to DRAM.
     tl.store(output_ptr + offsets, output, mask=mask)
 
@@ -65,13 +53,18 @@ def add(x: torch.Tensor, y: torch.Tensor):
 
     BLOCK_SIZE = 1024
     dump_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
+    # dump_value can be "%13"(x+y)
+    dump_value = "%13"
 
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
     #  - `triton.jit`'ed functions can be indexed with a launch grid to obtain a callable GPU kernel.
     #  - Don't forget to pass meta-parameters as keywords arguments.
-    add_kernel[grid](x, y, output, n_elements, dump_tensor, BLOCK_SIZE=BLOCK_SIZE)
-
+    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE,
+                     ttgir_dir=triton_runner.get_file_dir(__file__),
+                     dump_tensor=dump_tensor,
+                     dump_value=dump_value,
+    )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     dump_torch = x + y
     max_diff = torch.max(torch.abs(dump_torch[:BLOCK_SIZE] - dump_tensor))
