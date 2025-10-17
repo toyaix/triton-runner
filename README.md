@@ -3,7 +3,7 @@ Multi-Level Triton Runner(Dump) 🔧
 </h3>
 
 <p align="center">
-<a href="./doc/"><b>Documentation</b></a> ｜ <a href="README.zh.md#%E7%94%A8%E6%88%B7%E6%96%87%E6%A1%A3"><b>优质中文文档</b></a> | <a href="https://triton-runner.org"><b>🔗 triton-runner.org</b></a>
+<a href="./doc/"><b>Documentation</b></a> ｜ <a href="README.zh.md#用户文档"><b>精作中文文档</b></a> | <a href="https://triton-runner.org"><b>🔗 triton-runner.org</b></a>
 </p>
 
 <p align="center">
