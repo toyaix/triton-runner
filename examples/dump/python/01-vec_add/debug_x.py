@@ -58,18 +58,18 @@ def add(x: torch.Tensor, y: torch.Tensor):
     grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
 
     BLOCK_SIZE = 1024
-    debug_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
+    dump_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
 
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
     #  - `triton.jit`'ed functions can be indexed with a launch grid to obtain a callable GPU kernel.
     #  - Don't forget to pass meta-parameters as keywords arguments.
     add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE,
-                     debug_tensor=debug_tensor,
+                     dump_tensor=dump_tensor,
     )
-    triton_runner.color_print.blue_print(f"debug {debug_tensor}")
+    triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     debug_torch = x
-    max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE] - debug_tensor))
+    max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE] - dump_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still
     # running asynchronously at this point.

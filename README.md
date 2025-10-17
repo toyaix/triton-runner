@@ -183,7 +183,7 @@ flowchart LR
 
 #### 1. Python Debug
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called debug_tensor, and simply pass it to the kernel through the debug_tensor parameter. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#1-python-debug).
+In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called dump_tensor, and simply pass it to the kernel through the dump_tensor parameter. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#1-python-debug).
 
 ```shell
 python examples/dump/python/01-vec_add/debug_output.py

@@ -28,7 +28,7 @@ def softmax_kernel(
     offset = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
     mask = offset < N
     x = tl.load(input_ptr + offset, mask=mask)
-    exp_shifted = tl.exp(x - max) 
+    exp_shifted = tl.exp(x - max)
     normalize_by_sum =  exp_shifted / sum
     tl.store(output_ptr + offset, normalize_by_sum, mask=mask)
 
@@ -37,20 +37,20 @@ def solve(input: torch.Tensor, output: torch.Tensor, N: int):
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
 
     BLOCK_SIZE = 32768
-    debug_tensor = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
-    # debug_value can be "%29"(_max in loop)
-    debug_value = "%29"
+    dump_tensor = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
+    # dump_value can be "%29"(_max in loop)
+    dump_value = "%29"
 
     softmax_kernel[grid](
         input, output, N,
         BLOCK_SIZE=BLOCK_SIZE,
         ttir_dir=triton_runner.get_file_dir(__file__),
-        debug_tensor=debug_tensor,
-        debug_value=debug_value,
+        dump_tensor=dump_tensor,
+        dump_value=dump_value,
     )
-    triton_runner.color_print.blue_print(f"debug {debug_tensor}")
+    triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     debug_torch = input
-    max_diff = torch.max(torch.abs(debug_torch.max() - debug_tensor.max()))
+    max_diff = torch.max(torch.abs(debug_torch.max() - dump_tensor.max()))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
 

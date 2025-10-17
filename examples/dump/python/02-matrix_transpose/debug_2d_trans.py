@@ -27,17 +27,17 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
     grid = lambda meta: (triton.cdiv(rows, meta['BLOCK_SIZE']), triton.cdiv(cols, meta['BLOCK_SIZE']))
 
     BLOCK_SIZE = 64
-    debug_tensor = torch.empty((BLOCK_SIZE, BLOCK_SIZE), dtype=input.dtype, device=input.device)
+    dump_tensor = torch.empty((BLOCK_SIZE, BLOCK_SIZE), dtype=input.dtype, device=input.device)
 
     matrix_transpose_kernel[grid](
         input, output,
         rows, cols,
         BLOCK_SIZE=BLOCK_SIZE,
-        debug_tensor=debug_tensor,
+        dump_tensor=dump_tensor,
     )
-    triton_runner.color_print.blue_print(f"debug {debug_tensor}")
+    triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     debug_torch = output
-    max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE, :BLOCK_SIZE] - debug_tensor))
+    max_diff = torch.max(torch.abs(debug_torch[:BLOCK_SIZE, :BLOCK_SIZE] - dump_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
 if __name__ == "__main__":

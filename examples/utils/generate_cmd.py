@@ -10,9 +10,9 @@ def list_files_rel(path):
     return sorted(files)
 
 old_dirname = ""
-for f in list_files_rel("examples/debugging/python"):
+for f in list_files_rel("examples/dump/python"):
     dirname, filename = os.path.split(f)
     if dirname != old_dirname:
         print()
     old_dirname = dirname
-    print("python", f"examples/debugging/python/{f}")
+    print("python", f"examples/dump/python/{f}")

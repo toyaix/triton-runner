@@ -51,7 +51,7 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
     grid = lambda META: (triton.cdiv(K, META['BLOCK_SIZE_K']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
-    debug_tensor = torch.empty(c.shape, dtype=torch.float32, device=a.device)
+    dump_tensor = torch.empty(c.shape, dtype=torch.float32, device=a.device)
 
     matrix_multiplication_kernel[grid](
         a, b, c,
@@ -61,18 +61,18 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
         c.stride(0), c.stride(1),
         BLOCK_SIZE_M=BLOCK_SIZE_M,
         BLOCK_SIZE_K=BLOCK_SIZE_K,
-        debug_tensor=debug_tensor,
+        dump_tensor=dump_tensor,
     )
     debug_grid_0, debug_grid_1, grid_0_num = 1, 0, 192 // 32
     grid_id = debug_grid_0 * grid_0_num + debug_grid_1
     one_block_size = (BLOCK_SIZE_M * BLOCK_SIZE_K)
     offset = grid_id * one_block_size
-    debug_tensor_slice = debug_tensor.view(-1)[offset:offset+one_block_size].reshape(BLOCK_SIZE_M, BLOCK_SIZE_K)
-    triton_runner.color_print.blue_print(f"debug {debug_tensor_slice}")
+    dump_tensor_slice = dump_tensor.view(-1)[offset:offset+one_block_size].reshape(BLOCK_SIZE_M, BLOCK_SIZE_K)
+    triton_runner.color_print.blue_print(f"debug {dump_tensor_slice}")
     debug_torch = a @ b
     start_grid_0, start_grid_1 = debug_grid_0 * BLOCK_SIZE_K, debug_grid_1 * BLOCK_SIZE_M
     dump_torch_slice = debug_torch[start_grid_1:start_grid_1+BLOCK_SIZE_M, start_grid_0:start_grid_0+BLOCK_SIZE_K]
-    max_diff = torch.max(torch.abs(dump_torch_slice - debug_tensor_slice))
+    max_diff = torch.max(torch.abs(dump_torch_slice - dump_tensor_slice))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
 if __name__ == "__main__":

@@ -42,9 +42,9 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
     grid = lambda META: (triton.cdiv(K, META['BLOCK_SIZE_K']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
-    debug_tensor = torch.empty((1, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
-    # debug_value can be "%113"(b.to(tl.float32))
-    debug_value = "%113"
+    dump_tensor = torch.empty((1, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
+    # dump_value can be "%113"(b.to(tl.float32))
+    dump_value = "%113"
 
     matrix_multiplication_kernel[grid](
         a, b, c,
@@ -55,12 +55,12 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
         BLOCK_SIZE_M=BLOCK_SIZE_M,
         BLOCK_SIZE_K=BLOCK_SIZE_K,
         ttir_dir=triton_runner.get_file_dir(__file__),
-        debug_tensor=debug_tensor,
-        debug_value=debug_value,
+        dump_tensor=dump_tensor,
+        dump_value=dump_value,
     )
-    triton_runner.color_print.blue_print(f"debug {debug_tensor}")
+    triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     debug_torch = b
-    max_diff = torch.max(torch.abs(debug_torch[N-1:N, :BLOCK_SIZE_K] - debug_tensor))
+    max_diff = torch.max(torch.abs(debug_torch[N-1:N, :BLOCK_SIZE_K] - dump_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
 if __name__ == "__main__":

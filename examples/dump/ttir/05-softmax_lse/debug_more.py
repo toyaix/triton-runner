@@ -48,35 +48,35 @@ def solve(input: torch.Tensor, output: torch.Tensor, N: int):
 
     BLOCK_SIZE = 32768
 
-    debug_tensor_0 = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
-    # debug_value can be %32(tl.math.exp(max_acc - max_acc_new) * log_acc)
-    debug_value = "%32"
+    dump_tensor_0 = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
+    # dump_value can be %32(tl.math.exp(max_acc - max_acc_new) * log_acc)
+    dump_value = "%32"
 
     softmax_kernel[grid](
         input, output, N,
         BLOCK_SIZE=BLOCK_SIZE,
         ttir_dir=triton_runner.get_file_dir(__file__),
-        debug_tensor=debug_tensor_0,
-        debug_value=debug_value,
+        dump_tensor=dump_tensor_0,
+        dump_value=dump_value,
     )
-    triton_runner.color_print.blue_print(f"debug {debug_tensor_0}")
+    triton_runner.color_print.blue_print(f"debug {dump_tensor_0}")
 
-    debug_tensor_1 = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
-    # debug_value can be "%29"(raw_exp in loop)
-    debug_value = "%29"
+    dump_tensor_1 = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
+    # dump_value can be "%29"(raw_exp in loop)
+    dump_value = "%29"
 
     softmax_kernel[grid](
         input, output, N,
         BLOCK_SIZE=BLOCK_SIZE,
         ttir_dir=triton_runner.get_file_dir(__file__),
-        debug_tensor=debug_tensor_1,
-        debug_value=debug_value,
+        dump_tensor=dump_tensor_1,
+        dump_value=dump_value,
     )
-    triton_runner.color_print.blue_print(f"debug {debug_tensor_1}")
+    triton_runner.color_print.blue_print(f"debug {dump_tensor_1}")
 
     debug_torch = torch_softmax(input)
-    debug_tensor = debug_tensor_0 + debug_tensor_1.sum()
-    max_diff = torch.max(torch.abs(debug_torch - debug_tensor))
+    dump_tensor = dump_tensor_0 + dump_tensor_1.sum()
+    max_diff = torch.max(torch.abs(debug_torch - dump_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
 

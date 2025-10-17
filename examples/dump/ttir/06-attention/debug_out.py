@@ -269,9 +269,9 @@ class _attention(torch.autograd.Function):
         grid = (triton.cdiv(n_ctx, BLOCK_M), bs * n_heads, 1)
 
 
-        debug_tensor = torch.empty((BLOCK_M, HEAD_DIM_K), dtype=torch.float32, device=q.device)
-        # debug_value can be "%69"(acc / z[:, None])
-        debug_value = "%69"
+        dump_tensor = torch.empty((BLOCK_M, HEAD_DIM_K), dtype=torch.float32, device=q.device)
+        # dump_value can be "%69"(acc / z[:, None])
+        dump_value = "%69"
 
         _attn_fwd[grid](
             q,
@@ -308,12 +308,12 @@ class _attention(torch.autograd.Function):
             BLOCK_N=BLOCK_N,
             num_stages=2,
             ttir_dir=triton_runner.get_file_dir(__file__),
-            debug_tensor=debug_tensor,
-            debug_value=debug_value,
+            dump_tensor=dump_tensor,
+            dump_value=dump_value,
         )
-        triton_runner.color_print.blue_print(f"debug {debug_tensor}")
+        triton_runner.color_print.blue_print(f"debug {dump_tensor}")
         debug_torch = debug_torch.view(bs * n_ctx, n_heads * HEAD_DIM_V)
-        max_diff = torch.max(torch.abs(debug_torch[:BLOCK_M, :HEAD_DIM_K] - debug_tensor))
+        max_diff = torch.max(torch.abs(debug_torch[:BLOCK_M, :HEAD_DIM_K] - dump_tensor))
         triton_runner.color_print.yellow_print(f"The maximum difference between torch and debug is {max_diff}")
 
         # ctx.save_for_backward(q, k, v, sinks, o, M, start_q)

@@ -268,11 +268,6 @@ class _attention(torch.autograd.Function):
         # M = torch.empty((bs, n_heads, n_ctx + m_pad_size), device=q.device, dtype=torch.float32)
         grid = (triton.cdiv(n_ctx, BLOCK_M), bs * n_heads, 1)
 
-
-        debug_tensor = torch.empty((BLOCK_M, HEAD_DIM_K), dtype=torch.float32, device=q.device)
-        # debug_value can be "%69"(acc / z[:, None])
-        debug_value = "%69"
-
         _attn_fwd[grid](
             q,
             k,
