@@ -54,7 +54,8 @@ def add(x: torch.Tensor, y: torch.Tensor):
     # In this case, we use a 1D grid where the size is the number of blocks:
     grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
     BLOCK_SIZE = 1024
-    dump_tensor = torch.empty_like(x)
+    new_shape = tuple(triton.cdiv(dim, BLOCK_SIZE) * BLOCK_SIZE for dim in x.shape)
+    dump_tensor = torch.empty(new_shape, dtype=torch.float32, device=x.device)
 
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
@@ -65,7 +66,7 @@ def add(x: torch.Tensor, y: torch.Tensor):
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     dump_torch = x + y
-    max_diff = torch.max(torch.abs(dump_torch - dump_tensor))
+    max_diff = torch.max(torch.abs(dump_torch - dump_tensor[:n_elements]))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still
     # running asynchronously at this point.
