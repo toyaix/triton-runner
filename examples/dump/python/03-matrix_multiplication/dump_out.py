@@ -38,8 +38,7 @@ def matrix_multiplication_kernel(
     c_mask = (offs_m[:, None] < M) & (offs_k[None, :] < K)
 
     # ===== DEBUG START =====
-    # only support fp32, need .to(tl.float32)
-    dl.dump(accumulator.to(c_ptr.dtype.element_ty).to(tl.float32))
+    dl.dump(accumulator.to(c_ptr.dtype.element_ty))
     # ===== DEBUG END =====
 
     tl.store(c_ptrs, accumulator.to(c_ptr.dtype.element_ty), mask=c_mask)
