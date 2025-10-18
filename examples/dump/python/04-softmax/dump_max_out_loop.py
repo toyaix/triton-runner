@@ -20,7 +20,7 @@ def softmax_kernel(
         _max = tl.maximum(a, _max)
 
     # ===== DEBUG START =====
-    dl.dump(_max+0)
+    dl.dump(_max)
     # ===== DEBUG END =====
 
     max = tl.max(_max, axis=0)

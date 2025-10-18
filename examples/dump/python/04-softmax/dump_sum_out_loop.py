@@ -26,7 +26,7 @@ def softmax_kernel(
         _sum += tl.exp(a - max)
 
     # ===== DEBUG START =====
-    dl.dump(_sum+0)
+    dl.dump(_sum)
     # ===== DEBUG END =====
 
     sum = tl.sum(_sum, axis=0)
