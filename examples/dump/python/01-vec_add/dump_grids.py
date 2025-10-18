@@ -32,7 +32,7 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
     output = x + y
 
     # ===== DEBUG START =====
-    dl.dump_grids(output, block_start)
+    dl.dump_grids(output)
     # ===== DEBUG END =====
 
     # Write x + y back to DRAM.
