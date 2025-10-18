@@ -38,6 +38,8 @@ cmake-build-*
 # macOS
 .DS_Store
 
-**/debug.ttir
-**/debug.ttgir
+**/dump.ttir
+**/dump.ttgir
 triton_runner/README.md
+fused-attention-*
+results.html

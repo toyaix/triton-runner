@@ -28,7 +28,7 @@ if match:
     bench_file_path = os.path.join("doc", "benchmark.md")
     lines.extend(get_lines(pattern.search(get_content(bench_file_path))))
     if triton_version in ["3.4.0"]:
-        debug_file_path = os.path.join("doc", "debugging.md")
+        debug_file_path = os.path.join("doc", "dump.md")
         for i, m in enumerate(pattern.finditer((get_content(debug_file_path)), 1)):
             lines.extend(get_lines(m))
     fail_cmd = []
