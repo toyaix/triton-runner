@@ -30,3 +30,13 @@ def dump(val: tl.tensor, offset=0, pid_0=0, pid_1=0, pid_2=0, _semantic=None):
     then_block.merge_block_before(if_op.get_then_block())
     _semantic.builder.restore_insertion_point(ip)
     _semantic.builder.set_loc(last_loc)
+
+
+@builtin
+def dump_grids(val: tl.tensor, offset, _semantic=None):
+    scalar_offset = _semantic.make_scalar(offset, tl.int32)
+    const_zero = _semantic.make_scalar(0, tl.int32)
+    val = val.to(tl.float32, _semantic=_semantic)
+    dump_val = _semantic.add(val, 0, False)
+    dump_val.handle.set_attr("tt.dump", ir.make_attr([1], dump_val.handle.get_context()))
+    offset_val = _semantic.add(scalar_offset, const_zero, False)
