@@ -5,16 +5,16 @@ from typing import List
 from triton.language.core import builtin
 
 @builtin
-def dump(val: tl.tensor, offset=0, pid_0=0, pid_1=0, pid_2=0, _semantic=None):
-    query_pid_0 = _semantic.program_id(0)
-    query_pid_1 = _semantic.program_id(1)
-    query_pid_2 = _semantic.program_id(2)
-    pid_0_val = _semantic.make_scalar(pid_0, tl.int32)
-    pid_1_val = _semantic.make_scalar(pid_1, tl.int32)
-    pid_2_val = _semantic.make_scalar(pid_2, tl.int32)
-    pid_0_eq = _semantic.equal(query_pid_0, pid_0_val)
-    pid_1_eq = _semantic.equal(query_pid_1, pid_1_val)
-    pid_2_eq = _semantic.equal(query_pid_2, pid_2_val)
+def dump(val: tl.tensor, offset=0, dump_pid_0=0, dump_pid_1=0, dump_pid_2=0, _semantic=None):
+    pid_0 = _semantic.program_id(0)
+    pid_1 = _semantic.program_id(1)
+    pid_2 = _semantic.program_id(2)
+    dump_pid_0_val = _semantic.make_scalar(dump_pid_0, tl.int32)
+    dump_pid_1_val = _semantic.make_scalar(dump_pid_1, tl.int32)
+    dump_pid_2_val = _semantic.make_scalar(dump_pid_2, tl.int32)
+    pid_0_eq = _semantic.equal(pid_0, dump_pid_0_val)
+    pid_1_eq = _semantic.equal(pid_1, dump_pid_1_val)
+    pid_2_eq = _semantic.equal(pid_2, dump_pid_2_val)
     pid_0_pid_1_eq = _semantic.and_(pid_0_eq, pid_1_eq)
     pid_0_pid_1_pid2_eq = _semantic.and_(pid_0_pid_1_eq, pid_2_eq)
     if_op = _semantic.builder.create_if_op([], pid_0_pid_1_pid2_eq.handle, False)
