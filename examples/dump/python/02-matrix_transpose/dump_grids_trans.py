@@ -42,7 +42,7 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
     block_reshape = dump_tensor.reshape(*grid_dim, BLOCK_SIZE, BLOCK_SIZE)
     block_permute = block_reshape.permute(1, 2, 0, 3)
     reshape_tensor = block_permute.reshape(grid_dim[1] * BLOCK_SIZE, grid_dim[0] * BLOCK_SIZE)
-    dump_torch = output
+    dump_torch = a.T
     max_diff = torch.max(torch.abs(dump_torch - reshape_tensor[:cols,:rows]))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
 
