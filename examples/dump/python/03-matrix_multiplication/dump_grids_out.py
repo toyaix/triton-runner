@@ -48,11 +48,9 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
     grid = lambda META: (triton.cdiv(K, META['BLOCK_SIZE_K']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 128
-    import math
     block_shape = [BLOCK_SIZE_M, BLOCK_SIZE_K]
-    grid_dim = tuple(triton.cdiv(dim, block) for dim, block in zip(c.shape, block_shape))
-    new_shape = tuple(dim * block for dim, block in zip(grid_dim, block_shape))
-    dump_tensor = torch.empty(math.prod(new_shape), dtype=torch.float32, device=c.device)
+    pad_n_elements = triton_runner.torch_utils.get_pad_n_elements(c, block_shape)
+    dump_tensor = torch.empty(pad_n_elements, dtype=torch.float32, device=c.device)
 
     matrix_multiplication_kernel[grid](
         a, b, c,
@@ -66,9 +64,10 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     # grid_dim in kernel is (triton.cdiv(K, META['BLOCK_SIZE_K']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
-    block_reshape = dump_tensor.reshape(grid_dim[1], grid_dim[0], block_shape[0], block_shape[1])
+    grid_dim = triton_runner.torch_utils.get_grid_dim([K, M], block_shape[::-1])
+    block_reshape = dump_tensor.reshape(*grid_dim, *block_shape)
     block_permute = block_reshape.permute(1, 2, 0, 3)
-    reshape_tensor = block_permute.reshape(grid_dim[0] * block_shape[0], grid_dim[1] * block_shape[1])
+    reshape_tensor = block_permute.reshape(grid_dim[1] * block_shape[0], grid_dim[0] * block_shape[1])
     dump_torch = a @ b
     max_diff = torch.max(torch.abs(dump_torch - reshape_tensor[:M, :K]))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
