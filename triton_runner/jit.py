@@ -241,7 +241,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             r'\n.*=\s*(?P<offset_val>.*)',
             re.MULTILINE
         )
-        def make_replacer(full_text):
+        def make_replacer(replace_id):
             def replacer(match):
                 original_line = match.group(0).split('\n')[0]
                 indent = match.group("indent")
@@ -252,13 +252,13 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 offset_val = match.group("offset_val")
                 clean_line = re.sub(r"\s*\{[^{}]*\}", "", original_line)
                 return get_injected_ir(ssa_value, op, clean_line, indent, size, None, loc,
-                                       python_dump=True, offset_val=offset_val)
+                                       python_dump=True, offset_val=offset_val, replace_id=replace_id)
             return replacer
-        replacer_with_text = make_replacer(full_text)
-        full_text, count = pattern.subn(replacer_with_text, full_text)
+        full_text, count = pattern.subn(make_replacer(0), full_text, count=1)
+        replace_id = 0
         while count > 0:
-            replacer_with_text = make_replacer(full_text)
-            full_text, count = pattern.subn(replacer_with_text, full_text, count=1)
+            replace_id = replace_id + 1
+            full_text, count = pattern.subn(make_replacer(replace_id), full_text, count=1)
         return full_text
 
     def run(self, *args, grid, warmup, **kwargs):
