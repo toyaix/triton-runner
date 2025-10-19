@@ -55,8 +55,6 @@ def solve(input: torch.Tensor, output: torch.Tensor, N: int):
 
     BLOCK_SIZE = 32768
     dump_tensor = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
-    # dump_value can be "%35"(log_acc in loop)
-    dump_value = "%35"
 
     softmax_kernel[grid](
         input, output, N,
