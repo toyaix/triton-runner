@@ -27,11 +27,9 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
     grid = lambda meta: (triton.cdiv(rows, meta['BLOCK_SIZE']), triton.cdiv(cols, meta['BLOCK_SIZE']))
 
     BLOCK_SIZE = 64
-    import math
-    block_shape = [BLOCK_SIZE, BLOCK_SIZE]
-    grid_dim = tuple(triton.cdiv(dim, block) for dim, block in zip(input.shape, block_shape))
-    new_shape = tuple(dim * block for dim, block in zip(grid_dim, block_shape))
-    dump_tensor = torch.empty(math.prod(new_shape), dtype=torch.float32, device=input.device)
+    block_dim = [BLOCK_SIZE, BLOCK_SIZE]
+    pad_n_elements = triton_runner.torch_utils.get_pad_n_elements(input, block_dim)
+    dump_tensor = torch.empty(pad_n_elements, dtype=torch.float32, device=input.device)
 
     matrix_transpose_kernel[grid](
         input, output,
@@ -40,6 +38,8 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
         dump_tensor=dump_tensor,
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
+    # is same (triton.cdiv(rows, BLOCK_SIZE), triton.cdiv(cols, BLOCK_SIZE))
+    grid_dim = triton_runner.torch_utils.get_grid_dim([rows, cols], block_dim)
     block_reshape = dump_tensor.reshape(*grid_dim, BLOCK_SIZE, BLOCK_SIZE)
     block_permute = block_reshape.permute(0, 2, 1, 3)
     reshape_tensor = block_permute.reshape(grid_dim[0] * BLOCK_SIZE, grid_dim[1] * BLOCK_SIZE)
