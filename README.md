@@ -131,6 +131,7 @@ python examples/runner/v3.4.0/llir/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/ptx/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/cubin/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/gluon/01-intro.py
+python examples/runner/v3.4.0/gluon/02-layouts.py
 ```
 
 #### 7. More Architectures Examples
