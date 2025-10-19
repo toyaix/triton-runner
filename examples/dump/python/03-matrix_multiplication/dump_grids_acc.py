@@ -68,7 +68,8 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     # grid_dim in kernel is (triton.cdiv(K, META['BLOCK_SIZE_K']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
-    block_reshape = dump_tensor[-math.prod(new_shape):].reshape(grid_dim[1], grid_dim[0], block_shape[0], block_shape[1])
+    last_loop_acc = dump_tensor[-math.prod(new_shape):]
+    block_reshape = last_loop_acc.reshape(grid_dim[1], grid_dim[0], block_shape[0], block_shape[1])
     block_permute = block_reshape.permute(1, 2, 0, 3)
     reshape_tensor = block_permute.reshape(grid_dim[0] * block_shape[0], grid_dim[1] * block_shape[1])
     dump_torch = a @ b
