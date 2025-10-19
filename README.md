@@ -131,6 +131,7 @@ python examples/runner/v3.4.0/llir/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/ptx/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/cubin/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.4.0/gluon/01-intro.py
+python examples/runner/v3.4.0/gluon/02-layouts.py
 ```
 
 #### 7. More Architectures Examples
@@ -147,7 +148,7 @@ If your GPU does not have one of the above compute capabilities, you can use `TR
 #### 8. More Triton Version Examples
 
 Please refer to the appropriate examples directory based on your Triton version:
-- For Triton v3.5.0, in [examples/runner/v3.4.0](./examples/runner/v3.5.0).
+- For Triton v3.5.0, in [examples/runner/v3.5.0](./examples/runner/v3.5.0).
 - For Triton v3.4.0, in [examples/runner/v3.4.0](./examples/runner/v3.4.0).
 - For Triton v3.3.1 or v3.3.0, in [examples/runner/v3.3.x](./examples/runner/v3.3.x).
 - For Triton v3.2.0, in [examples/runner/v3.2.0](./examples/runner/v3.2.0).

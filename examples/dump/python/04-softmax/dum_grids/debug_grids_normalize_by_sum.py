@@ -18,11 +18,6 @@ def softmax_kernel(
         cols = off + tl.arange(0, BLOCK_SIZE)
         a = tl.load(input_ptr + cols, mask=cols < N, other=-float("inf"))
         _max = tl.maximum(a, _max)
-
-    # ===== DEBUG START =====
-    dl.dump(_max)
-    # ===== DEBUG END =====
-
     max = tl.max(_max, axis=0)
     _sum = tl.zeros([BLOCK_SIZE], dtype=tl.float32)
     for off in range(0, N, BLOCK_SIZE):
@@ -36,14 +31,27 @@ def softmax_kernel(
     x = tl.load(input_ptr + offset, mask=mask)
     exp_shifted = tl.exp(x - max)
     normalize_by_sum =  exp_shifted / sum
+
+    # ===== DEBUG START =====
+    dl.dump_grids(normalize_by_sum)
+    # ===== DEBUG END =====
+
     tl.store(output_ptr + offset, normalize_by_sum, mask=mask)
+
+
+def torch_softmax(input):
+    max = input.max()
+    sum = (input - max).exp().sum()
+    normalize_by_sum = ((input - max).exp()) / sum
+    return normalize_by_sum
 
 
 def solve(input: torch.Tensor, output: torch.Tensor, N: int):
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
 
     BLOCK_SIZE = 32768
-    dump_tensor = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
+    pad_n_elements = triton_runner.torch_utils.get_pad_n_elements(output, [BLOCK_SIZE])
+    dump_tensor = torch.empty(pad_n_elements, dtype=torch.float32, device=input.device)
 
     softmax_kernel[grid](
         input, output, N,
@@ -51,8 +59,8 @@ def solve(input: torch.Tensor, output: torch.Tensor, N: int):
         dump_tensor=dump_tensor,
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
-    dump_torch = input
-    max_diff = torch.max(torch.abs(dump_torch.max() - dump_tensor.max()))
+    dump_torch = torch_softmax(input)
+    max_diff = torch.max(torch.abs(dump_torch - dump_tensor[:N]))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
 
 

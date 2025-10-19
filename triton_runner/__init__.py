@@ -1,7 +1,8 @@
 __version__ = '0.2.7'
 
 from .jit import jit
-from .color_print import yellow_print
+from . import color_print
+from . import torch_utils
 import os
 
 
