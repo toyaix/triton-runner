@@ -54,9 +54,8 @@ def add(x: torch.Tensor, y: torch.Tensor):
     # In this case, we use a 1D grid where the size is the number of blocks:
     grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
     BLOCK_SIZE = 1024
-    import math
-    new_shape = tuple(triton.cdiv(dim, block) * block for dim, block in zip(x.shape, [BLOCK_SIZE]))
-    dump_tensor = torch.empty(math.prod(new_shape), dtype=torch.float32, device=x.device)
+    pad_n_elements = triton_runner.torch_utils.get_pad_n_elements(output, [BLOCK_SIZE])
+    dump_tensor = torch.empty(pad_n_elements, dtype=torch.float32, device=x.device)
 
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.

@@ -1,4 +1,6 @@
 import torch
+import math
+import triton
 
 
 def pad_2d_to_block_shape(tensor, block_shape):
@@ -11,3 +13,7 @@ def pad_2d_to_block_shape(tensor, block_shape):
     padded = torch.nn.functional.pad(tensor, (0, pad_K, 0, pad_M), value=0)
 
     return padded.to(torch.float32)
+
+
+def get_pad_n_elements(tensor, block_shape):
+    return math.prod(tuple(triton.cdiv(dim, block) * block for dim, block in zip(tensor.shape, block_shape)))
