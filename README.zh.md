@@ -51,13 +51,13 @@ pip install -e .
 
 [Triton Runner：多层级执行实战](https://zhuanlan.zhihu.com/p/1962781206987903833)
 
-[Triton Runner：多层级dump](https://zhuanlan.zhihu.com/p/1962781753031763780)
+[Triton Runner：多层级dump，快乐对精度](https://zhuanlan.zhihu.com/p/1962781753031763780)
 
 [Triton Runner：benchmark](https://zhuanlan.zhihu.com/p/1962782889830781511)
 
 ## [开发文档](https://www.zhihu.com/column/c_1940119129400013405)
 
-[Triton Runner v0.2.6 : Python调试，Gluon支持](https://zhuanlan.zhihu.com/p/1958653485118624326)
+[Triton Runner v0.2.6 : Python调试，Gluon支持(8eebaaa)](https://zhuanlan.zhihu.com/p/1958653485118624326)
 
 [Triton Runner v0.2.0 : 支持调试，多版本支持(4b85c7a)](https://zhuanlan.zhihu.com/p/1951383935830454570)
 
