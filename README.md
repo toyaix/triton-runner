@@ -76,7 +76,7 @@ flowchart LR
     classDef unsupported fill:#F5B7B1,stroke:#C0392B,stroke-width:2px,color:#000000;
 ```
 
-[TLX](https://github.com/facebookexperimental/triton/tree/tlx) (Minimally Invasive Paths to Performance Portability) is supported in [examples/runner/tlx](examples/runner/tlx).
+[TLX](https://github.com/facebookexperimental/triton) (Minimally Invasive Paths to Performance Portability) with commit [9a7a23d](https://github.com/facebookexperimental/triton/commit/9a7a23d0cfa4ed4b37eb9b177b0e36beb254f9e6) is supported in [examples/runner/tlx](examples/runner/tlx).
 
 #### 1. Python Runner
 
