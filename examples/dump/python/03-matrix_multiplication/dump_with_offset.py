@@ -34,11 +34,13 @@ def matrix_multiplication_kernel(
         accumulator += a * b
 
     # ===== DEBUG START =====
-    debug_grid_0, debug_grid_1, grid_0_num = 1, 0, 192 // 32
-    grid_id = debug_grid_0 * grid_0_num + debug_grid_1
+    dump_grid = 1, 0
+    # grid_0_num = 192 // 32
+    grid_0_num = tl.num_programs(axis=0)
+    grid_id = dump_grid[0] * grid_0_num + dump_grid[1]
     one_block_size = (BLOCK_SIZE_M * BLOCK_SIZE_K)
     offset = grid_id * one_block_size
-    dl.dump(accumulator, offset, debug_grid_0, debug_grid_1)
+    dl.dump(accumulator, offset, dump_grid)
     # ===== DEBUG END =====
 
     # write result back to c

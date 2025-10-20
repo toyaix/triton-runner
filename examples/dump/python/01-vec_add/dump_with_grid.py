@@ -34,7 +34,10 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
     y = tl.load(y_ptr + offsets, mask=mask)
 
     # ===== DEBUG START =====
-    dl.dump(y, 0, 3, 0, 0)
+    # dl.dump(y, 0, (3))
+    # dl.dump(y, 0, (3, 0))
+    # dl.dump(y, 0, (3, 0, 0))
+    dl.dump(y, 0, 3)
     # ===== DEBUG END =====
 
     output = x + y

@@ -34,7 +34,7 @@ def matrix_multiplication_kernel(
         accumulator += a * b
 
     # ===== DEBUG START =====
-    dl.dump(accumulator, 0, 0, 1)
+    dl.dump(accumulator, 0, (0, 1))
     # ===== DEBUG END =====
 
     # write result back to c

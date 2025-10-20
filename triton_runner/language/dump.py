@@ -11,6 +11,11 @@ def dump(val: tl.tensor, offset=0, dump_grid=None, _semantic=None):
     if ndim > 2:
         raise ValueError(f"Expected 1 <= ndim <= 2 but got {ndim} dimensions, you can use reshape")
     dump_pid_0, dump_pid_1, dump_pid_2 = 0, 0, 0
+    if dump_grid:
+        if isinstance(dump_grid, tl.constexpr) or isinstance(dump_grid, tl.tensor):
+            dump_grid = [dump_grid]
+        dump_grid = dump_grid + [0] * (3 - len(dump_grid))
+        dump_pid_0, dump_pid_1, dump_pid_2 = tuple(dump_grid)
     pid_0 = _semantic.program_id(0)
     pid_1 = _semantic.program_id(1)
     pid_2 = _semantic.program_id(2)
