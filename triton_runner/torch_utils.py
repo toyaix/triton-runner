@@ -21,3 +21,7 @@ def get_pad_n_elements(tensor, block_shape):
 
 def get_grid_dim(tensor_shape, block_shape):
     return tuple(triton.cdiv(dim, block) for dim, block in zip(tensor_shape, block_shape))
+
+
+def get_n_elements_with_grid(block_shape, grid):
+    return math.prod(block_shape) * math.prod(grid)
