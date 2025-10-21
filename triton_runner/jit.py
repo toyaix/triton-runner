@@ -404,7 +404,7 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
         for hook in self.pre_run_hooks:
             hook(*args, **kwargs)
 
-        kernel_cache, target, backend, binder = self.device_caches[device]
+        kernel_cache, kernel_key_cache, target, backend, binder = self.device_caches[device]
         # specialization is list[tuple[str, Any]], where first element of tuple is
         # the type and the second parameter is the 'specialization' value.
         bound_args, specialization, options = binder(*args, **kwargs)
@@ -817,7 +817,7 @@ def jit(
 
     def decorator(fn: T) -> RunnerJITFunction[T]:
         assert callable(fn)
-        from . import is_tlx
+        from .tlx_utils import is_tlx
         if is_tlx:
             return RunnerJITFunction_TLX(
                 fn,

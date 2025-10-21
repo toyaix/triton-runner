@@ -12,8 +12,9 @@ from pathlib import Path
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
+from .tlx_utils import is_tlx
 
-if triton.__version__ in ["3.5.0"]:
+if triton.__version__ in ["3.5.0"] or is_tlx:
     from triton.runtime.cache import triton_key
 else:
     from triton.compiler.compiler import triton_key
@@ -60,7 +61,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         src_hash = hashlib.sha256(module).hexdigest()
     else:
         src_hash = hashlib.sha256(module.encode("utf-8")).hexdigest()
-    if triton.__version__ in ["3.5.0"]:
+    if triton.__version__ in ["3.5.0"] or is_tlx:
         key = get_cache_key(src_hash, backend, options, env_vars=env_vars)
     else:
         from triton.compiler.compiler import triton_key
