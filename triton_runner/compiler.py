@@ -12,8 +12,9 @@ from pathlib import Path
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
+from .tlx_utils import is_tlx
 
-if triton.__version__ in ["3.5.0"]:
+if triton.__version__ in ["3.5.0"] or is_tlx:
     from triton.runtime.cache import triton_key
 else:
     from triton.compiler.compiler import triton_key
@@ -60,7 +61,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         src_hash = hashlib.sha256(module).hexdigest()
     else:
         src_hash = hashlib.sha256(module.encode("utf-8")).hexdigest()
-    if triton.__version__ in ["3.5.0"]:
+    if triton.__version__ in ["3.5.0"] or is_tlx:
         key = get_cache_key(src_hash, backend, options, env_vars=env_vars)
     else:
         from triton.compiler.compiler import triton_key
@@ -103,19 +104,19 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata["triton_runner_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()
-    if triton.__version__ in ["3.4.0"]:
+    if triton.__version__ in ["3.5.0"] or is_tlx:
+        if not isinstance(src, str):
+            backend.add_stages(stages, options, src.language)
+        else:
+            from triton.backends.compiler import Language
+            backend.add_stages(stages, options, Language.TRITON)
+    elif triton.__version__ in ["3.4.0"]:
         from .pass_stages import add_stages
         if not isinstance(src, str):
             add_stages(backend, stages, options, src.language)
         else:
             from triton.backends.compiler import Language
             add_stages(backend, stages, options, Language.TRITON)
-    elif triton.__version__ in ["3.5.0"]:
-        if not isinstance(src, str):
-            backend.add_stages(stages, options, src.language)
-        else:
-            from triton.backends.compiler import Language
-            backend.add_stages(stages, options, Language.TRITON)
     else:
         backend.add_stages(stages, options)
     if isinstance(src, ASTSource) or isinstance(src, IRSource):
@@ -125,7 +126,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     first_stage = list(stages.keys()).index(src_ext)
     # when the source is an IR file, don't apply the passes related to this stage. This makes it easier to write IR level tests.
     # TODO: src_ext perhaps don't need in condition, this is source file
-    if ir_source and src_ext != "ttir":
+    if (ir_source and src_ext != "ttir") or (ir_source and is_tlx):
         first_stage += 1
 
     # For IRSource, we have already grabbed the context + called both
@@ -147,7 +148,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         elif src_ext not in {"llir", "cubin"}:
             if triton.__version__ in ["3.1.0", "3.0.0"]:
                 module = src.make_ir(options, codegen_fns, context)
-            elif triton.__version__ in ["3.5.0"]:
+            elif triton.__version__ in ["3.5.0"] or is_tlx:
                 module_map = backend.get_module_map()
                 module = src.make_ir(target, options, codegen_fns, module_map, context)
             else:
