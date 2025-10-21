@@ -46,7 +46,7 @@ python examples/dump/python/06-attention/dump_out.py
 
 python examples/dump/python/07-dump_not_f32/dump_bf16.py
 # need support fp8
-# python examples/dump/python/07-dump_not_f32/dump_fp8.py
+python examples/dump/python/07-dump_not_f32/dump_fp8.py
 # shared memory, Required: 131072
 python examples/dump/python/07-dump_not_f32/dump_int4.py
 ```
