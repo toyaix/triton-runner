@@ -5,20 +5,29 @@ Python/TTIR/TTGIR now support dump on Triton v3.4.0.
 In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called dump_tensor, and simply pass it to the kernel through the dump_tensor parameter. Here are some example commands for dump.
 
 ```shell
+python examples/dump/python/01-vec_add/dump_boundary/dump_boundary_out.py
+python examples/dump/python/01-vec_add/dump_grids/dump_grids_out.py
 python examples/dump/python/01-vec_add/dump_output.py
 python examples/dump/python/01-vec_add/dump_with_grid.py
 python examples/dump/python/01-vec_add/dump_with_offset.py
 python examples/dump/python/01-vec_add/dump_x.py
 python examples/dump/python/01-vec_add/dump_y.py
 
+python examples/dump/python/02-matrix_transpose/dump_boundary/dump_boundary_trans.py
+python examples/dump/python/02-matrix_transpose/dump_grids/dump_grids_in.py
+python examples/dump/python/02-matrix_transpose/dump_grids/dump_grids_trans.py
 python examples/dump/python/02-matrix_transpose/dump_2d_load.py
 python examples/dump/python/02-matrix_transpose/dump_2d_trans.py
 
+python examples/dump/python/03-matrix_multiplication/dum_grids/dump_grids_acc.py
+python examples/dump/python/03-matrix_multiplication/dum_grids/dump_grids_out.py
+python examples/dump/python/03-matrix_multiplication/dump_boundary/dump_boundary_out.py
 python examples/dump/python/03-matrix_multiplication/dump_acc.py
 python examples/dump/python/03-matrix_multiplication/dump_out.py
 python examples/dump/python/03-matrix_multiplication/dump_with_grid.py
 python examples/dump/python/03-matrix_multiplication/dump_with_offset.py
 
+python examples/dump/python/04-softmax/dum_grids/debug_grids_normalize_by_sum.py
 python examples/dump/python/04-softmax/dump_exp_shifted.py
 python examples/dump/python/04-softmax/dump_max_in_loop.py
 python examples/dump/python/04-softmax/dump_max_out_loop.py
@@ -27,13 +36,19 @@ python examples/dump/python/04-softmax/dump_sub.py
 python examples/dump/python/04-softmax/dump_sum_in_loop.py
 python examples/dump/python/04-softmax/dump_sum_out_loop.py
 
+python examples/dump/python/05-softmax_lse/dump_grids/debug_grids_more.py
 python examples/dump/python/05-softmax_lse/dump_log_acc.py
 python examples/dump/python/05-softmax_lse/dump_max_acc.py
 python examples/dump/python/05-softmax_lse/dump_more_with_offset.py
 
+python examples/dump/python/06-attention/debug_grids/debug_grids_out.py
 python examples/dump/python/06-attention/dump_out.py
 
 python examples/dump/python/07-dump_not_f32/dump_bf16.py
+# need support fp8
+python examples/dump/python/07-dump_not_f32/dump_fp8.py
+# shared memory, Required: 131072
+python examples/dump/python/07-dump_not_f32/dump_int4.py
 ```
 
 ## 2. TTIR Dump

@@ -14,7 +14,7 @@ Triton Runner 是一个面向 [OpenAI/Triton](https://github.com/triton-lang/tri
 
 Triton Runner 兼容 Triton v3.5.0, **v3.4.0(主要版本)**, v3.3.x, v3.2.0, v3.1.0 or v3.0.0。
 
-Triton Runner 还提供了在 Triton v3.4.0 的1D/2D tensor调试。
+Triton Runner 还提供了在 Triton v3.4.0 的1D/2D tensor dump。
 
 ## 快速安装
 
@@ -51,13 +51,13 @@ pip install -e .
 
 [Triton Runner：多层级执行实战](https://zhuanlan.zhihu.com/p/1962781206987903833)
 
-[Triton Runner：多层级dump](https://zhuanlan.zhihu.com/p/1962781753031763780)
+[Triton Runner：多层级dump，快乐对精度](https://zhuanlan.zhihu.com/p/1962781753031763780)
 
 [Triton Runner：benchmark](https://zhuanlan.zhihu.com/p/1962782889830781511)
 
 ## [开发文档](https://www.zhihu.com/column/c_1940119129400013405)
 
-[Triton Runner v0.2.6 : Python调试，Gluon支持](https://zhuanlan.zhihu.com/p/1958653485118624326)
+[Triton Runner v0.2.6 : Python调试，Gluon支持(8eebaaa)](https://zhuanlan.zhihu.com/p/1958653485118624326)
 
 [Triton Runner v0.2.0 : 支持调试，多版本支持(4b85c7a)](https://zhuanlan.zhihu.com/p/1951383935830454570)
 
