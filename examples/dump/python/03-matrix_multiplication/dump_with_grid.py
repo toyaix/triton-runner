@@ -61,9 +61,9 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     dump_torch = a @ b
-    debug_grid_0, debug_grid_1 = 0, 1
-    start_grid_0, start_grid_1 = debug_grid_0 * BLOCK_SIZE_K, debug_grid_1 * BLOCK_SIZE_M
-    dump_torch_slice = dump_torch[start_grid_1:start_grid_1+BLOCK_SIZE_M, start_grid_0:start_grid_0+BLOCK_SIZE_K]
+    dump_grid = (0, 1)
+    start_K, start_M = dump_grid[0] * BLOCK_SIZE_K, dump_grid[1] * BLOCK_SIZE_M
+    dump_torch_slice = dump_torch[start_M:start_M+BLOCK_SIZE_M, start_K:start_K+BLOCK_SIZE_K]
     max_diff = torch.max(torch.abs(dump_torch_slice - dump_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
 
