@@ -2,7 +2,6 @@ import torch
 import triton
 import triton.language as tl
 import triton_runner
-import triton_runner.language as dl
 
 @triton_runner.jit
 def matrix_multiplication_kernel(
@@ -32,15 +31,9 @@ def matrix_multiplication_kernel(
         b = tl.load(b_ptrs + stride_bn * n)
         accumulator += a * b
 
-
     # write result back to c
     c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_k[None, :] * stride_ck
     c_mask = (offs_m[:, None] < M) & (offs_k[None, :] < K)
-
-    # ===== DEBUG START =====
-    dl.dump_boundary(accumulator)
-    # ===== DEBUG END =====
-
     tl.store(c_ptrs, accumulator.to(c_ptr.dtype.element_ty), mask=c_mask)
 
 
@@ -49,6 +42,9 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
     dump_tensor = torch.empty((BLOCK_SIZE_M, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
+    # dump_value can be "%45"(acc in loop)
+    dump_value = "%45"
+    dump_grid = (triton.cdiv(K, BLOCK_SIZE_K) - 1, triton.cdiv(M, BLOCK_SIZE_M) - 1)
 
     matrix_multiplication_kernel[grid](
         a, b, c,
@@ -58,7 +54,10 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
         c.stride(0), c.stride(1),
         BLOCK_SIZE_M=BLOCK_SIZE_M,
         BLOCK_SIZE_K=BLOCK_SIZE_K,
+        ttir_dir=triton_runner.get_file_dir(__file__),
         dump_tensor=dump_tensor,
+        dump_value=dump_value,
+        dump_grid=dump_grid,
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     dump_torch = a @ b
@@ -70,9 +69,9 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
     max_diff = torch.max(torch.abs(dump_torch[boundary_start_M:, boundary_start_K:] - dump_tensor[:M-boundary_start_M, :K-boundary_start_K]))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
 
+
 if __name__ == "__main__":
-    M, N, K = 104, 78, 128
-    torch.random.manual_seed(0)
+    M, N, K = 210, 256, 192
     a = torch.randn((M, N), device='cuda', dtype=torch.bfloat16)
     b = torch.randn((N, K), device='cuda', dtype=torch.bfloat16)
     torch_output = a @ b
