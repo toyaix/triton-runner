@@ -2,7 +2,6 @@ import triton
 import triton.language as tl
 import torch
 import triton_runner
-import triton_runner.language as dl
 
 if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
     DEVICE = torch.cuda.current_device()
@@ -32,14 +31,6 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
     # multiple of the block size.
     x = tl.load(x_ptr + offsets, mask=mask)
     y = tl.load(y_ptr + offsets, mask=mask)
-
-    # ===== DEBUG START =====
-    # dl.dump(y, 0, (3))
-    # dl.dump(y, 0, (3, 0))
-    # dl.dump(y, 0, (3, 0, 0))
-    dl.dump(y, 0, 3)
-    # ===== DEBUG END =====
-
     output = x + y
     # Write x + y back to DRAM.
     tl.store(output_ptr + offsets, output, mask=mask)
@@ -62,16 +53,21 @@ def add(x: torch.Tensor, y: torch.Tensor):
 
     BLOCK_SIZE = 1024
     dump_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
+    # dump_value can be "%13"(x+y)
+    dump_value = "%13"
 
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
     #  - `triton.jit`'ed functions can be indexed with a launch grid to obtain a callable GPU kernel.
     #  - Don't forget to pass meta-parameters as keywords arguments.
     add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE,
+                     ttir_dir=triton_runner.get_file_dir(__file__),
                      dump_tensor=dump_tensor,
+                     dump_value=dump_value,
+                     dump_grid=3,
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
-    dump_torch = y
+    dump_torch = x + y
     dump_grid = (3,)
     block_start = BLOCK_SIZE * dump_grid[0]
     max_diff = torch.max(torch.abs(dump_torch[block_start: block_start + BLOCK_SIZE] - dump_tensor))
@@ -83,7 +79,6 @@ def add(x: torch.Tensor, y: torch.Tensor):
 
 # %%
 # We can now use the above function to compute the element-wise sum of two `torch.tensor` objects and test its correctness:
-
 if __name__ == "__main__":
     size = 98432
     x = torch.rand(size, device=DEVICE)

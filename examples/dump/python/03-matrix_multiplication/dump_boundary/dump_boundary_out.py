@@ -67,7 +67,6 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
     # k % BLOCK_SIZE_K == 0
     if K & (BLOCK_SIZE_K - 1) == 0:
         boundary_start_K -= BLOCK_SIZE_K
-    print(dump_torch.shape, boundary_start_M, boundary_start_K)
     max_diff = torch.max(torch.abs(dump_torch[boundary_start_M:, boundary_start_K:] - dump_tensor[:M-boundary_start_M, :K-boundary_start_K]))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
 

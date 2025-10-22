@@ -15,7 +15,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "cubin_dir"}
 
     def get_dump_args_set(self):
-        return {"dump_tensor", "dump_value"}
+        return {"dump_tensor", "dump_value", "dump_grid"}
 
     def get_source_dir_type(self, need_check_lst):
         runner_args_set = self.get_runner_args_set()
@@ -190,7 +190,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         return pattern.sub(replacer, full_text, count=1)
 
-    def inject_ssa_ir_dump_store(self, full_text, ssa_value):
+    def inject_ssa_ir_dump_store(self, full_text, ssa_value, dump_grid):
         pattern = re.compile(
             rf'^(?P<indent>\s*){ssa_value}\s*=\s*'
             r'(?P<op>\S+)\s+'
@@ -204,7 +204,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             r'loc\((?P<loc>#[^)]+)\)',
             re.MULTILINE
         )
-        def make_replacer(full_text):
+        def make_replacer(dump_grid):
             def replacer(match):
                 original_line = match.group(0)
                 indent = match.group("indent")
@@ -212,10 +212,9 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 size = match.group("size")
                 loc = match.group("loc")
                 encoding = match.group("encoding")
-                return get_injected_ir(ssa_value, op, original_line, indent, size, encoding, loc)
+                return get_injected_ir(ssa_value, op, original_line, indent, size, encoding, loc, dump_grid=dump_grid)
             return replacer
-        replacer_with_text = make_replacer(full_text)
-        return pattern.sub(replacer_with_text, full_text, count=1)
+        return pattern.sub(make_replacer(dump_grid), full_text, count=1)
 
     def inject_dump_op_dump_store(self, full_text):
         ssa_value = r'%\d+'
@@ -332,7 +331,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                     if not os.path.exists(src):
                         raise RuntimeError("Check .source/.ttir/.ttgir file for dump.")
                     dump_content = self.insert_dump_tensor_param(open(src, "r").read())
-                    dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"])
+                    dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"], kwargs.get("dump_grid", 0))
                     src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
                     with open(src, "w") as file:
                         file.write(dump_content)

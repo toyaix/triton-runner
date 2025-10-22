@@ -2,8 +2,6 @@ import torch
 import triton
 import triton.language as tl
 import triton_runner
-import triton_runner.language as dl
-
 
 @triton_runner.jit
 def matrix_multiplication_kernel(
@@ -33,10 +31,6 @@ def matrix_multiplication_kernel(
         b = tl.load(b_ptrs + stride_bn * n)
         accumulator += a * b
 
-    # ===== DEBUG START =====
-    dl.dump(accumulator, 0, (0, 1))
-    # ===== DEBUG END =====
-
     # write result back to c
     c_ptrs = c_ptr + offs_m[:, None] * stride_cm + offs_k[None, :] * stride_ck
     c_mask = (offs_m[:, None] < M) & (offs_k[None, :] < K)
@@ -48,6 +42,9 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
     dump_tensor = torch.empty((BLOCK_SIZE_M, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
+    # dump_value can be "%45"(acc in loop)
+    dump_value = "%45"
+    dump_grid = (0, 1)
 
     matrix_multiplication_kernel[grid](
         a, b, c,
@@ -57,25 +54,26 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
         c.stride(0), c.stride(1),
         BLOCK_SIZE_M=BLOCK_SIZE_M,
         BLOCK_SIZE_K=BLOCK_SIZE_K,
+        ttir_dir=triton_runner.get_file_dir(__file__),
         dump_tensor=dump_tensor,
+        dump_value=dump_value,
+        dump_grid=dump_grid,
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
     dump_torch = a @ b
-    dump_grid = (0, 1)
     start_K, start_M = dump_grid[0] * BLOCK_SIZE_K, dump_grid[1] * BLOCK_SIZE_M
     dump_torch_slice = dump_torch[start_M:start_M+BLOCK_SIZE_M, start_K:start_K+BLOCK_SIZE_K]
     max_diff = torch.max(torch.abs(dump_torch_slice - dump_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
 
+
 if __name__ == "__main__":
     M, N, K = 210, 256, 192
-    torch.random.manual_seed(0)
     a = torch.randn((M, N), device='cuda', dtype=torch.bfloat16)
     b = torch.randn((N, K), device='cuda', dtype=torch.bfloat16)
     torch_output = a @ b
     triton_output = torch.empty(torch_output.shape, device='cuda', dtype=torch.bfloat16)
     solve(a, b, triton_output, M, N, K)
-    print(torch_output)
     if torch.allclose(triton_output, torch_output, atol=1e-01, rtol=1e-02):
         print("✅ Triton and Torch match")
     else:
