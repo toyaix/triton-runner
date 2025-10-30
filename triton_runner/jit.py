@@ -46,8 +46,8 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 metadata_json = json.loads(open(json_path, "r").read())
         else:
             src = ast_src
-
-        return native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
+        source_device_path = self.__dict__["__globals__"]["__file__"]
+        return native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_device_path=source_device_path)
 
     def _pack_args(self, backend, kwargs, bound_args, specialization, options):
         from triton._utils import find_paths_if, get_iterable_path

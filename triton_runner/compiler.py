@@ -23,7 +23,7 @@ def get_cache_key(src_hash, backend, backend_options, env_vars):
     key = f"{triton_key()}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
     return key
 
-def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None):
+def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_device_path=None):
     if target is None:
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
@@ -183,6 +183,11 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             next_module.create_location_snapshot(ir_full_name)
             print(f"Creating new locations for {ir_full_name}")
         module = next_module
+
+    if os.path.exists(source_device_path):
+        filename = os.path.basename(source_device_path)
+        with open(source_device_path, 'r') as source:
+            fn_cache_manager.put(source.read(), filename)
 
     if metadata_json:
         metadata["name"] = metadata_json["name"]
