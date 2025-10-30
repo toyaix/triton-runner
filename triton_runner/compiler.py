@@ -184,7 +184,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             print(f"Creating new locations for {ir_full_name}")
         module = next_module
 
-    if os.path.exists(source_device_path):
+    if source_device_path and os.path.exists(source_device_path):
         filename = os.path.basename(source_device_path)
         with open(source_device_path, 'r') as source:
             fn_cache_manager.put(source.read(), filename)
