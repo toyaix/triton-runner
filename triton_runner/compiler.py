@@ -165,6 +165,12 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         ir_filename = f"{file_name}.source"
         metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
 
+    if source_device_path and os.path.exists(source_device_path):
+        with open(source_device_path, 'r') as source:
+            filename = os.path.basename(source_device_path)
+            content =  f"# {source_device_path}\n\n{source.read()}"
+            fn_cache_manager.put(content, filename)
+
     use_ir_loc = os.environ.get("USE_IR_LOC", None)
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
@@ -183,11 +189,6 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             next_module.create_location_snapshot(ir_full_name)
             print(f"Creating new locations for {ir_full_name}")
         module = next_module
-
-    if source_device_path and os.path.exists(source_device_path):
-        filename = os.path.basename(source_device_path)
-        with open(source_device_path, 'r') as source:
-            fn_cache_manager.put(source.read(), filename)
 
     if metadata_json:
         metadata["name"] = metadata_json["name"]
