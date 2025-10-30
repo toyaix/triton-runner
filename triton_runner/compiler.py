@@ -171,6 +171,8 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             content =  f"# {source_device_path}\n\n{source.read()}"
             fn_cache_manager.put(content, filename)
 
+    print_triton_cache_dir(metadata_group[ir_filename])
+
     use_ir_loc = os.environ.get("USE_IR_LOC", None)
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
@@ -208,8 +210,6 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
                                                              binary=False)
     fn_cache_manager.put_group(metadata_filename, metadata_group)
-
-    print_triton_cache_dir(metadata_group.get(metadata_filename))
 
     # Compilation completed, disabling multithreading in context.
     # This is needed to safely finalize threads pool inside context: if current process forks before
