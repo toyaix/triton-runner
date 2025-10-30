@@ -23,7 +23,7 @@ def get_cache_key(src_hash, backend, backend_options, env_vars):
     key = f"{triton_key()}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
     return key
 
-def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None):
+def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
     if target is None:
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
@@ -165,6 +165,14 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         ir_filename = f"{file_name}.source"
         metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
 
+    if source_path and os.path.exists(source_path):
+        with open(source_path, 'r') as source:
+            filename = os.path.basename(source_path)
+            content =  f"# {source_path}\n\n{source.read()}"
+            fn_cache_manager.put(content, filename)
+
+    print_triton_cache_dir(metadata_group[ir_filename])
+
     use_ir_loc = os.environ.get("USE_IR_LOC", None)
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
@@ -202,8 +210,6 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
                                                              binary=False)
     fn_cache_manager.put_group(metadata_filename, metadata_group)
-
-    print_triton_cache_dir(metadata_group.get(metadata_filename))
 
     # Compilation completed, disabling multithreading in context.
     # This is needed to safely finalize threads pool inside context: if current process forks before
