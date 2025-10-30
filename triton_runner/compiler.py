@@ -23,7 +23,7 @@ def get_cache_key(src_hash, backend, backend_options, env_vars):
     key = f"{triton_key()}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
     return key
 
-def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_device_path=None):
+def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
     if target is None:
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
@@ -165,10 +165,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         ir_filename = f"{file_name}.source"
         metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
 
-    if source_device_path and os.path.exists(source_device_path):
-        with open(source_device_path, 'r') as source:
-            filename = os.path.basename(source_device_path)
-            content =  f"# {source_device_path}\n\n{source.read()}"
+    if source_path and os.path.exists(source_path):
+        with open(source_path, 'r') as source:
+            filename = os.path.basename(source_path)
+            content =  f"# {source_path}\n\n{source.read()}"
             fn_cache_manager.put(content, filename)
 
     print_triton_cache_dir(metadata_group[ir_filename])
