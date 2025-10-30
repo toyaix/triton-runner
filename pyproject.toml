@@ -8,9 +8,9 @@ dependencies = [
 ]
 
 readme = "README.md"
-version = "0.2.8"
+version = "0.2.9"
 authors = [
-    { name = "Bob Huang", email = "git@bobhuang.xyz" },
+    { name = "Bob Huang", email = "x@bobhuang.xyz" },
 ]
 license = "MIT"
 
