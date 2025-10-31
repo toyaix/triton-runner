@@ -34,13 +34,6 @@ class Operator:
         grid = (triton.cdiv(K, BLOCK_SIZE_K), triton.cdiv(M, BLOCK_SIZE_M))
         return lambda: runner_matmul_kernel[grid](*args)
 
-    @benchmark("matmul_triton_runner_compiled")
-    def matmul_triton_runner_compiled_kernel(self, *args):
-        M, K = args[3], args[5]
-        BLOCK_SIZE_M, BLOCK_SIZE_K = args[-3], args[-1]
-        grid = (triton.cdiv(K, BLOCK_SIZE_K), triton.cdiv(M, BLOCK_SIZE_M))
-        return lambda: runner_matmul_kernel[grid](*args)
-
 
 def check_triton():
     op = Operator()
@@ -85,4 +78,3 @@ if __name__ == "__main__":
     op = Operator()
     op.matmul_triton_kernel()
     op.matmul_triton_runner_kernel()
-    op.matmul_triton_runner_compiled_kernel()
