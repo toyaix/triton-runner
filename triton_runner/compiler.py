@@ -9,20 +9,12 @@ import hashlib
 import os
 import json
 from pathlib import Path
+
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
 from .tlx_utils import is_tlx
 
-if triton.__version__ in ["3.5.0"] or is_tlx:
-    from triton.runtime.cache import triton_key
-else:
-    from triton.compiler.compiler import triton_key
-
-def get_cache_key(src_hash, backend, backend_options, env_vars):
-    runner_key = f'{__version__}'
-    key = f"{triton_key()}-{runner_key}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
-    return key
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
     if target is None:
@@ -245,3 +237,14 @@ def get_source_ir(src, target=None, options=None):
         filter_traceback(e)
         raise
     return module
+
+
+if triton.__version__ in ["3.5.0"] or is_tlx:
+    from triton.runtime.cache import triton_key
+else:
+    from triton.compiler.compiler import triton_key
+
+def get_cache_key(src_hash, backend, backend_options, env_vars):
+    runner_key = f'{__version__}'
+    key = f"{triton_key()}-{runner_key}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
+    return key
