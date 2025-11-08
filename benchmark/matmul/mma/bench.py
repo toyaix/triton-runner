@@ -34,13 +34,6 @@ class Operator:
         grid = (triton.cdiv(K, BLOCK_SIZE_K), triton.cdiv(M, BLOCK_SIZE_M))
         return lambda: runner_matmul_kernel[grid](*args)
 
-    @benchmark("matmul_triton_runner_compiled")
-    def matmul_triton_runner_compiled_kernel(self, *args):
-        M, K = args[3], args[5]
-        BLOCK_SIZE_M, BLOCK_SIZE_K = args[-3], args[-1]
-        grid = (triton.cdiv(K, BLOCK_SIZE_K), triton.cdiv(M, BLOCK_SIZE_M))
-        return lambda: runner_matmul_kernel[grid](*args)
-
 
 def check_triton():
     op = Operator()
@@ -66,23 +59,9 @@ def check_triton_runner():
         print("❌ Triton runner and Torch differ")
 
 
-def triton_runner_compiled():
-    op = Operator()
-    args = list(op.get_input_iter(9434, 2422, 4233))[0]
-    torch_output = torch.matmul(args[0], args[1])
-    op.matmul_triton_runner_compiled_kernel(args, enable_benchmark=False)()
-    triton_output = args[2]
-    if torch.allclose(triton_output, torch_output, atol=1e-1, rtol=1e-2):
-        print("✅ Triton runner compiled and Torch match")
-    else:
-        print("❌ Triton runner compiled and Torch differ")
-
-
 if __name__ == "__main__":
     check_triton()
     check_triton_runner()
-    triton_runner_compiled()
     op = Operator()
     op.matmul_triton_kernel()
     op.matmul_triton_runner_kernel()
-    op.matmul_triton_runner_compiled_kernel()

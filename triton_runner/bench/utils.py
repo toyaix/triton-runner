@@ -8,6 +8,7 @@
 
 import torch
 import time
+import os
 
 
 class TimerContext:
@@ -33,6 +34,7 @@ def benchmark(name, unit_name="ms"):
 
         def wrapper(self, *args, **kwargs):
             if kwargs.pop("enable_benchmark", True) is not False:
+                os.environ["RUNNER_PROD"] = "1"
                 input_iter = list(self.get_input_iter())
                 # sum_time = 0
                 input_len = len(input_iter)
@@ -46,6 +48,7 @@ def benchmark(name, unit_name="ms"):
                         print(f"[{name:<30}|] time: {elapsed_time_str}")
                     # sum_time += elapsed_time
                 # print(f"[{name + " average":<30}|] time: {sum_time/input_len:.6f} ms")
+                os.environ.pop("RUNNER_PROD", None)
             else:
                 return method(self, *args[0])
 
