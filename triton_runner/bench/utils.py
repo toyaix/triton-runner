@@ -45,7 +45,7 @@ def benchmark(name, unit_name="ms"):
                     if unit_name == "us":
                         elapsed_time_str = f"{elapsed_time * 1e3:8.3f} us"
                     if idx == input_len - 1:
-                        print(f"[{name:<30}|] time: {elapsed_time_str}")
+                        print(f"[{name:<50}|] time: {elapsed_time_str}")
                     # sum_time += elapsed_time
                 # print(f"[{name + " average":<30}|] time: {sum_time/input_len:.6f} ms")
                 os.environ.pop("RUNNER_PROD", None)
