@@ -180,6 +180,13 @@ def cuda_capability_geq(major, minor=0):
     """
     return torch.cuda.get_device_capability() >= (major, minor)
 
+def cuda_capability_eq(major, minor=0):
+    """
+    Determines whether we have compute capability >= (major, minor) and
+    returns this as a constexpr boolean. This can be used for guarding
+    inline asm implementations that require a certain compute capability.
+    """
+    return torch.cuda.get_device_capability() == (major, minor)
 
 if __name__ == "__main__":
     op = Operator()
@@ -188,8 +195,8 @@ if __name__ == "__main__":
     op.triton_tutorial_flash_v2()
     if has_new_tma() and cuda_capability_geq(9):
         op.triton_tutorial_flash_v2_tma()
-    if has_warp_spec() and cuda_capability_geq(9):
+    if has_warp_spec() and cuda_capability_geq(9) and not cuda_capability_eq(12):
         op.triton_tutorial_flash_v2_ws()
-    if has_warp_spec() and has_new_tma() and cuda_capability_geq(9):
+    if has_warp_spec() and has_new_tma() and cuda_capability_geq(9) and not cuda_capability_eq(12):
         op.triton_tutorial_flash_v2_tma_ws()
         op.triton_tutorial_flash_v2_tma_ws_persistent()
