@@ -1,4 +1,3 @@
-from triton_runner.bench.matmul.kernels import matmul_kernel, runner_matmul_kernel
 from triton_runner.bench.utils import benchmark
 import torch
 import triton
