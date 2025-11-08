@@ -66,7 +66,7 @@ def do_bench_walltime(fn, warmup=25, rep=100):
     with TimerContext() as timer:
         for _ in range(5):
             fn()
-        torch.cuda.synchronize()
+            torch.cuda.synchronize()
     estimate_ms = timer.elapsed_ms / 5
 
     # compute number of warmup and repeat
@@ -76,13 +76,13 @@ def do_bench_walltime(fn, warmup=25, rep=100):
     # Warm-up
     for _ in range(n_warmup):
         fn()
-    torch.cuda.synchronize()
+        torch.cuda.synchronize()
 
     # Benchmark
     start_time = time.perf_counter()
     for _ in range(n_repeat):
         fn()
-    torch.cuda.synchronize()
+        torch.cuda.synchronize()
     end_time = time.perf_counter()
     wall_time_ms = (end_time - start_time) * 1e3 / n_repeat
     return wall_time_ms
