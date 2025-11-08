@@ -2624,7 +2624,6 @@ class _attention_opt(torch.autograd.Function):
             triton.set_allocator(alloc_fn)
 
         if baseVariant == "base_opt":
-            print(extra_kern_args, grid_tma)
             _attn_fwd_base_opt[grid_tma](
                 q,
                 k,

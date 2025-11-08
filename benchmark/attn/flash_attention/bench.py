@@ -20,7 +20,7 @@ class Operator():
     def get_input_iter(self):
         dtype = torch.bfloat16
         self.device = "cuda"
-        BATCH, H, N_CTX, N_CTX_KV, D_HEAD = 64, 8192, 8, 8, 64
+        BATCH, H, N_CTX, N_CTX_KV, D_HEAD = 128, 128, 8, 8, 64
         q = torch.randn(
             (BATCH, H, N_CTX, D_HEAD),
             dtype=dtype,
