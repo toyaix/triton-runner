@@ -37,21 +37,6 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
         return ""
 
-    def runner_compile(self, ast_src, source_dir_type, kwargs, target, options):
-        metadata_json = {}
-        if source_dir_type:
-            source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-            src = os.path.join(kwargs[source_dir_type], source_file_name)
-            json_file_name = f"{self.__name__}.json"
-            json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-            json_type_lst = {"cubin_dir", "llir_dir", "ptx_dir", "ttgir_dir"}
-            if source_dir_type in json_type_lst and os.path.exists(json_path):
-                metadata_json = json.loads(open(json_path, "r").read())
-        else:
-            src = ast_src
-        source_path = self.__dict__["__globals__"]["__file__"]
-        return native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path)
-
     def _pack_args(self, backend, kwargs, bound_args, specialization, options):
         from triton._utils import find_paths_if, get_iterable_path
         # options
@@ -78,15 +63,19 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         return options, signature, constexprs, attrs, source_dir_type
 
-    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs):
+    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args=None):
         from triton import knobs
 
         kernel_cache, _, target, backend, _ = self.device_caches[device]
 
+        # [Triton Runner] dump before _call_hook
+        src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
         if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
             return None
-        src = self.ASTSource(self, signature, constexprs, attrs)
+        ast_src = self.ASTSource(self, signature, constexprs, attrs)
 
+        # [Triton Runner] dump after _call_hook
+        source_dir_type, src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
         # TODO: don't support _async_compile
         # async_mode = _async_compile.active_mode.get()
         # if async_mode is not None:
@@ -104,8 +93,9 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         #     kernel = async_mode.submit(cache_key, async_compile, finalize_compile)
         # else:
+        source_path = self.__dict__["__globals__"]["__file__"]
         # [Triton Runner] change compile
-        kernel = self.runner_compile(src, source_dir_type, kwargs, target, options)
+        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path)
         # kernel = self.compile(src, target=target, options=options.__dict__)
         kernel_cache[key] = kernel
         self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
@@ -264,13 +254,15 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
         bound_args, specialization, options = binder(*args, **kwargs)
 
         key = compute_cache_key(kernel_key_cache, specialization, options)
+        # [Triton Runner] dump key
+        key = self.get_dump_key(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         # Kernel is not cached; we have to compile.
         if kernel is None:
             options, signature, constexprs, attrs, source_dir_type = self._pack_args(
                 backend, kwargs, bound_args, specialization, options)
-            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs)
+            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args)
             if kernel is None:
                 return None
 
@@ -326,7 +318,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         # compute cache key
         key = str(specialization) + str(options)
-        # Triton Runner dump key
+        # [Triton Runner] dump key
         key = self.get_dump_key(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
@@ -354,14 +346,14 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
             attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
 
-            # Triton Runner dump before _call_hook
+            # [Triton Runner] dump before _call_hook
             src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
             if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs],
                                warmup):
                 return None
             # compile the kernel
             ast_src = self.ASTSource(self, signature, constexprs, attrs)
-            # Triton Runner dump after _call_hook
+            # [Triton Runner] dump after _call_hook
             source_dir_type, src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, kernel_signature=kernel_signature)
@@ -451,6 +443,7 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
             kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
                        knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
         return kernel
+
 
 class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
 
