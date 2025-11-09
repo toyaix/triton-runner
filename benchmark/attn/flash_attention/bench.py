@@ -17,10 +17,9 @@ class Operator():
 
     DEFAULT_METRICS = ["walltime"]
 
-    def get_input_iter(self):
+    def get_input_iter(self, BATCH=256, H=128, N_CTX=8, N_CTX_KV=8, D_HEAD=128):
         dtype = torch.bfloat16
         self.device = "cuda"
-        BATCH, H, N_CTX, N_CTX_KV, D_HEAD = 128, 128, 8, 8, 64
         q = torch.randn(
             (BATCH, H, N_CTX, D_HEAD),
             dtype=dtype,
@@ -100,7 +99,7 @@ class Operator():
             v,
         )
 
-    @benchmark("triton_tutorial")
+    @benchmark("triton_tutorial_flash_v2")
     def triton_tutorial_flash_v2(
         self,
         q: torch.Tensor,
@@ -112,9 +111,99 @@ class Operator():
             q, k, v, self.causal, self.sm_scale, "base_opt"
         )
 
+    @benchmark("triton_tutorial_flash_v2_tma")
+    def triton_tutorial_flash_v2_tma(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+    ) -> Callable:
+        # autotune TMA/CompPipe
+        return lambda: triton_tutorial_FA2_opt(
+            q, k, v, self.causal, self.sm_scale, "tma"
+        )
+
+    @benchmark("triton_tutorial_flash_v2_ws")
+    def triton_tutorial_flash_v2_ws(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+    ) -> Callable:
+        # autotune WarpSpec/CompPipe
+        return lambda: triton_tutorial_FA2_opt(
+            q, k, v, self.causal, self.sm_scale, "ws"
+        )
+
+    @benchmark("triton_tutorial_flash_v2_tma_ws")
+    def triton_tutorial_flash_v2_tma_ws(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+    ) -> Callable:
+        # autotune TMA/WarpSpec/CompPipe
+        return lambda: triton_tutorial_FA2_opt(
+            q, k, v, self.causal, self.sm_scale, "tma_ws"
+        )
+
+    @benchmark("triton_tutorial_flash_v2_tma_ws_persistent")
+    def triton_tutorial_flash_v2_tma_ws_persistent(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+    ) -> Callable:
+        # autotune TMA/WarpSpec/CompPipe/Persistent
+        return lambda: triton_tutorial_FA2_opt(
+            q, k, v, self.causal, self.sm_scale, "tma_ws_persistent"
+        )
+
+
+def has_warp_spec():
+    import triton.language as tl
+
+    return hasattr(tl, "async_task")
+
+
+def has_assume():
+    import triton.language as tl
+
+    return hasattr(tl, "assume")
+
+
+def has_new_tma():
+    import triton
+    import triton.language as tl
+
+    return hasattr(triton, "set_allocator") and hasattr(tl, "make_tensor_descriptor")
+
+def cuda_capability_geq(major, minor=0):
+    """
+    Determines whether we have compute capability >= (major, minor) and
+    returns this as a constexpr boolean. This can be used for guarding
+    inline asm implementations that require a certain compute capability.
+    """
+    return torch.cuda.get_device_capability() >= (major, minor)
+
+def cuda_capability_eq(major, minor=0):
+    """
+    Determines whether we have compute capability >= (major, minor) and
+    returns this as a constexpr boolean. This can be used for guarding
+    inline asm implementations that require a certain compute capability.
+    """
+    return torch.cuda.get_device_capability() == (major, minor)
 
 if __name__ == "__main__":
     op = Operator()
     op.aten()
     op.sdpa()
-    op.triton_tutorial_flash_v2()
+    if has_assume():
+        op.triton_tutorial_flash_v2()
+    if has_new_tma() and cuda_capability_geq(9):
+        op.triton_tutorial_flash_v2_tma()
+    if has_warp_spec() and cuda_capability_geq(9) and not cuda_capability_eq(12):
+        op.triton_tutorial_flash_v2_ws()
+    if has_warp_spec() and has_new_tma() and cuda_capability_geq(9) and not cuda_capability_eq(12):
+        op.triton_tutorial_flash_v2_tma_ws()
+        op.triton_tutorial_flash_v2_tma_ws_persistent()
