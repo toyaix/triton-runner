@@ -182,6 +182,39 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             full_text, count = pattern.subn(make_replacer(replace_id), full_text, count=1)
         return full_text
 
+    def get_dump_key(self, key, kwargs):
+        if "dump_value" in kwargs:
+            key += kwargs["dump_value"]
+        if (runner_source_dir_str := self.get_runner_source_dir_str(kwargs)):
+            key += runner_source_dir_str
+        return key
+
+    def get_src_and_metadata_json(self, kwargs, source_dir_type, src, ast_src):
+        if source_dir_type:
+            source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
+            src = os.path.join(kwargs[source_dir_type], source_file_name)
+            if self.need_dump(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
+                if not os.path.exists(src):
+                    src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
+                if not os.path.exists(src):
+                    raise RuntimeError("Check .source/.ttir/.ttgir file for dump.")
+                dump_content = self.insert_dump_tensor_param(open(src, "r").read())
+                dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"], kwargs.get("dump_grid", 0))
+                src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
+                with open(src, "w") as file:
+                    file.write(dump_content)
+            if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
+                json_file_name = f"{self.__name__}.json"
+                json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+                metadata_json = json.loads(open(json_path, "r").read())
+                return source_dir_type, src, metadata_json
+            return source_dir_type, src, {}
+        elif self.need_dump(kwargs):
+            return "ttir_dir", src, {}
+        else:
+            return None, ast_src, {}
+
+
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
     def get_source_dir_type(self, kwargs, options, sigkeys):
@@ -270,10 +303,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         # compute cache key
         key = str(specialization) + str(options)
-        if "dump_value" in kwargs:
-            key += kwargs["dump_value"]
-        if (runner_source_dir_str := super().get_runner_source_dir_str(kwargs)):
-            key += runner_source_dir_str
+        key = self.get_dump_key(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         # Kernel is not cached; we have to compile.
@@ -321,28 +351,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                 return None
             # compile the kernel
             ast_src = self.ASTSource(self, signature, constexprs, attrs)
-            metadata_json = {}
-            if source_dir_type:
-                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-                src = os.path.join(kwargs[source_dir_type], source_file_name)
-                if self.need_dump(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
-                    if not os.path.exists(src):
-                        src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
-                    if not os.path.exists(src):
-                        raise RuntimeError("Check .source/.ttir/.ttgir file for dump.")
-                    dump_content = self.insert_dump_tensor_param(open(src, "r").read())
-                    dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"], kwargs.get("dump_grid", 0))
-                    src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
-                    with open(src, "w") as file:
-                        file.write(dump_content)
-                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
-                    json_file_name = f"{self.__name__}.json"
-                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-                    metadata_json = json.loads(open(json_path, "r").read())
-            elif self.need_dump(kwargs):
-                source_dir_type = "ttir_dir"
-            else:
-                src = ast_src
+            source_dir_type, src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, locals().get("src", None), ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, kernel_signature=kernel_signature)
             kernel_cache[key] = kernel
