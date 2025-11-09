@@ -166,6 +166,12 @@ def has_warp_spec():
     return hasattr(tl, "async_task")
 
 
+def has_assume():
+    import triton.language as tl
+
+    return hasattr(tl, "assume")
+
+
 def has_new_tma():
     import triton
     import triton.language as tl
@@ -192,7 +198,8 @@ if __name__ == "__main__":
     op = Operator()
     op.aten()
     op.sdpa()
-    op.triton_tutorial_flash_v2()
+    if has_assume():
+        op.triton_tutorial_flash_v2()
     if has_new_tma() and cuda_capability_geq(9):
         op.triton_tutorial_flash_v2_tma()
     if has_warp_spec() and cuda_capability_geq(9) and not cuda_capability_eq(12):
