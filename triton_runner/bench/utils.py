@@ -9,6 +9,7 @@
 import torch
 import time
 import os
+from triton_runner.testing import do_bench
 
 
 class TimerContext:
@@ -40,7 +41,7 @@ def benchmark(name, unit_name="ms"):
                 input_len = len(input_iter)
                 for idx, input_args in enumerate(input_iter):
                     fn = method(self, *input_args)
-                    elapsed_time = do_bench_walltime(fn)
+                    elapsed_time = do_bench(fn)
                     elapsed_time_str = f"{elapsed_time:8.3f} ms"
                     if unit_name == "us":
                         elapsed_time_str = f"{elapsed_time * 1e3:8.3f} us"
@@ -55,34 +56,3 @@ def benchmark(name, unit_name="ms"):
         return wrapper
 
     return decorator
-
-
-def do_bench_walltime(fn, warmup=25, rep=100):
-    torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats()
-    fn()
-    torch.cuda.synchronize()
-
-    with TimerContext() as timer:
-        for _ in range(5):
-            fn()
-            torch.cuda.synchronize()
-    estimate_ms = timer.elapsed_ms / 5
-
-    # compute number of warmup and repeat
-    n_warmup = max(1, int(warmup / estimate_ms))
-    n_repeat = max(1, int(rep / estimate_ms))
-
-    # Warm-up
-    for _ in range(n_warmup):
-        fn()
-        torch.cuda.synchronize()
-
-    # Benchmark
-    start_time = time.perf_counter()
-    for _ in range(n_repeat):
-        fn()
-        torch.cuda.synchronize()
-    end_time = time.perf_counter()
-    wall_time_ms = (end_time - start_time) * 1e3 / n_repeat
-    return wall_time_ms
