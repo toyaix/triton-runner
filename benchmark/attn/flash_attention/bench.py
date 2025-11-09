@@ -17,7 +17,7 @@ class Operator():
 
     DEFAULT_METRICS = ["walltime"]
 
-    def get_input_iter(self, BATCH=128, H=128, N_CTX=8, N_CTX_KV=8, D_HEAD=64):
+    def get_input_iter(self, BATCH=256, H=128, N_CTX=8, N_CTX_KV=8, D_HEAD=128):
         dtype = torch.bfloat16
         self.device = "cuda"
         q = torch.randn(
