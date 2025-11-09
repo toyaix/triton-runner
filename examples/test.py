@@ -31,6 +31,7 @@ if match:
         debug_file_path = os.path.join("doc", "dump.md")
         for i, m in enumerate(pattern.finditer((get_content(debug_file_path)), 1)):
             lines.extend(get_lines(m))
+    triton_runner.color_print.yellow_print(f"TEST on triton v{triton.__version__}")
     fail_cmd = []
     for cmd in lines:
         triton_runner.color_print.blue_print(cmd)
