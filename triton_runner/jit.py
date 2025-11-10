@@ -75,7 +75,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         ast_src = self.ASTSource(self, signature, constexprs, attrs)
 
         # [Triton Runner] dump after _call_hook
-        source_dir_type, src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
+        src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
         # TODO: don't support _async_compile
         # async_mode = _async_compile.active_mode.get()
         # if async_mode is not None:
@@ -184,8 +184,13 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             if self.is_python_dump(kwargs, source_dir_type):
                 src = self.ASTSource(self, signature, constexprs, attrs)
                 module = get_source_ir(src, target=target, options=options.__dict__)
-                from triton import knobs
-                runner_cache_dir =  os.path.join(knobs.cache.dir, "runner_cache")
+                if triton.__version__ in ["3.4.0", "3.5.0"]:
+                    from triton import knobs
+                    runner_cache_dir = os.path.join(knobs.cache.dir, "runner_cache")
+                else:
+                    from triton.runtime.cache import default_cache_dir
+                    cache_dir = os.getenv("TRITON_CACHE_DIR", "").strip() or default_cache_dir()
+                    runner_cache_dir = os.path.join(cache_dir, "runner_cache")
                 os.makedirs(runner_cache_dir, exist_ok=True)
                 dump_content = self.insert_dump_tensor_param(str(module))
                 dump_content = self.inject_dump_op_dump_store(dump_content)
@@ -216,16 +221,15 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
                 with open(src, "w") as file:
                     file.write(dump_content)
+            metadata_json = {}
             if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
                 json_file_name = f"{self.__name__}.json"
                 json_path = os.path.join(kwargs[source_dir_type], json_file_name)
                 metadata_json = json.loads(open(json_path, "r").read())
-                return source_dir_type, src, metadata_json
-            return source_dir_type, src, {}
+            return src, metadata_json
         elif self.need_dump(kwargs):
-            return "ttir_dir", src, {}
-        else:
-            return None, ast_src, {}
+            return src, {}
+        return ast_src, {}
 
 
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
@@ -354,7 +358,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             # compile the kernel
             ast_src = self.ASTSource(self, signature, constexprs, attrs)
             # [Triton Runner] dump after _call_hook
-            source_dir_type, src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
+            src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, kernel_signature=kernel_signature)
             kernel_cache[key] = kernel
@@ -469,6 +473,8 @@ class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
 
         # compute cache key
         key = str(specialization) + str(options)
+        # [Triton Runner] dump key
+        key = self.get_dump_key(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         # Kernel is not cached; we have to compile.
@@ -494,20 +500,16 @@ class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
             attrvals = [x[1] for x in specialization]
             attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
             attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
+
+            # [Triton Runner] dump before _call_hook
+            src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
+
             if self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=True):
                 return None
             # compile the kernel
             ast_src = self.ASTSource(self, signature, constexprs, attrs)
-            metadata_json = {}
-            if source_dir_type:
-                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-                src = os.path.join(kwargs[source_dir_type], source_file_name)
-                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
-                    json_file_name = f"{self.__name__}.json"
-                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-                    metadata_json = json.loads(open(json_path, "r").read())
-            else:
-                src = ast_src
+            # [Triton Runner] dump after _call_hook
+            src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
 
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
             kernel_cache[key] = kernel
