@@ -12,9 +12,9 @@ Multi-Level Triton Runner(Dump) 🔧
 
 Triton Runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
 
-Triton Runner is compatible with Triton v3.5.0, **v3.4.0 (primary)**, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.
+Triton Runner is compatible with Triton **v3.5.0(primary)**, v3.4.0, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.
 
-Triton Runner supports multi-level dump across Python/TTIR/TTGIR on Triton **v3.4.0**.
+Triton Runner supports multi-level dump across Python/TTIR/TTGIR on Triton v3.5.0, v3.4.0, v3.3.x.
 
 ## ✨ Features
 
