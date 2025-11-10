@@ -157,7 +157,7 @@ Please refer to the appropriate examples directory based on your Triton version:
 
 ### II. Multi-Level Dump
 
-Python/TTIR/TTGIR now support dump on Triton v3.4.0.
+Python/TTIR/TTGIR now support dump on Triton v3.5.0, v3.4.0, v3.3.x.
 
 ```mermaid
 ---
