@@ -135,14 +135,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if src_ext == "ptx":
             module = src.src
         elif src_ext not in {"llir", "cubin"}:
-            if triton.__version__ in ["3.1.0", "3.0.0"]:
-                module = src.make_ir(options, codegen_fns, context)
-            elif triton.__version__ in ["3.5.0"] or is_tlx:
-                module_map = backend.get_module_map()
-                module = src.make_ir(target, options, codegen_fns, module_map, context)
-            else:
-                module_map = backend.get_module_map()
-                module = src.make_ir(options, codegen_fns, module_map, context)
+            module = get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context)
     except Exception as e:
         filter_traceback(e)
         raise
@@ -215,6 +208,13 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # return handle to compiled kernel
     return CompiledKernel(ast_src, metadata_group, hash)
 
+def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context):
+    if triton.__version__ in ["3.1.0", "3.0.0"]:
+        return src.make_ir(options, codegen_fns, context)
+    module_map = backend.get_module_map()
+    if triton.__version__ in ["3.5.0"] or is_tlx:
+        return src.make_ir(target, options, codegen_fns, module_map, context)
+    return src.make_ir(options, codegen_fns, module_map, context)
 
 def get_source_ir(src, target=None, options=None):
     if target is None:
@@ -230,14 +230,12 @@ def get_source_ir(src, target=None, options=None):
     backend.load_dialects(context)
 
     codegen_fns = backend.get_codegen_implementation(options)
-    module_map = backend.get_module_map()
     try:
-        module = src.make_ir(options, codegen_fns, module_map, context)
+        module = get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context)
     except Exception as e:
         filter_traceback(e)
         raise
     return module
-
 
 if triton.__version__ in ["3.5.0"] or is_tlx:
     from triton.runtime.cache import triton_key

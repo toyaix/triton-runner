@@ -27,7 +27,7 @@ if match:
     pattern = re.compile(rf"shell(.*?)```", re.DOTALL)
     bench_file_path = os.path.join("doc", "benchmark.md")
     lines.extend(get_lines(pattern.search(get_content(bench_file_path))))
-    if triton_version in ["3.4.0"]:
+    if triton_version in ["3.3.x", "3.4.0", "3.5.0"]:
         debug_file_path = os.path.join("doc", "dump.md")
         for i, m in enumerate(pattern.finditer((get_content(debug_file_path)), 1)):
             lines.extend(get_lines(m))

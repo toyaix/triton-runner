@@ -17,6 +17,9 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
     def get_dump_args_set(self):
         return {"dump_tensor", "dump_value", "dump_grid"}
 
+    def is_python_dump(self, kwargs, source_dir_type):
+        return self.need_dump(kwargs) and source_dir_type not in ["ttir_dir", "ttgir_dir"]
+
     def get_source_dir_type(self, need_check_lst):
         runner_args_set = self.get_runner_args_set()
         dump_args_set = self.get_dump_args_set()
@@ -33,21 +36,6 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             if k in runner_args_set:
                 return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
         return ""
-
-    def runner_compile(self, ast_src, source_dir_type, kwargs, target, options):
-        metadata_json = {}
-        if source_dir_type:
-            source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-            src = os.path.join(kwargs[source_dir_type], source_file_name)
-            json_file_name = f"{self.__name__}.json"
-            json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-            json_type_lst = {"cubin_dir", "llir_dir", "ptx_dir", "ttgir_dir"}
-            if source_dir_type in json_type_lst and os.path.exists(json_path):
-                metadata_json = json.loads(open(json_path, "r").read())
-        else:
-            src = ast_src
-        source_path = self.__dict__["__globals__"]["__file__"]
-        return native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path)
 
     def _pack_args(self, backend, kwargs, bound_args, specialization, options):
         from triton._utils import find_paths_if, get_iterable_path
@@ -75,15 +63,19 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         return options, signature, constexprs, attrs, source_dir_type
 
-    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs):
+    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args=None):
         from triton import knobs
 
         kernel_cache, _, target, backend, _ = self.device_caches[device]
 
+        # [Triton Runner] dump before _call_hook
+        src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
         if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
             return None
-        src = self.ASTSource(self, signature, constexprs, attrs)
+        ast_src = self.ASTSource(self, signature, constexprs, attrs)
 
+        # [Triton Runner] dump after _call_hook
+        src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
         # TODO: don't support _async_compile
         # async_mode = _async_compile.active_mode.get()
         # if async_mode is not None:
@@ -101,80 +93,14 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         #     kernel = async_mode.submit(cache_key, async_compile, finalize_compile)
         # else:
+        source_path = self.__dict__["__globals__"]["__file__"]
         # [Triton Runner] change compile
-        kernel = self.runner_compile(src, source_dir_type, kwargs, target, options)
+        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path)
         # kernel = self.compile(src, target=target, options=options.__dict__)
         kernel_cache[key] = kernel
         self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                         warmup)
         return kernel
-
-class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
-
-    def get_source_dir_type(self, kwargs, options, sigkeys):
-        return super().get_source_dir_type(
-            [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
-
-    def run(self, *args, grid, warmup, **kwargs):
-        from triton import knobs
-        from triton.runtime.jit import compute_cache_key
-
-        kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
-
-        # parse options
-        device = driver.active.get_current_device()
-        stream = driver.active.get_current_stream(device)
-
-        # Execute pre run hooks with args and kwargs
-        for hook in self.pre_run_hooks:
-            hook(*args, **kwargs)
-
-        kernel_cache, kernel_key_cache, target, backend, binder = self.device_caches[device]
-        # specialization is list[tuple[str, Any]], where first element of tuple is
-        # the type and the second parameter is the 'specialization' value.
-        bound_args, specialization, options = binder(*args, **kwargs)
-
-        key = compute_cache_key(kernel_key_cache, specialization, options)
-        kernel = kernel_cache.get(key, None)
-
-        # Kernel is not cached; we have to compile.
-        if kernel is None:
-            options, signature, constexprs, attrs, source_dir_type = self._pack_args(
-                backend, kwargs, bound_args, specialization, options)
-            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs)
-            if kernel is None:
-                return None
-
-        # Check that used global values have not changed.
-        not_present = object()
-        for (name, _), (val, globals_dict) in self.used_global_vals.items():
-            if (newVal := globals_dict.get(name, not_present)) != val:
-                raise RuntimeError(
-                    f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
-
-        if not warmup:
-            # canonicalize grid
-            assert grid is not None
-            if callable(grid):
-                grid = grid(bound_args)
-            grid_size = len(grid)
-            grid_0 = grid[0]
-            grid_1 = grid[1] if grid_size > 1 else 1
-            grid_2 = grid[2] if grid_size > 2 else 1
-            if hasattr(kernel, "result"):
-                kernel = kernel.result()
-            # launch kernel
-            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
-        return kernel
-
-
-class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
-
-    def get_source_dir_type(self, kwargs, options, sigkeys):
-        return super().get_source_dir_type(
-            [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def need_dump(self, kwargs):
         return "dump_tensor" in kwargs
@@ -249,6 +175,132 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             full_text, count = pattern.subn(make_replacer(replace_id), full_text, count=1)
         return full_text
 
+    def get_src_and_save_dump_file(self, kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args):
+        src = None
+        if self.need_dump(kwargs):
+            dump_tensor = kwargs["dump_tensor"]
+            from .color_print import check_dump_tensor_dtype
+            check_dump_tensor_dtype(dump_tensor)
+            if self.is_python_dump(kwargs, source_dir_type):
+                src = self.ASTSource(self, signature, constexprs, attrs)
+                module = get_source_ir(src, target=target, options=options.__dict__)
+                if triton.__version__ in ["3.4.0", "3.5.0"]:
+                    from triton import knobs
+                    runner_cache_dir = os.path.join(knobs.cache.dir, "runner_cache")
+                else:
+                    from triton.runtime.cache import default_cache_dir
+                    cache_dir = os.getenv("TRITON_CACHE_DIR", "").strip() or default_cache_dir()
+                    runner_cache_dir = os.path.join(cache_dir, "runner_cache")
+                os.makedirs(runner_cache_dir, exist_ok=True)
+                dump_content = self.insert_dump_tensor_param(str(module))
+                dump_content = self.inject_dump_op_dump_store(dump_content)
+                src = os.path.join(runner_cache_dir, f"{self.__name__}-dump.ttir")
+                with open(src, "w") as file:
+                    file.write(dump_content)
+            signature["dump_tensor"], bound_args["dump_tensor"] = "*fp32", dump_tensor
+        return src
+
+    def get_dump_key(self, key, kwargs):
+        if "dump_value" in kwargs:
+            key += kwargs["dump_value"]
+        if (runner_source_dir_str := self.get_runner_source_dir_str(kwargs)):
+            key += runner_source_dir_str
+        return key
+
+    def get_src_and_metadata_json(self, kwargs, source_dir_type, src, ast_src):
+        if source_dir_type:
+            source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
+            src = os.path.join(kwargs[source_dir_type], source_file_name)
+            if self.need_dump(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
+                if not os.path.exists(src):
+                    src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
+                if not os.path.exists(src):
+                    raise RuntimeError("Check .source/.ttir/.ttgir file for dump.")
+                dump_content = self.insert_dump_tensor_param(open(src, "r").read())
+                dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"], kwargs.get("dump_grid", 0))
+                src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
+                with open(src, "w") as file:
+                    file.write(dump_content)
+            metadata_json = {}
+            if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
+                json_file_name = f"{self.__name__}.json"
+                json_path = os.path.join(kwargs[source_dir_type], json_file_name)
+                metadata_json = json.loads(open(json_path, "r").read())
+            return src, metadata_json
+        elif self.need_dump(kwargs):
+            return src, {}
+        return ast_src, {}
+
+
+class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
+
+    def get_source_dir_type(self, kwargs, options, sigkeys):
+        return super().get_source_dir_type(
+            [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
+
+    def run(self, *args, grid, warmup, **kwargs):
+        from triton import knobs
+        from triton.runtime.jit import compute_cache_key
+
+        kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
+
+        # parse options
+        device = driver.active.get_current_device()
+        stream = driver.active.get_current_stream(device)
+
+        # Execute pre run hooks with args and kwargs
+        for hook in self.pre_run_hooks:
+            hook(*args, **kwargs)
+
+        kernel_cache, kernel_key_cache, target, backend, binder = self.device_caches[device]
+        # specialization is list[tuple[str, Any]], where first element of tuple is
+        # the type and the second parameter is the 'specialization' value.
+        bound_args, specialization, options = binder(*args, **kwargs)
+
+        key = compute_cache_key(kernel_key_cache, specialization, options)
+        # [Triton Runner] dump key
+        key = self.get_dump_key(key, kwargs)
+        kernel = kernel_cache.get(key, None)
+
+        # Kernel is not cached; we have to compile.
+        if kernel is None:
+            options, signature, constexprs, attrs, source_dir_type = self._pack_args(
+                backend, kwargs, bound_args, specialization, options)
+            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args)
+            if kernel is None:
+                return None
+
+        # Check that used global values have not changed.
+        not_present = object()
+        for (name, _), (val, globals_dict) in self.used_global_vals.items():
+            if (newVal := globals_dict.get(name, not_present)) != val:
+                raise RuntimeError(
+                    f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
+
+        if not warmup:
+            # canonicalize grid
+            assert grid is not None
+            if callable(grid):
+                grid = grid(bound_args)
+            grid_size = len(grid)
+            grid_0 = grid[0]
+            grid_1 = grid[1] if grid_size > 1 else 1
+            grid_2 = grid[2] if grid_size > 2 else 1
+            if hasattr(kernel, "result"):
+                kernel = kernel.result()
+            # launch kernel
+            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
+                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
+        return kernel
+
+
+class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
+
+    def get_source_dir_type(self, kwargs, options, sigkeys):
+        return super().get_source_dir_type(
+            [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
+
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
         from triton._utils import find_paths_if, get_iterable_path
@@ -270,10 +322,8 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         # compute cache key
         key = str(specialization) + str(options)
-        if "dump_value" in kwargs:
-            key += kwargs["dump_value"]
-        if (runner_source_dir_str := super().get_runner_source_dir_str(kwargs)):
-            key += runner_source_dir_str
+        # [Triton Runner] dump key
+        key = self.get_dump_key(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         # Kernel is not cached; we have to compile.
@@ -300,49 +350,15 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
             attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
 
-            if self.need_dump(kwargs):
-                dump_tensor = kwargs["dump_tensor"]
-                from .color_print import check_dump_tensor_dtype
-                check_dump_tensor_dtype(dump_tensor)
-                if  not source_dir_type in ["ttir_dir", "ttgir_dir"]:
-                    src = self.ASTSource(self, signature, constexprs, attrs)
-                    module = get_source_ir(src, target=target, options=options.__dict__)
-                    runner_cache_dir =  os.path.join(knobs.cache.dir, "runner_cache")
-                    os.makedirs(runner_cache_dir, exist_ok=True)
-                    dump_content = self.insert_dump_tensor_param(str(module))
-                    dump_content = self.inject_dump_op_dump_store(dump_content)
-                    src = os.path.join(runner_cache_dir, f"{self.__name__}-dump.ttir")
-                    with open(src, "w") as file:
-                        file.write(dump_content)
-                signature["dump_tensor"], bound_args["dump_tensor"] = "*fp32", dump_tensor
-
+            # [Triton Runner] dump before _call_hook
+            src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
             if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs],
                                warmup):
                 return None
             # compile the kernel
             ast_src = self.ASTSource(self, signature, constexprs, attrs)
-            metadata_json = {}
-            if source_dir_type:
-                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-                src = os.path.join(kwargs[source_dir_type], source_file_name)
-                if self.need_dump(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
-                    if not os.path.exists(src):
-                        src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
-                    if not os.path.exists(src):
-                        raise RuntimeError("Check .source/.ttir/.ttgir file for dump.")
-                    dump_content = self.insert_dump_tensor_param(open(src, "r").read())
-                    dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"], kwargs.get("dump_grid", 0))
-                    src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
-                    with open(src, "w") as file:
-                        file.write(dump_content)
-                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
-                    json_file_name = f"{self.__name__}.json"
-                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-                    metadata_json = json.loads(open(json_path, "r").read())
-            elif self.need_dump(kwargs):
-                source_dir_type = "ttir_dir"
-            else:
-                src = ast_src
+            # [Triton Runner] dump after _call_hook
+            src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, kernel_signature=kernel_signature)
             kernel_cache[key] = kernel
@@ -370,7 +386,6 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
                        knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
         return kernel
-
 
 
 class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
@@ -433,6 +448,7 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
                        knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
         return kernel
 
+
 class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
 
     def get_source_dir_type(self, kwargs, options, sigkeys):
@@ -457,6 +473,8 @@ class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
 
         # compute cache key
         key = str(specialization) + str(options)
+        # [Triton Runner] dump key
+        key = self.get_dump_key(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         # Kernel is not cached; we have to compile.
@@ -482,20 +500,16 @@ class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
             attrvals = [x[1] for x in specialization]
             attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
             attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
+
+            # [Triton Runner] dump before _call_hook
+            src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
+
             if self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=True):
                 return None
             # compile the kernel
             ast_src = self.ASTSource(self, signature, constexprs, attrs)
-            metadata_json = {}
-            if source_dir_type:
-                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-                src = os.path.join(kwargs[source_dir_type], source_file_name)
-                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
-                    json_file_name = f"{self.__name__}.json"
-                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-                    metadata_json = json.loads(open(json_path, "r").read())
-            else:
-                src = ast_src
+            # [Triton Runner] dump after _call_hook
+            src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
 
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
             kernel_cache[key] = kernel
