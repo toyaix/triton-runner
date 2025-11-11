@@ -24,8 +24,6 @@ python examples/runner/v3.2.0/ttgir/sm80/matmul-with-dot-v2.py
 python examples/runner/v3.2.0/llir/sm80/matmul-with-dot-v2.py
 
 python examples/runner/v3.3.x/ptx/sm80/matmul-with-dot-v2.py
-
-python examples/runner/v3.4.0/cubin/sm80/matmul-with-dot-v2.py
 ```
 
 ### sm120 (RTX PRO 6000, RTX 5090, etc.)
