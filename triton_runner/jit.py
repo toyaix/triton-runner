@@ -256,6 +256,11 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
                 if is_kwargs:
                     kwargs[key] = spec
             kwargs["cubin_dir"] = kwargs["autotune_cubin_dir"]
+            kwargs["num_warps"] = metadata_json["num_warps"]
+            kwargs["num_stages"] = metadata_json["num_stages"]
+            kwargs["num_ctas"] = metadata_json["num_ctas"]
+            kwargs["maxnreg"] = metadata_json["maxnreg"]
+            # pre_hook and ir_override is disabled
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
