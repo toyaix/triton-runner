@@ -15,7 +15,7 @@ import os
 cache_dir = os.path.join(os.path.dirname(current_dir), "kda_gate_fwd_kernel_cache")
 dir_lst = os.listdir(cache_dir)
 
-@triton_runner.autotune(
+@triton.autotune(
     configs=[
         triton.Config({'autotune_cubin_dir': os.path.join(cache_dir, dir)})
         for dir in dir_lst
