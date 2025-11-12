@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import triton
 import triton_runner
 import triton.language as tl
+from pathlib import Path
 
 from fla.ops.utils.op import log
 from fla.utils import autotune_cache_kwargs, input_guard, is_amd
@@ -10,15 +11,17 @@ from fla.utils import autotune_cache_kwargs, input_guard, is_amd
 BT_LIST_AUTOTUNE = [32, 64, 128]
 NUM_WARPS_AUTOTUNE = [2, 4, 8, 16] if is_amd else [4, 8, 16, 32]
 
-current_dir = triton_runner.get_file_dir(__file__)
-import os
-cache_dir = os.path.join(os.path.dirname(current_dir), "kda_gate_fwd_kernel_cache")
-dir_lst = os.listdir(cache_dir)
+cache_dir = Path(triton_runner.get_file_dir(__file__)).parent / "kda_gate_fwd_kernel_cache"
+
+def has_cubin_and_json(path: Path) -> bool:
+    cubin_files = list(path.glob("*.cubin"))
+    json_files = list(path.glob("*.json"))
+    return bool(cubin_files) and bool(json_files)
 
 @triton.autotune(
     configs=[
-        triton.Config({'autotune_cubin_dir': os.path.join(cache_dir, dir)})
-        for dir in dir_lst
+        triton.Config({'autotune_cubin_dir': str(p)})
+        for p in cache_dir.iterdir() if p.is_dir() and has_cubin_and_json(p)
     ],
     key=['H', 'D'],
 )
