@@ -41,6 +41,11 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
         return ""
 
+    def get_metadata_json(self, path):
+        json_file_name = f"{self.__name__}.json"
+        json_path = os.path.join(path, json_file_name)
+        return json.loads(open(json_path, "r").read())
+
     def _pack_args(self, backend, kwargs, bound_args, specialization, options):
         from triton._utils import find_paths_if, get_iterable_path
         # options
@@ -244,7 +249,12 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
         if kwargs.get("autotune_cubin_dir"):
-            kwargs['BT'] = 16
+            metadata_json = self.get_metadata_json(kwargs["autotune_cubin_dir"])
+            import ast
+            kernel_signature_tuple = ast.literal_eval(metadata_json["kernel_signature"])
+            for (key, arg_type, spec, is_kwargs) in kernel_signature_tuple:
+                if is_kwargs:
+                    kwargs[key] = spec
             kwargs["cubin_dir"] = kwargs["autotune_cubin_dir"]
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
@@ -273,7 +283,7 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
         if kernel is None:
             options, signature, constexprs, attrs, source_dir_type = self._pack_args(
                 backend, kwargs, bound_args, specialization, options)
-            kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
+            kernel_signature = tuple((key, arg_type, spec, key in kwargs) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
             kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args, kernel_signature)
             if kernel is None:
                 return None
