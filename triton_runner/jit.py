@@ -17,14 +17,18 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
     def get_dump_args_set(self):
         return {"dump_tensor", "dump_value", "dump_grid"}
 
+    def get_autotune_args_set(self):
+        return {"autotune_cubin_dir"}
+
     def is_python_dump(self, kwargs, source_dir_type):
         return self.need_dump(kwargs) and source_dir_type not in ["ttir_dir", "ttgir_dir"]
 
     def get_source_dir_type(self, need_check_lst):
         runner_args_set = self.get_runner_args_set()
         dump_args_set = self.get_dump_args_set()
+        autotune_args_set = self.get_autotune_args_set()
         for k in need_check_lst:
-            if not k in runner_args_set | dump_args_set:
+            if not k in runner_args_set | dump_args_set | autotune_args_set:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         for k in need_check_lst:
             if k in runner_args_set:
@@ -239,6 +243,9 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def run(self, *args, grid, warmup, **kwargs):
+        if kwargs.get("autotune_cubin_dir"):
+            kwargs['BT'] = 16
+            kwargs["cubin_dir"] = kwargs["autotune_cubin_dir"]
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
