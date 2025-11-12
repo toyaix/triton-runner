@@ -32,7 +32,6 @@ class Autotuner(KernelInterface):
             self.configs = [Config({}, num_warps=4, num_stages=3, num_ctas=1)]
         else:
             self.configs = configs
-        print(configs[0], configs)
         self.keys = key
         self.cache: Dict[Tuple, Config] = {}
         self.arg_names = arg_names
@@ -178,7 +177,6 @@ class Autotuner(KernelInterface):
 
         fn = self.fn
         while not isinstance(fn, JITFunction):
-            print(fn)
             fn = fn.fn
 
         env_vars = get_cache_invalidating_env_vars()
@@ -222,20 +220,14 @@ class Autotuner(KernelInterface):
                 if hasattr(arg, "dtype"):
                     key.append(str(arg.dtype))
             key = tuple(key)
-            print(key)
-            # import pdb
-            # pdb.set_trace()
             if key not in self.cache:
                 used_cached_result = False
-                print('kwargs', kwargs)
                 pruned_configs = self.prune_configs(kwargs)
-                print(pruned_configs)
 
                 def benchmark():
                     bench_start = time.time()
                     timings = {}
                     for config in pruned_configs:
-                        print(config)
                         timings[config] = self._bench(*args, config=config, **kwargs)
 
                     bench_end = time.time()
@@ -296,7 +288,6 @@ class Autotuner(KernelInterface):
         self.nargs = dict(zip(self.arg_names, args))
         ret = []
         for autotune_config in self.prune_configs(kwargs):
-            print(autotune_config)
             ret.append(self.fn.warmup(
                 *args,
                 **kwargs,
