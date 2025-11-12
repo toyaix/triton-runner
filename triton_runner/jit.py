@@ -63,7 +63,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         return options, signature, constexprs, attrs, source_dir_type
 
-    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args=None):
+    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args=None, kernel_signature=None):
         from triton import knobs
 
         kernel_cache, _, target, backend, _ = self.device_caches[device]
@@ -95,7 +95,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         # else:
         source_path = self.__dict__["__globals__"]["__file__"]
         # [Triton Runner] change compile
-        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path)
+        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path, kernel_signature=kernel_signature)
         # kernel = self.compile(src, target=target, options=options.__dict__)
         kernel_cache[key] = kernel
         self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
@@ -266,7 +266,8 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
         if kernel is None:
             options, signature, constexprs, attrs, source_dir_type = self._pack_args(
                 backend, kwargs, bound_args, specialization, options)
-            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args)
+            kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
+            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args, kernel_signature)
             if kernel is None:
                 return None
 
