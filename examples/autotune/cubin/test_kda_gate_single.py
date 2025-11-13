@@ -17,7 +17,7 @@ def test_kda_gate_single():
 
     print(f"Running test for B={B}, T={T}, H={H}, D={D}, use_bias={use_bias}")
 
-    torch.manual_seed(42)
+    # torch.manual_seed(42)
 
     g = torch.randn(B, T, H * D, dtype=torch.float32)
     g = g * 30
