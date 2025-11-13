@@ -43,6 +43,8 @@ def kda_gate_fwd_kernel(
 ):
 ```
 
+示例依赖fla，请`pip install flash-linear-attention`后，切换到triton到`3.5.0`,`pip install triton==3.5.0`。
+
 运行`TRITON_PRINT_AUTOTUNING=1 python examples/autotune/python/test_kda_gate_single.py`后可以看到如下内容
 
 ![image](https://img2024.cnblogs.com/blog/1154439/202511/1154439-20251113073951452-636270224.png)
