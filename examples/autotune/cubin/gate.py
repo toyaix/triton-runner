@@ -8,10 +8,14 @@ from pathlib import Path
 from fla.ops.utils.op import log
 from fla.utils import autotune_cache_kwargs, input_guard, is_amd
 
+device = torch.cuda.current_device()
+capability = torch.cuda.get_device_capability(device)
+capability = capability[0] * 10 + capability[1]
+
 BT_LIST_AUTOTUNE = [32, 64, 128]
 NUM_WARPS_AUTOTUNE = [2, 4, 8, 16] if is_amd else [4, 8, 16, 32]
 
-cache_dir = Path(triton_runner.get_file_dir(__file__)).parent / "kda_gate_fwd_kernel_cache"
+cache_dir = Path(triton_runner.get_file_dir(__file__)).parent / f"kda_gate_fwd_kernel_cache_sm{capability}"
 
 def has_cubin_and_json(path: Path) -> bool:
     cubin_files = list(path.glob("*.cubin"))
