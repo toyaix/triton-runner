@@ -3,7 +3,6 @@ __version__ = '0.3.1'
 from .jit import jit
 from . import color_print
 from . import torch_utils
-from .autotune import autotune
 import os
 
 

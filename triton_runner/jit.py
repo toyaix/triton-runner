@@ -20,6 +20,21 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
     def get_autotune_args_set(self):
         return {"autotune_cubin_dir"}
 
+    def handle_autotune(self, kwargs):
+        if kwargs.get("autotune_cubin_dir"):
+            metadata_json = self.get_metadata_json(kwargs["autotune_cubin_dir"])
+            import ast
+            kernel_signature_tuple = ast.literal_eval(metadata_json["kernel_signature"])
+            for (key, arg_type, spec, is_kwargs) in kernel_signature_tuple:
+                if is_kwargs:
+                    kwargs[key] = spec
+            kwargs["cubin_dir"] = kwargs["autotune_cubin_dir"]
+            kwargs["num_warps"] = metadata_json["num_warps"]
+            kwargs["num_stages"] = metadata_json["num_stages"]
+            kwargs["num_ctas"] = metadata_json["num_ctas"]
+            kwargs["maxnreg"] = metadata_json["maxnreg"]
+            # pre_hook and ir_override is disabled
+
     def is_python_dump(self, kwargs, source_dir_type):
         return self.need_dump(kwargs) and source_dir_type not in ["ttir_dir", "ttgir_dir"]
 
@@ -253,19 +268,7 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def run(self, *args, grid, warmup, **kwargs):
-        if kwargs.get("autotune_cubin_dir"):
-            metadata_json = self.get_metadata_json(kwargs["autotune_cubin_dir"])
-            import ast
-            kernel_signature_tuple = ast.literal_eval(metadata_json["kernel_signature"])
-            for (key, arg_type, spec, is_kwargs) in kernel_signature_tuple:
-                if is_kwargs:
-                    kwargs[key] = spec
-            kwargs["cubin_dir"] = kwargs["autotune_cubin_dir"]
-            kwargs["num_warps"] = metadata_json["num_warps"]
-            kwargs["num_stages"] = metadata_json["num_stages"]
-            kwargs["num_ctas"] = metadata_json["num_ctas"]
-            kwargs["maxnreg"] = metadata_json["maxnreg"]
-            # pre_hook and ir_override is disabled
+        self.handle_autotune(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
@@ -330,6 +333,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def run(self, *args, grid, warmup, **kwargs):
+        self.handle_autotune(kwargs)
         from triton import knobs
         from triton._utils import find_paths_if, get_iterable_path
 
