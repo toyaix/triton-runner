@@ -44,7 +44,9 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
     def get_metadata_json(self, path):
         json_file_name = f"{self.__name__}.json"
         json_path = os.path.join(path, json_file_name)
-        if not os.path.exists(json_path):
+        cubin_file_name = f"{self.__name__}.cubin"
+        cubin_path = os.path.join(path, cubin_file_name)
+        if not (os.path.exists(json_path) and os.path.exists(cubin_path)):
             from triton.runtime.errors import PTXASError
             raise PTXASError("autotune_cubin_dir is error")
         return json.loads(open(json_path, "r").read())

@@ -17,15 +17,9 @@ NUM_WARPS_AUTOTUNE = [2, 4, 8, 16] if is_amd else [4, 8, 16, 32]
 
 cache_dir = Path(triton_runner.get_file_dir(__file__)).parent / f"kda_gate_fwd_kernel_cache_sm{capability}"
 
-def has_cubin_and_json(path: Path) -> bool:
-    cubin_files = list(path.glob("*.cubin"))
-    json_files = list(path.glob("*.json"))
-    return bool(cubin_files) and bool(json_files)
-
 @triton.autotune(
     configs=[
-        triton.Config({'autotune_cubin_dir': str(p)})
-        for p in cache_dir.iterdir() if p.is_dir() and has_cubin_and_json(p)
+        triton.Config({'autotune_cubin_dir': str(p)}) for p in cache_dir.iterdir() if p.is_dir()
     ],
     key=['H', 'D'],
 )
