@@ -81,7 +81,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if not always_compile and metadata_path is not None:
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
-        return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
+        if metadata_json["triton_version"] == "3.5.0":
+            return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
+        else:
+            return CompiledKernel(ast_src, metadata_group, hash)
     # initialize metadata
     metadata = {
         "kernel_signature": str(kernel_signature),
@@ -207,7 +210,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if not triton.__version__ in ["3.1.0", "3.0.0"]:
             context.disable_multithreading()
     # return handle to compiled kernel
-    return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
+    if metadata_json["triton_version"] == "3.5.0":
+        return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
+    else:
+        return CompiledKernel(ast_src, metadata_group, hash)
 
 def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context):
     if triton.__version__ in ["3.1.0", "3.0.0"]:
