@@ -2,7 +2,7 @@ import triton
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 from typing import Callable, Iterable, Optional, Union, overload
-from .compiler import native_compile, get_source_ir
+from .compile import native_compile, get_source_ir
 import os
 import json
 import re

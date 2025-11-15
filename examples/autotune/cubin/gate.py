@@ -17,7 +17,7 @@ NUM_WARPS_AUTOTUNE = [2, 4, 8, 16] if is_amd else [4, 8, 16, 32]
 
 cache_dir = Path(triton_runner.get_file_dir(__file__)).parent / f"kda_gate_fwd_kernel_cache_sm{capability}"
 
-@triton.autotune(
+@triton_runner.autotune(
     configs=[
         triton.Config({'autotune_cubin_dir': str(p)}) for p in cache_dir.iterdir() if p.is_dir()
     ],

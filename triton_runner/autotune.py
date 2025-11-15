@@ -9,10 +9,12 @@ from functools import cached_property
 from typing import Dict, Tuple, List, Optional
 
 from triton import knobs
-from triton.runtime.jit import KernelInterface, JITFunction
+from triton.runtime.jit import KernelInterface
 from .jit import RunnerJITFunction
-from triton.runtime.cache import triton_key, get_cache_manager
+from .compile import triton_key
+from triton.runtime.cache import get_cache_manager
 from triton.runtime.driver import driver
+from triton.runtime.errors import OutOfResources, PTXASError
 from triton._C.libtriton import get_cache_invalidating_env_vars
 
 
@@ -125,7 +127,7 @@ class Autotuner(KernelInterface):
         return self._do_bench
 
     def _bench(self, *args, config, **meta):
-        # from ..compiler.errors import CompileTimeAssertionFailure
+        from triton.compiler.errors import CompileTimeAssertionFailure
 
         verbose = knobs.autotuning.print
         if verbose:
@@ -176,7 +178,7 @@ class Autotuner(KernelInterface):
         from triton.compiler.compiler import make_backend
 
         fn = self.fn
-        while not isinstance(fn, JITFunction):
+        while not isinstance(fn, RunnerJITFunction):
             fn = fn.fn
 
         env_vars = get_cache_invalidating_env_vars()
