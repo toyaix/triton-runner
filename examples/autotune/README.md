@@ -2,12 +2,11 @@
 
 项目地址：[ToyAIX/triton-runner](https://github.com/toyaix/triton-runner)，另有短域名[triton-runner.org](https://triton-runner.org)方便访问。
 
-这个功能以及示例目前在 [fix-autotune](https://github.com/toyaix/triton-runner/tree/fix-autotune)分支，还在开发中，使用请checkout到当前分支，并使用源码安装。
+这个功能以及示例目前在 main分支，还未发布，请使用源码安装。
 
 ```shell
 git clone https://github.com/toyaix/triton-runner
 cd triton-runner
-git checkout fix-autotune
 
 pip install -e .
 ```
