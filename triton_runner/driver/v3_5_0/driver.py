@@ -10,10 +10,11 @@ from triton.runtime.build import compile_module_from_src
 from triton.runtime import _allocation
 from triton.backends.compiler import GPUTarget
 from triton.backends.driver import GPUDriver
+from triton.backends.nvidia.driver import dirname, include_dirs, libdevice_dir
 
-dirname = os.path.dirname(os.path.realpath(__file__))
-include_dirs = [os.path.join(dirname, "include")]
-libdevice_dir = os.path.join(dirname, "lib")
+# dirname = os.path.dirname(os.path.realpath(__file__))
+# include_dirs = [os.path.join(dirname, "include")]
+# libdevice_dir = os.path.join(dirname, "lib")
 libraries = ['cuda']
 PyCUtensorMap = None
 
