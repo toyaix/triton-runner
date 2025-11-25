@@ -2,7 +2,7 @@ import triton
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 from typing import Callable, Iterable, Optional, Union, overload
-from .compiler import native_compile, get_source_ir
+from .compile import native_compile, get_source_ir
 import os
 import json
 import re
@@ -17,14 +17,33 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
     def get_dump_args_set(self):
         return {"dump_tensor", "dump_value", "dump_grid"}
 
+    def get_autotune_args_set(self):
+        return {"autotune_cubin_dir"}
+
+    def handle_autotune(self, kwargs):
+        if kwargs.get("autotune_cubin_dir"):
+            metadata_json = self.get_metadata_json(kwargs["autotune_cubin_dir"])
+            import ast
+            kernel_signature_tuple = ast.literal_eval(metadata_json["kernel_signature"])
+            for (key, arg_type, spec, is_kwargs) in kernel_signature_tuple:
+                if is_kwargs:
+                    kwargs[key] = spec
+            kwargs["cubin_dir"] = kwargs["autotune_cubin_dir"]
+            kwargs["num_warps"] = metadata_json["num_warps"]
+            kwargs["num_stages"] = metadata_json["num_stages"]
+            kwargs["num_ctas"] = metadata_json["num_ctas"]
+            kwargs["maxnreg"] = metadata_json["maxnreg"]
+            # pre_hook and ir_override is disabled
+
     def is_python_dump(self, kwargs, source_dir_type):
         return self.need_dump(kwargs) and source_dir_type not in ["ttir_dir", "ttgir_dir"]
 
     def get_source_dir_type(self, need_check_lst):
         runner_args_set = self.get_runner_args_set()
         dump_args_set = self.get_dump_args_set()
+        autotune_args_set = self.get_autotune_args_set()
         for k in need_check_lst:
-            if not k in runner_args_set | dump_args_set:
+            if not k in runner_args_set | dump_args_set | autotune_args_set:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         for k in need_check_lst:
             if k in runner_args_set:
@@ -36,6 +55,16 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             if k in runner_args_set:
                 return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
         return ""
+
+    def get_metadata_json(self, path):
+        json_file_name = f"{self.__name__}.json"
+        json_path = os.path.join(path, json_file_name)
+        cubin_file_name = f"{self.__name__}.cubin"
+        cubin_path = os.path.join(path, cubin_file_name)
+        if not (os.path.exists(json_path) and os.path.exists(cubin_path)):
+            from triton.runtime.errors import PTXASError
+            raise PTXASError("autotune_cubin_dir is error")
+        return json.loads(open(json_path, "r").read())
 
     def _pack_args(self, backend, kwargs, bound_args, specialization, options):
         from triton._utils import find_paths_if, get_iterable_path
@@ -63,7 +92,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         return options, signature, constexprs, attrs, source_dir_type
 
-    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args=None):
+    def _do_compile(self, key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args=None, kernel_signature=None):
         from triton import knobs
 
         kernel_cache, _, target, backend, _ = self.device_caches[device]
@@ -95,7 +124,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         # else:
         source_path = self.__dict__["__globals__"]["__file__"]
         # [Triton Runner] change compile
-        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path)
+        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path, kernel_signature=kernel_signature)
         # kernel = self.compile(src, target=target, options=options.__dict__)
         kernel_cache[key] = kernel
         self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
@@ -239,6 +268,7 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def run(self, *args, grid, warmup, **kwargs):
+        self.handle_autotune(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
@@ -266,7 +296,8 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
         if kernel is None:
             options, signature, constexprs, attrs, source_dir_type = self._pack_args(
                 backend, kwargs, bound_args, specialization, options)
-            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args)
+            kernel_signature = tuple((key, arg_type, spec, key in kwargs) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
+            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args, kernel_signature)
             if kernel is None:
                 return None
 
@@ -302,6 +333,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def run(self, *args, grid, warmup, **kwargs):
+        self.handle_autotune(kwargs)
         from triton import knobs
         from triton._utils import find_paths_if, get_iterable_path
 
