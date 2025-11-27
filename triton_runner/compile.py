@@ -209,7 +209,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # TODO: Reconcile the difference here between the ASAN and non-ASAN path with enabling
     # multithreading in the MLIR context
     if not os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
-        if not triton.__version__ in ["3.1.0", "3.0.0"]:
+        if not is_triton_leq_v3_1:
             context.disable_multithreading()
     # return handle to compiled kernel
     if is_triton_v3_5:
