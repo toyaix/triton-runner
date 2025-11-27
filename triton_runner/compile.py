@@ -83,7 +83,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if not always_compile and metadata_path is not None:
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
-        if metadata_json.get("triton_version", None) == "3.5.0":
+        if metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"]:
             return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
         else:
             return CompiledKernel(ast_src, metadata_group, hash)
