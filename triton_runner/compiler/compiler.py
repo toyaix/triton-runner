@@ -82,8 +82,8 @@ class CompiledKernel_v3_5_0(CompiledKernel):
         warp_size = driver.active.get_current_target().warp_size
         if self.metadata.num_warps * warp_size > self.n_max_threads:
             raise_(OutOfResources(self.metadata.num_warps * warp_size, self.n_max_threads, "threads"))
-        import triton
-        if triton.__version__ in ["3.5.0"]:
+        from ..version_utils import is_triton_v3_5
+        if is_triton_v3_5:
             if knobs.runtime.kernel_load_end_hook is not None:
                 knobs.runtime.kernel_load_end_hook(self.module, self.function, self.name, self.metadata_group, self.hash)
     @property

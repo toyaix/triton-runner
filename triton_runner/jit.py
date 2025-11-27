@@ -213,7 +213,8 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             if self.is_python_dump(kwargs, source_dir_type):
                 src = self.ASTSource(self, signature, constexprs, attrs)
                 module = get_source_ir(src, target=target, options=options.__dict__)
-                if triton.__version__ in ["3.4.0", "3.5.0"]:
+                from .version_utils import is_triton_geq_v3_4
+                if is_triton_geq_v3_4:
                     from triton import knobs
                     runner_cache_dir = os.path.join(knobs.cache.dir, "runner_cache")
                 else:
@@ -481,7 +482,7 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
         return kernel
 
 
-class RunnerJITFunctionV3_3_x(RunnerJITFunction[KernelInterface[T]]):
+class RunnerJITFunctionV3_3_0(RunnerJITFunction[KernelInterface[T]]):
 
     def get_source_dir_type(self, kwargs, options, sigkeys):
         return super().get_source_dir_type(
@@ -821,7 +822,16 @@ def jit(
 
     def decorator(fn: T) -> RunnerJITFunction[T]:
         assert callable(fn)
-        from .tlx_utils import is_tlx
+        from .version_utils import is_tlx
+        from .version_utils import (
+            is_triton_v3_5,
+            is_triton_v3_4,
+            is_triton_v3_3,
+            is_triton_v3_2,
+            is_triton_v3_1,
+            is_triton_v3_0,
+        )
+        from .version_utils import triton_version
         if is_tlx:
             return RunnerJITFunction_TLX(
                 fn,
@@ -833,7 +843,7 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
-        elif triton.__version__ == "3.5.0":
+        elif is_triton_v3_5:
             return RunnerJITFunctionV3_5_0(
                 fn,
                 version=version,
@@ -844,7 +854,7 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
-        elif triton.__version__ == "3.4.0":
+        elif is_triton_v3_4:
             return RunnerJITFunctionV3_4_0(
                 fn,
                 version=version,
@@ -855,8 +865,8 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
-        elif triton.__version__ in ["3.3.0", "3.3.1"]:
-            return RunnerJITFunctionV3_3_x(
+        elif is_triton_v3_3:
+            return RunnerJITFunctionV3_3_0(
                 fn,
                 version=version,
                 do_not_specialize=do_not_specialize,
@@ -866,7 +876,7 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
-        elif triton.__version__ == "3.2.0":
+        elif is_triton_v3_2:
             return RunnerJITFunctionV3_2_0(
                 fn,
                 version=version,
@@ -877,7 +887,7 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
-        elif triton.__version__ in ["3.1.0", "3.0.0"]:
+        elif is_triton_v3_1 or is_triton_v3_0:
             return RunnerJITFunctionV3_1_0(
                 fn,
                 version=version,
@@ -888,7 +898,7 @@ def jit(
                 launch_metadata=launch_metadata,
             )
         else:
-            raise RuntimeError(f"Can't support Triton v{triton.__version__}.")
+            raise RuntimeError(f"@triton_runner.jit doesn't support Triton v{triton_version}.")
 
     if fn is not None:
         return decorator(fn)

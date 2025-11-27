@@ -4,7 +4,6 @@ from triton.backends.compiler import GPUTarget
 from triton.compiler.compiler import make_backend, parse, filter_traceback
 from triton.compiler.compiler import ASTSource, IRSource, CompiledKernel
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
-from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
 import triton
 import hashlib
 import os
@@ -14,7 +13,9 @@ from pathlib import Path
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
-from .tlx_utils import is_tlx
+from .version_utils import is_triton_v3_5, is_triton_v3_4
+from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_4
+from .version_utils import triton_version
 
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
@@ -33,7 +34,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         elif src.endswith("cubin"):
             module = Path(src).read_bytes()
         else:
-            if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
+            if is_triton_leq_v3_2:
                 src = IRSource(src)
             else:
                 src = IRSource(src, context, backend)
@@ -81,7 +82,8 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if not always_compile and metadata_path is not None:
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
-        if metadata_json["triton_version"] == "3.5.0":
+        if metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"] and is_triton_geq_v3_4:
+            from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
             return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
         else:
             return CompiledKernel(ast_src, metadata_group, hash)
@@ -93,17 +95,17 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         **options.__dict__,
         **env_vars,
     }
-    metadata["triton_version"] = triton.__version__
+    metadata["triton_version"] = triton_version
     metadata["triton_runner_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()
-    if triton.__version__ in ["3.5.0"] or is_tlx:
+    if is_triton_v3_5 or is_tlx:
         if not isinstance(src, str):
             backend.add_stages(stages, options, src.language)
         else:
             from triton.backends.compiler import Language
             backend.add_stages(stages, options, Language.TRITON)
-    elif triton.__version__ in ["3.4.0"]:
+    elif is_triton_v3_4:
         from .pass_stages import add_stages
         if not isinstance(src, str):
             add_stages(backend, stages, options, src.language)
@@ -128,7 +130,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
-    if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
+    if is_triton_leq_v3_2:
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
@@ -181,7 +183,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if metadata_json:
         metadata["name"] = metadata_json["name"]
         metadata["shared"] = metadata_json["shared"]
-        if not triton.__version__ in ["3.2.0", "3.1.0"]:
+        if not is_triton_leq_v3_2:
             metadata["kernel_signature"] = metadata_json.get("kernel_signature", None)
             metadata["cluster_dims"] = metadata_json.get("cluster_dims", (1,1,1))
             metadata["tensordesc_meta"] = metadata_json.get("tensordesc_meta", None)
@@ -207,19 +209,16 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # TODO: Reconcile the difference here between the ASAN and non-ASAN path with enabling
     # multithreading in the MLIR context
     if not os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
-        if not triton.__version__ in ["3.1.0", "3.0.0"]:
+        if not is_triton_leq_v3_1:
             context.disable_multithreading()
     # return handle to compiled kernel
-    if metadata_json["triton_version"] == "3.5.0":
-        return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
-    else:
-        return CompiledKernel(ast_src, metadata_group, hash)
+    return CompiledKernel(ast_src, metadata_group, hash)
 
 def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context):
-    if triton.__version__ in ["3.1.0", "3.0.0"]:
+    if is_triton_leq_v3_1:
         return src.make_ir(options, codegen_fns, context)
     module_map = backend.get_module_map()
-    if triton.__version__ in ["3.5.0"] or is_tlx:
+    if is_triton_v3_5 or is_tlx:
         return src.make_ir(target, options, codegen_fns, module_map, context)
     return src.make_ir(options, codegen_fns, module_map, context)
 
@@ -244,7 +243,7 @@ def get_source_ir(src, target=None, options=None):
         raise
     return module
 
-if triton.__version__ in ["3.5.0"] or is_tlx:
+if is_triton_v3_5 or is_tlx:
     from triton.runtime.cache import triton_key
 else:
     from triton.compiler.compiler import triton_key

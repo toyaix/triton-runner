@@ -1,7 +1,6 @@
 from ..jit import RunnerJITFunctionV3_5_0, RunnerJITFunctionV3_4_0, RunnerJITFunction, JITFunction
 from triton.experimental.gluon._runtime import GluonASTSource, T
 from typing import Optional, Callable, Iterable, Union
-import triton
 
 
 class RunnerGluonJITFunction(RunnerJITFunction[T]):
@@ -58,7 +57,8 @@ def jit(
 
     def decorator(fn: T) -> JITFunction[T]:
         assert callable(fn)
-        if triton.__version__ == "3.5.0":
+        from ..version_utils import is_triton_v3_5, is_triton_v3_4, triton_version
+        if is_triton_v3_5:
             return RunnerGluonJITFunctionV3_5_0(
                 fn,
                 version=version,
@@ -69,7 +69,7 @@ def jit(
                 repr=repr,
                 launch_metadata=launch_metadata,
             )
-        elif triton.__version__ == "3.4.0":
+        elif is_triton_v3_4:
             return RunnerGluonJITFunctionV3_4_0(
                 fn,
                 version=version,
@@ -81,7 +81,7 @@ def jit(
                 launch_metadata=launch_metadata,
             )
         else:
-            raise RuntimeError(f"Can't support Triton v{triton.__version__}.")
+            raise RuntimeError(f"@gluon_runner.jit doesn't support Triton v{triton_version}.")
 
     if fn is not None:
         return decorator(fn)
