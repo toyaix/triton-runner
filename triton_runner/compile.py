@@ -4,7 +4,6 @@ from triton.backends.compiler import GPUTarget
 from triton.compiler.compiler import make_backend, parse, filter_traceback
 from triton.compiler.compiler import ASTSource, IRSource, CompiledKernel
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
-from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
 import triton
 import hashlib
 import os
@@ -15,7 +14,7 @@ from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
 from .version_utils import is_triton_v3_5, is_triton_v3_4
-from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1
+from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_4
 from .version_utils import triton_version
 
 
@@ -83,7 +82,8 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if not always_compile and metadata_path is not None:
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
-        if metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"]:
+        if metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"] and is_triton_geq_v3_4:
+            from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
             return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
         else:
             return CompiledKernel(ast_src, metadata_group, hash)
@@ -212,10 +212,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if not is_triton_leq_v3_1:
             context.disable_multithreading()
     # return handle to compiled kernel
-    if is_triton_v3_5:
-        return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
-    else:
-        return CompiledKernel(ast_src, metadata_group, hash)
+    return CompiledKernel(ast_src, metadata_group, hash)
 
 def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context):
     if is_triton_leq_v3_1:

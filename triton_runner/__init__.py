@@ -6,7 +6,9 @@ if not is_support_version:
 
 
 from .jit import jit
-from .autotune import autotune
+from .version_utils import is_triton_geq_v3_4
+if is_triton_geq_v3_4:
+    from .autotune import autotune
 from . import color_print
 from . import torch_utils
 import os

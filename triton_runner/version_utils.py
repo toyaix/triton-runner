@@ -21,7 +21,7 @@ is_triton_leq_v3_1 = version_str in ["3.1", "3.0"]
 if is_triton_v3_5:
     uni_triton_version = "3.5.x"
 elif is_triton_v3_3:
-    uni_triton_version = "3.5.x"
+    uni_triton_version = "3.3.x"
 else:
     uni_triton_version = triton_version
 
