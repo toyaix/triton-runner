@@ -5,7 +5,7 @@ import re
 import subprocess
 import triton_runner
 
-from triton_runner.version_utils import triton_version, is_triton_v3_3, is_triton_v3_5, uni_triton_version
+from triton_runner.version_utils import triton_version, uni_triton_version
 
 def get_content(file_path):
     return open(file_path, "r").read()
