@@ -14,7 +14,7 @@ from pathlib import Path
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
-from .tlx_utils import is_tlx
+from .version_utils import is_tlx
 
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):

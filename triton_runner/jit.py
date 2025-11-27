@@ -821,7 +821,7 @@ def jit(
 
     def decorator(fn: T) -> RunnerJITFunction[T]:
         assert callable(fn)
-        from .tlx_utils import is_tlx
+        from .version_utils import is_tlx
         if is_tlx:
             return RunnerJITFunction_TLX(
                 fn,
