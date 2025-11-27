@@ -23,11 +23,10 @@ def check_kernel_name(kernel_name):
 
 def check_triton_version():
     kernel_version = _metadata.get('triton_version', '')
-    installed_version = triton.__version__
+    from .version_utils import triton_version
+    installed_version = triton_version
     if kernel_version and kernel_version != installed_version:
         warnings.warn(f"{get_project_name()} This kernel Triton v{kernel_version} is different with intstalled v{installed_version}")
-    if installed_version not in ["3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.3.1", "3.4.0", "3.5.0"]:
-        warnings.warn(f"{get_project_name()} This runner is only support Triton v3.5.0, v3.4.0, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.")
 
 
 def check_cuda_arch_with_capability(kernel_arch, target_arch):
