@@ -12,9 +12,18 @@ is_triton_v3_2 = version_str == "3.2"
 is_triton_v3_1 = version_str == "3.1"
 is_triton_v3_0 = version_str == "3.0"
 
+is_triton_geq_v3_3 = version_str in ["3.3", "3.4", "3.5"]
 is_triton_geq_v3_4 = version_str in ["3.4", "3.5"]
+
 is_triton_leq_v3_2 = version_str in ["3.2", "3.1", "3.0"]
 is_triton_leq_v3_1 = version_str in ["3.1", "3.0"]
+
+if is_triton_v3_5:
+    uni_triton_version = "3.5.x"
+elif is_triton_v3_3:
+    uni_triton_version = "3.5.x"
+else:
+    uni_triton_version = triton_version
 
 try:
     import triton.language.extra.tlx as tlx
