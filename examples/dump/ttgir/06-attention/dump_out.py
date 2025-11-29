@@ -270,8 +270,8 @@ class _attention(torch.autograd.Function):
 
 
         dump_tensor = torch.empty((BLOCK_M, HEAD_DIM_K), dtype=torch.float32, device=q.device)
-        # dump_value can be "%90"(acc / z[:, None])
-        dump_value = "%90"
+        # dump_value can be "%acc_67"(acc = acc / z[:, None])
+        dump_value = "%acc_67"
 
         _attn_fwd[grid](
             q,
