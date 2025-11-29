@@ -1,9 +1,10 @@
 import torch
 import triton
 import triton.language as tl
+import triton_runner
 
 
-@triton.jit
+@triton_runner.jit
 def softmax_kernel(
     input_ptr, output_ptr,
     N,
@@ -36,7 +37,7 @@ def solve(input: torch.Tensor, output: torch.Tensor, N: int):
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
     softmax_kernel[grid](
         input, output, N,
-        BLOCK_SIZE=32768,
+        BLOCK_SIZE=4096,
     )
 
 if __name__ == "__main__":

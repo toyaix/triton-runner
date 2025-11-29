@@ -36,10 +36,10 @@ def softmax_kernel(
 def solve(input: torch.Tensor, output: torch.Tensor, N: int):
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
 
-    BLOCK_SIZE = 32768
+    BLOCK_SIZE = 4096
     dump_tensor = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
-    # dump_value can be "%29"(_max in loop)
-    dump_value = "%29"
+    # dump_value can be "%_max_17"(_max = tl.maximum(a, _max))
+    dump_value = "%_max_17"
 
     softmax_kernel[grid](
         input, output, N,
