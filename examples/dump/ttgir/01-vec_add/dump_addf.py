@@ -50,8 +50,8 @@ def add(x: torch.Tensor, y: torch.Tensor):
 
     BLOCK_SIZE = 1024
     dump_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
-    # dump_value can be "%13"(x+y)
-    dump_value = "%13"
+    # dump_value can be "%output"(output = x + y)
+    dump_value = "%output"
 
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
