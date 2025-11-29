@@ -54,7 +54,7 @@ def torch_softmax(input):
 def solve(input: torch.Tensor, output: torch.Tensor, N: int):
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
 
-    BLOCK_SIZE = 32768
+    BLOCK_SIZE = 4096
     pad_n_elements = triton_runner.torch_utils.get_pad_n_elements(output, [BLOCK_SIZE])
     dump_tensor = torch.empty(2 * pad_n_elements, dtype=torch.float32, device=input.device)
 
