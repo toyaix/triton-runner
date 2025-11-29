@@ -6,11 +6,11 @@ python examples/runner/v3.5.x/ttir/matmul-with-tma/matmul-with-tma-v4.py
 
 python examples/runner/v3.5.x/ttgir/sm90/matmul-with-tma-v4.py
 
-python examples/runner/v3.4.0/llir/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py
 
-python examples/runner/v3.4.0/ptx/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.5.x/ptx/sm90/matmul-with-tma-v4.py
 
-python examples/runner/v3.4.0/cubin/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.5.x/cubin/sm90/matmul-with-tma-v4.py
 
 python examples/runner/v3.5.x/gluon/01-intro.py
 python examples/runner/v3.5.x/gluon/02-layouts.py
