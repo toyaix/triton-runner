@@ -2,7 +2,11 @@ Python/TTIR/TTGIR now support dump on Triton v3.5.x, v3.4.0, v3.3.x.
 
 ## 1. Python Dump
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called dump_tensor, and simply pass it to the kernel through the dump_tensor parameter. Here are some example commands for dump.
+In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called dump_tensor, and simply pass it to the kernel through the dump_tensor parameter.
+
+In addition to `triton_runner.language.dump()`, which dumps the contents of a block, Triton Runner also provides `triton_runner.language.dump_boundary()` for dumping the boundary blocks and `triton_runner.language.dump_grids()` for inspecting all grid values.
+
+Here are some example commands for dump.
 
 ```shell
 python examples/dump/python/01-vec_add/dump_boundary/dump_boundary_out.py
