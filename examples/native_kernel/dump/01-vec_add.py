@@ -1,13 +1,14 @@
 import triton
 import triton.language as tl
 import torch
+import triton_runner
 
 if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
     DEVICE = torch.cuda.current_device()
 else:
     DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
-@triton.jit
+@triton_runner.jit
 def add_kernel(x_ptr,  # *Pointer* to first input vector.
                y_ptr,  # *Pointer* to second input vector.
                output_ptr,  # *Pointer* to output vector.
