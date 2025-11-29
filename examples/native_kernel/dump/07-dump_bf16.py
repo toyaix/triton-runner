@@ -1,8 +1,9 @@
 import torch
 import triton
 import triton.language as tl
+import triton_runner
 
-@triton.jit
+@triton_runner.jit
 def matrix_multiplication_kernel(
     a_ptr, b_ptr, c_ptr,
     M, N, K,
@@ -28,6 +29,7 @@ def matrix_multiplication_kernel(
         # load current blocks of a and b with boundary check
         a = tl.load(a_ptrs + stride_an * n)
         b = tl.load(b_ptrs + stride_bn * n)
+        c = b.to(tl.float32)
         accumulator += a * b
 
     # write result back to c
@@ -38,15 +40,19 @@ def matrix_multiplication_kernel(
 
 def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: int):
     grid = lambda META: (triton.cdiv(K, META['BLOCK_SIZE_K']), triton.cdiv(M, META['BLOCK_SIZE_M']), )
+
+    BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
+
     matrix_multiplication_kernel[grid](
         a, b, c,
         M, N, K,
         a.stride(0), a.stride(1),
         b.stride(0), b.stride(1),
         c.stride(0), c.stride(1),
-        BLOCK_SIZE_M=64,
-        BLOCK_SIZE_K=32,
+        BLOCK_SIZE_M=BLOCK_SIZE_M,
+        BLOCK_SIZE_K=BLOCK_SIZE_K,
     )
+
 
 if __name__ == "__main__":
     M, N, K = 104, 78, 128

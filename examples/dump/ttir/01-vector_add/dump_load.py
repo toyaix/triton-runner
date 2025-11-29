@@ -50,8 +50,8 @@ def add(x: torch.Tensor, y: torch.Tensor):
 
     BLOCK_SIZE = 1024
     dump_tensor = torch.empty((BLOCK_SIZE), dtype=x.dtype, device=x.device)
-    # dump_value can be "%9"(x), "%12"(y)
-    dump_value = "%9"
+    # dump_value can be "%x_4"(x), "%y_6"(y)
+    dump_value = "%x_4"
 
     # NOTE:
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
@@ -63,7 +63,7 @@ def add(x: torch.Tensor, y: torch.Tensor):
                      dump_value=dump_value,
     )
     triton_runner.color_print.blue_print(f"debug {dump_tensor}")
-    dump_torch = x if dump_value == "%9" else y
+    dump_torch = x if dump_value == "%x_4" else y
     max_diff = torch.max(torch.abs(dump_torch[:BLOCK_SIZE] - dump_tensor))
     triton_runner.color_print.yellow_print(f"The maximum difference between torch and dump is {max_diff}")
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still

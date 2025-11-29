@@ -3,9 +3,10 @@
 import torch
 import triton
 import triton.language as tl
+import triton_runner
 
 
-@triton.jit
+@triton_runner.jit
 def _attn_fwd(
     Q,
     K,

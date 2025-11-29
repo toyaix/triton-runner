@@ -27,11 +27,11 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk,
 
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
 
-    # accumulate along the N dimension
+    # accumulate along the K dimension
     for k in range(K):
         a_ptrs_iter = a_ptrs + k * stride_ak
         b_ptrs_iter = b_ptrs + k * stride_bk
-        # load current blocks of a and b with boundary check
+        # load current blocks of a and b
         a = tl.load(a_ptrs_iter)
         b = tl.load(b_ptrs_iter)
         accumulator += a * b

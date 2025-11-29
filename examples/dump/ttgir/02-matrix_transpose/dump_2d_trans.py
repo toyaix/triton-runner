@@ -23,8 +23,8 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
 
     BLOCK_SIZE = 64
     dump_tensor = torch.empty((BLOCK_SIZE, BLOCK_SIZE), dtype=input.dtype, device=input.device)
-    # dump_value can be "%47"(output)
-    dump_value = "%47"
+    # dump_value can be "%transposed_block"(transposed_block = tl.trans(block))
+    dump_value = "%transposed_block"
 
     matrix_transpose_kernel[grid](
         input, output,

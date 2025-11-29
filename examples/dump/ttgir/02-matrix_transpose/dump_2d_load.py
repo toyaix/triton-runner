@@ -22,8 +22,8 @@ def solve(input: torch.Tensor, output: torch.Tensor, rows: int, cols: int):
 
     BLOCK_SIZE = 64
     dump_tensor = torch.empty((BLOCK_SIZE, BLOCK_SIZE), dtype=input.dtype, device=input.device)
-    # dump_value can be "%46"(input)
-    dump_value = "%46"
+    # dump_value can be "%block_38"(block = tl.load)
+    dump_value = "%block_38"
 
     matrix_transpose_kernel[grid](
         input, output,

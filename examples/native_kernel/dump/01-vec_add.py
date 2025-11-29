@@ -1,13 +1,14 @@
 import triton
 import triton.language as tl
 import torch
+import triton_runner
 
 if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
     DEVICE = torch.cuda.current_device()
 else:
     DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
-@triton.jit
+@triton_runner.jit
 def add_kernel(x_ptr,  # *Pointer* to first input vector.
                y_ptr,  # *Pointer* to second input vector.
                output_ptr,  # *Pointer* to output vector.
@@ -55,7 +56,7 @@ def add(x: torch.Tensor, y: torch.Tensor):
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
     #  - `triton.jit`'ed functions can be indexed with a launch grid to obtain a callable GPU kernel.
     #  - Don't forget to pass meta-parameters as keywords arguments.
-    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE)
+    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=1024)
 
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still
     # running asynchronously at this point.

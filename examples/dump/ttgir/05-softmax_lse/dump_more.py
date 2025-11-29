@@ -46,11 +46,11 @@ def torch_softmax(input):
 def solve(input: torch.Tensor, output: torch.Tensor, N: int):
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
 
-    BLOCK_SIZE = 32768
+    BLOCK_SIZE = 4096
 
     dump_tensor_0 = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
-    # dump_value can be %33(tl.math.exp(max_acc - max_acc_new) * log_acc)
-    dump_value = "%33"
+    # dump_value can be %log_acc_new_22(tl.math.exp(max_acc - max_acc_new) * log_acc)
+    dump_value = "%log_acc_new_22"
 
     softmax_kernel[grid](
         input, output, N,
@@ -62,8 +62,8 @@ def solve(input: torch.Tensor, output: torch.Tensor, N: int):
     triton_runner.color_print.blue_print(f"debug {dump_tensor_0}")
 
     dump_tensor_1 = torch.empty((BLOCK_SIZE), dtype=torch.float32, device=input.device)
-    # dump_value can be "%30"(raw_exp in loop)
-    dump_value = "%30"
+    # dump_value can be "%raw_exp_20"(raw_exp in loop)
+    dump_value = "%raw_exp_20"
 
     softmax_kernel[grid](
         input, output, N,

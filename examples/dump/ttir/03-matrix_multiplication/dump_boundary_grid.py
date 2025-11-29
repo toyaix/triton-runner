@@ -42,8 +42,8 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
     dump_tensor = torch.empty((BLOCK_SIZE_M, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
-    # dump_value can be "%45"(acc in loop)
-    dump_value = "%45"
+    # dump_value can be "%accumulator_35"(acc in loop)
+    dump_value = "%accumulator_35"
     dump_grid = (triton.cdiv(K, BLOCK_SIZE_K) - 1, triton.cdiv(M, BLOCK_SIZE_M) - 1)
 
     matrix_multiplication_kernel[grid](

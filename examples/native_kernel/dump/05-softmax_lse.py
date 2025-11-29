@@ -1,9 +1,11 @@
+# softmax use log_sum_exp
 import torch
 import triton
 import triton.language as tl
+import triton_runner
 
 
-@triton.jit
+@triton_runner.jit
 def softmax_kernel(
     input_ptr, output_ptr,
     N,
@@ -11,32 +13,35 @@ def softmax_kernel(
 ):
     input_ptr = input_ptr.to(tl.pointer_type(tl.float32))
     output_ptr = output_ptr.to(tl.pointer_type(tl.float32))
-    _max = tl.zeros([BLOCK_SIZE], dtype=tl.float32) - float("inf")
+    max_acc = tl.zeros([BLOCK_SIZE], dtype=tl.float32) - float("inf")
+    log_acc = tl.zeros([BLOCK_SIZE], dtype=tl.float32)
+
     for off in range(0, N, BLOCK_SIZE):
         cols = off + tl.arange(0, BLOCK_SIZE)
         a = tl.load(input_ptr + cols, mask=cols < N, other=-float("inf"))
-        _max = tl.maximum(a, _max)
-    max = tl.max(_max, axis=0)
-    _sum = tl.zeros([BLOCK_SIZE], dtype=tl.float32)
-    for off in range(0, N, BLOCK_SIZE):
-        cols = off + tl.arange(0, BLOCK_SIZE)
-        a = tl.load(input_ptr + cols, mask=cols < N, other=-float("inf"))
-        _sum += tl.exp(a - max)
-    sum = tl.sum(_sum, axis=0)
+        block_max = tl.max(a, axis=0)
+        max_acc_new = tl.where(max_acc > block_max, max_acc, block_max)
+
+        raw_exp = tl.math.exp(a - max_acc_new)
+
+        log_acc_new = tl.math.exp(max_acc - max_acc_new) * log_acc + tl.sum(raw_exp, axis=-1)
+
+        log_acc = log_acc_new
+        max_acc = max_acc_new
+
     pid = tl.program_id(0)
     offset = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
     mask = offset < N
     x = tl.load(input_ptr + offset, mask=mask)
-    exp_shifted = tl.exp(x - max)
-    normalize_by_sum =  exp_shifted / sum
-    tl.store(output_ptr + offset, normalize_by_sum, mask=mask)
+    o = tl.math.exp(x - max_acc) / log_acc
+    tl.store(output_ptr + offset, o, mask=mask)
 
 
 def solve(input: torch.Tensor, output: torch.Tensor, N: int):
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
     softmax_kernel[grid](
         input, output, N,
-        BLOCK_SIZE=32768,
+        BLOCK_SIZE=4096,
     )
 
 if __name__ == "__main__":
