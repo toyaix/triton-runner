@@ -23,7 +23,7 @@ def get_injected_ir_begin(original_line, indent, loc, python_dump, dump_grid):
 {indent}// triton_runner dump start{if_begin}"""
 
 def get_injected_ir_end(indent, python_dump=False):
-    if_end = "" if python_dump else f"\n{indent}}}"
+    if_end = "" if python_dump else f"{indent}}}\n"
     return f"""{if_end}{indent}// triton_runner dump end"""
 
 
