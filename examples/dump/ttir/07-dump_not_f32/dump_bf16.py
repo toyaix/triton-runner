@@ -43,8 +43,8 @@ def solve(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, M: int, N: int, K: 
 
     BLOCK_SIZE_M, BLOCK_SIZE_K = 64, 32
     dump_tensor = torch.empty((1, BLOCK_SIZE_K), dtype=torch.float32, device=a.device)
-    # dump_value can be "%113"(b.to(tl.float32))
-    dump_value = "%113"
+    # dump_value can be "%c"(c = b.to(tl.float32))
+    dump_value = "%c"
 
     matrix_multiplication_kernel[grid](
         a, b, c,
