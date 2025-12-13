@@ -13,8 +13,8 @@ from pathlib import Path
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from . import __version__
-from .version_utils import is_triton_v3_5, is_triton_v3_4
-from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_4
+from .version_utils import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, is_disable_multithreading
+from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_4, is_triton_geq_v3_5
 from .version_utils import triton_version
 
 
@@ -99,7 +99,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata["triton_runner_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()
-    if is_triton_v3_5 or is_tlx:
+    if is_triton_geq_v3_5 or is_tlx:
         if not isinstance(src, str):
             backend.add_stages(stages, options, src.language)
         else:
@@ -209,7 +209,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # TODO: Reconcile the difference here between the ASAN and non-ASAN path with enabling
     # multithreading in the MLIR context
     if not os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
-        if not is_triton_leq_v3_1:
+        if is_disable_multithreading:
             context.disable_multithreading()
     # return handle to compiled kernel
     return CompiledKernel(ast_src, metadata_group, hash)
@@ -218,7 +218,7 @@ def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns,
     if is_triton_leq_v3_1:
         return src.make_ir(options, codegen_fns, context)
     module_map = backend.get_module_map()
-    if is_triton_v3_5 or is_tlx:
+    if is_triton_geq_v3_5 or is_tlx:
         return src.make_ir(target, options, codegen_fns, module_map, context)
     return src.make_ir(options, codegen_fns, module_map, context)
 
@@ -243,7 +243,7 @@ def get_source_ir(src, target=None, options=None):
         raise
     return module
 
-if is_triton_v3_5 or is_tlx:
+if is_triton_geq_v3_5 or is_tlx:
     from triton.runtime.cache import triton_key
 else:
     from triton.compiler.compiler import triton_key
