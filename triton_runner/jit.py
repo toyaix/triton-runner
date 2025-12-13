@@ -262,6 +262,75 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         return ast_src, {}
 
 
+class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
+
+    def get_source_dir_type(self, kwargs, options, sigkeys):
+        return super().get_source_dir_type(
+            [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
+
+    def run(self, *args, grid, warmup, **kwargs):
+        from triton import knobs
+        from triton.runtime.jit import compute_cache_key
+
+        kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
+        kwargs["instrumentation_mode"] = knobs.compilation.instrumentation_mode
+
+        # parse options
+        device = driver.active.get_current_device()
+        stream = driver.active.get_current_stream(device)
+
+        # Execute pre run hooks with args and kwargs
+        for hook in self.pre_run_hooks:
+            hook(*args, **kwargs)
+
+        kernel_cache, kernel_key_cache, target, backend, binder = self.device_caches[device]
+        # specialization is list[tuple[str, Any]], where first element of tuple is
+        # the type and the second parameter is the 'specialization' value.
+        bound_args, specialization, options = binder(*args, **kwargs)
+
+        # add a cache field to the kernel specializations for kernel specific
+        # pass pipelines
+        if knobs.runtime.add_stages_inspection_hook is not None:
+            inspect_stages_key, inspect_stages_hash = knobs.runtime.add_stages_inspection_hook()
+            specialization.append(f'("custom_pipeline", {inspect_stages_hash})')
+
+        key = compute_cache_key(kernel_key_cache, specialization, options)
+        kernel = kernel_cache.get(key, None)
+
+        # Kernel is not cached; we have to compile.
+        if kernel is None:
+            # [Triton runner] compile
+            options, signature, constexprs, attrs, source_dir_type = self._pack_args(
+                backend, kwargs, bound_args, specialization, options)
+            kernel_signature = tuple((key, arg_type, spec, key in kwargs) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
+            kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup, source_dir_type, kwargs, bound_args, kernel_signature)
+            if kernel is None:
+                return None
+
+        # Check that used global values have not changed.
+        not_present = object()
+        for (name, _), (val, globals_dict) in self.used_global_vals.items():
+            if (newVal := globals_dict.get(name, not_present)) != val:
+                raise RuntimeError(
+                    f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
+
+        if not warmup:
+            # canonicalize grid
+            assert grid is not None
+            if callable(grid):
+                grid = grid(bound_args)
+            grid_size = len(grid)
+            grid_0 = grid[0]
+            grid_1 = grid[1] if grid_size > 1 else 1
+            grid_2 = grid[2] if grid_size > 2 else 1
+            if hasattr(kernel, "result"):
+                kernel = kernel.result()
+            # launch kernel
+            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
+                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
+        return kernel
+
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
     def get_source_dir_type(self, kwargs, options, sigkeys):
@@ -824,6 +893,7 @@ def jit(
         assert callable(fn)
         from .version_utils import is_tlx
         from .version_utils import (
+            is_triton_v3_6,
             is_triton_v3_5,
             is_triton_v3_4,
             is_triton_v3_3,
@@ -832,73 +902,34 @@ def jit(
             is_triton_v3_0,
         )
         from .version_utils import triton_version
-        if is_tlx:
-            return RunnerJITFunction_TLX(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        elif is_triton_v3_5:
-            return RunnerJITFunctionV3_5_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        elif is_triton_v3_4:
-            return RunnerJITFunctionV3_4_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        elif is_triton_v3_3:
-            return RunnerJITFunctionV3_3_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        elif is_triton_v3_2:
-            return RunnerJITFunctionV3_2_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        elif is_triton_v3_1 or is_triton_v3_0:
-            return RunnerJITFunctionV3_1_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        else:
-            raise RuntimeError(f"@triton_runner.jit doesn't support Triton v{triton_version}.")
+
+        common_kwargs = {
+            "fn": fn,
+            "version": version,
+            "do_not_specialize": do_not_specialize,
+            "debug": debug,
+            "noinline": noinline,
+            "repr": repr,
+            "launch_metadata": launch_metadata,
+        }
+
+        dispatch_map = [
+            (is_tlx, RunnerJITFunction_TLX),
+            (is_triton_v3_6, RunnerJITFunctionV3_6_0),
+            (is_triton_v3_5, RunnerJITFunctionV3_5_0),
+            (is_triton_v3_4, RunnerJITFunctionV3_4_0),
+            (is_triton_v3_3, RunnerJITFunctionV3_3_0),
+            (is_triton_v3_2, RunnerJITFunctionV3_2_0),
+            (is_triton_v3_1 or is_triton_v3_0, RunnerJITFunctionV3_1_0),
+        ]
+
+        for condition, cls in dispatch_map:
+            if condition:
+                if cls is not RunnerJITFunctionV3_1_0:
+                    common_kwargs["do_not_specialize_on_alignment"] = do_not_specialize_on_alignment
+
+                return cls(**common_kwargs)
+        raise RuntimeError(f"@triton_runner.jit doesn't support Triton v{triton_version}.")
 
     if fn is not None:
         return decorator(fn)
