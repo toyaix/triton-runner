@@ -6,33 +6,22 @@ from typing import Optional, Callable, Iterable, Union
 class RunnerGluonJITFunction(RunnerJITFunction[T]):
     pass
 
-class RunnerGluonJITFunctionV3_6_0(RunnerJITFunctionV3_6_0[T]):
-    def create_binder(self):
-        result = super().create_binder()
-        self.ASTSource = GluonASTSource
-        return result
+def make_gluon_runner(base_cls):
+    class GluonRunner(base_cls):
+        def create_binder(self):
+            result = super().create_binder()
+            self.ASTSource = GluonASTSource
+            return result
 
-    def is_gluon(self):
-        return True
+        def is_gluon(self):
+            return True
 
-class RunnerGluonJITFunctionV3_5_0(RunnerJITFunctionV3_5_0[T]):
-    def create_binder(self):
-        result = super().create_binder()
-        self.ASTSource = GluonASTSource
-        return result
+    GluonRunner.__name__ = base_cls.__name__.replace("RunnerJIT", "RunnerGluonJIT")
+    return GluonRunner
 
-    def is_gluon(self):
-        return True
-
-class RunnerGluonJITFunctionV3_4_0(RunnerJITFunctionV3_4_0[T]):
-
-    def create_binder(self):
-        result = super().create_binder()
-        self.ASTSource = GluonASTSource
-        return result
-
-    def is_gluon(self):
-        return True
+RunnerGluonJITFunctionV3_6_0 = make_gluon_runner(RunnerJITFunctionV3_6_0[T])
+RunnerGluonJITFunctionV3_5_0 = make_gluon_runner(RunnerJITFunctionV3_5_0[T])
+RunnerGluonJITFunctionV3_4_0 = make_gluon_runner(RunnerJITFunctionV3_4_0[T])
 
 
 def jit(
@@ -67,41 +56,29 @@ def jit(
     def decorator(fn: T) -> JITFunction[T]:
         assert callable(fn)
         from ..version_utils import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, triton_version
-        if is_triton_v3_6:
-            return RunnerGluonJITFunctionV3_6_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        elif is_triton_v3_5:
-            return RunnerGluonJITFunctionV3_5_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        elif is_triton_v3_4:
-            return RunnerGluonJITFunctionV3_4_0(
-                fn,
-                version=version,
-                do_not_specialize=do_not_specialize,
-                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
-                debug=debug,
-                noinline=noinline,
-                repr=repr,
-                launch_metadata=launch_metadata,
-            )
-        else:
-            raise RuntimeError(f"@gluon_runner.jit doesn't support Triton v{triton_version}.")
+
+        kwargs = {
+            "fn": fn,
+            "version": version,
+            "do_not_specialize": do_not_specialize,
+            "do_not_specialize_on_alignment": do_not_specialize_on_alignment,
+            "debug": debug,
+            "noinline": noinline,
+            "repr": repr,
+            "launch_metadata": launch_metadata,
+        }
+
+        dispatch_map = [
+            (is_triton_v3_6, RunnerGluonJITFunctionV3_6_0),
+            (is_triton_v3_5, RunnerGluonJITFunctionV3_5_0),
+            (is_triton_v3_4, RunnerGluonJITFunctionV3_4_0),
+        ]
+
+        for condition, runner_cls in dispatch_map:
+            if condition:
+                return runner_cls(**kwargs)
+
+        raise RuntimeError(f"@gluon_runner.jit doesn't support Triton v{triton_version}.")
 
     if fn is not None:
         return decorator(fn)
