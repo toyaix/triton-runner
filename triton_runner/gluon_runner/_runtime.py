@@ -1,10 +1,19 @@
-from ..jit import RunnerJITFunctionV3_5_0, RunnerJITFunctionV3_4_0, RunnerJITFunction, JITFunction
+from ..jit import RunnerJITFunctionV3_6_0, RunnerJITFunctionV3_5_0, RunnerJITFunctionV3_4_0, RunnerJITFunction, JITFunction
 from triton.experimental.gluon._runtime import GluonASTSource, T
 from typing import Optional, Callable, Iterable, Union
 
 
 class RunnerGluonJITFunction(RunnerJITFunction[T]):
     pass
+
+class RunnerGluonJITFunctionV3_6_0(RunnerJITFunctionV3_6_0[T]):
+    def create_binder(self):
+        result = super().create_binder()
+        self.ASTSource = GluonASTSource
+        return result
+
+    def is_gluon(self):
+        return True
 
 class RunnerGluonJITFunctionV3_5_0(RunnerJITFunctionV3_5_0[T]):
     def create_binder(self):
@@ -57,8 +66,19 @@ def jit(
 
     def decorator(fn: T) -> JITFunction[T]:
         assert callable(fn)
-        from ..version_utils import is_triton_v3_5, is_triton_v3_4, triton_version
-        if is_triton_v3_5:
+        from ..version_utils import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, triton_version
+        if is_triton_v3_6:
+            return RunnerGluonJITFunctionV3_6_0(
+                fn,
+                version=version,
+                do_not_specialize=do_not_specialize,
+                do_not_specialize_on_alignment=do_not_specialize_on_alignment,
+                debug=debug,
+                noinline=noinline,
+                repr=repr,
+                launch_metadata=launch_metadata,
+            )
+        elif is_triton_v3_5:
             return RunnerGluonJITFunctionV3_5_0(
                 fn,
                 version=version,
