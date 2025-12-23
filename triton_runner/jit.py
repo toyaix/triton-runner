@@ -12,13 +12,25 @@ from .dump_utils import get_injected_ir
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def get_runner_args_set(self):
-        return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "cubin_dir"}
+        return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "cubin_dir", "ttir_src", "ttgir_src"}
 
     def get_dump_args_set(self):
         return {"dump_tensor", "dump_value", "dump_grid"}
 
     def get_autotune_args_set(self):
         return {"autotune_cubin_dir"}
+
+    def get_runner_cache_dir(self):
+        from .version_utils import is_triton_geq_v3_4
+        if is_triton_geq_v3_4:
+            from triton import knobs
+            cache_dir = knobs.cache.dir
+        else:
+            from triton.runtime.cache import default_cache_dir
+            cache_dir = os.getenv("TRITON_CACHE_DIR", "").strip() or default_cache_dir()
+        runner_cache_dir = os.path.join(cache_dir, "runner_cache")
+        os.makedirs(runner_cache_dir, exist_ok=True)
+        return runner_cache_dir
 
     def handle_autotune(self, kwargs):
         if kwargs.get("autotune_cubin_dir"):
@@ -213,15 +225,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             if self.is_python_dump(kwargs, source_dir_type):
                 src = self.ASTSource(self, signature, constexprs, attrs)
                 module = get_source_ir(src, target=target, options=options.__dict__)
-                from .version_utils import is_triton_geq_v3_4
-                if is_triton_geq_v3_4:
-                    from triton import knobs
-                    runner_cache_dir = os.path.join(knobs.cache.dir, "runner_cache")
-                else:
-                    from triton.runtime.cache import default_cache_dir
-                    cache_dir = os.getenv("TRITON_CACHE_DIR", "").strip() or default_cache_dir()
-                    runner_cache_dir = os.path.join(cache_dir, "runner_cache")
-                os.makedirs(runner_cache_dir, exist_ok=True)
+                runner_cache_dir = self.get_runner_cache_dir()
                 dump_content = self.insert_dump_tensor_param(str(module))
                 dump_content = self.inject_dump_op_dump_store(dump_content)
                 src = os.path.join(runner_cache_dir, f"{self.__name__}-dump.ttir")
@@ -239,8 +243,15 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def get_src_and_metadata_json(self, kwargs, source_dir_type, src, ast_src):
         if source_dir_type:
-            source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-            src = os.path.join(kwargs[source_dir_type], source_file_name)
+            if source_dir_type.endswith("src"):
+                runner_cache_dir = self.get_runner_cache_dir()
+                src = os.path.join(runner_cache_dir, f"{self.__name__}-src.ttir")
+                with open(src, "w") as file:
+                    file.write(kwargs[source_dir_type])
+            else:
+                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
+                src = os.path.join(kwargs[source_dir_type], source_file_name)
+
             if self.need_dump(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
                 if not os.path.exists(src):
                     src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
