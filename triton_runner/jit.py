@@ -245,7 +245,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         if source_dir_type:
             if source_dir_type.endswith("src"):
                 runner_cache_dir = self.get_runner_cache_dir()
-                src = os.path.join(runner_cache_dir, f"{self.__name__}-src.ttir")
+                src = os.path.join(runner_cache_dir, f"{self.__name__}-src.{source_dir_type[:-4]}")
                 with open(src, "w") as file:
                     file.write(kwargs[source_dir_type])
             else:
@@ -623,8 +623,8 @@ class RunnerJITFunctionV3_3_0(RunnerJITFunction[KernelInterface[T]]):
             ast_src = self.ASTSource(self, signature, constexprs, attrs)
             # [Triton Runner] dump after _call_hook
             src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
-
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
+            kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, kernel_signature=kernel_signature)
             kernel_cache[key] = kernel
             self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
 

@@ -99,19 +99,19 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata["triton_runner_version"] = __version__
     # run compilation pipeline  and populate metadata
     stages = dict()
-    if is_triton_geq_v3_5 or is_tlx:
+    if is_triton_geq_v3_5 or is_tlx or is_triton_v3_4:
         if not isinstance(src, str):
             backend.add_stages(stages, options, src.language)
         else:
             from triton.backends.compiler import Language
             backend.add_stages(stages, options, Language.TRITON)
-    elif is_triton_v3_4:
-        from .pass_stages import add_stages
-        if not isinstance(src, str):
-            add_stages(backend, stages, options, src.language)
-        else:
-            from triton.backends.compiler import Language
-            add_stages(backend, stages, options, Language.TRITON)
+    # elif is_triton_v3_4:
+    #     from .pass_stages import add_stages
+    #     if not isinstance(src, str):
+    #         add_stages(backend, stages, options, src.language)
+    #     else:
+    #         from triton.backends.compiler import Language
+    #         add_stages(backend, stages, options, Language.TRITON)
     else:
         backend.add_stages(stages, options)
     if isinstance(src, ASTSource) or isinstance(src, IRSource):
