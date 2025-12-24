@@ -245,7 +245,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         if source_dir_type:
             if source_dir_type.endswith("src"):
                 runner_cache_dir = self.get_runner_cache_dir()
-                src = os.path.join(runner_cache_dir, f"{self.__name__}-src.ttir")
+                src = os.path.join(runner_cache_dir, f"{self.__name__}-src.{source_dir_type[:-4]}")
                 with open(src, "w") as file:
                     file.write(kwargs[source_dir_type])
             else:
