@@ -80,6 +80,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_path = metadata_group.get(metadata_filename)
     always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
     if not always_compile and metadata_path is not None:
+        parse_mlir_to_folder(os.path.join(os.path.dirname(metadata_path), "all.mlir"))
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
         if metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"] and is_triton_geq_v3_4:
@@ -161,6 +162,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
 
     print_triton_cache_dir(metadata_group[ir_filename])
 
+    mlir_path = os.path.join(os.path.dirname(metadata_group[ir_filename]), "all.mlir")
+    os.environ["MLIR_DUMP_PATH"] = mlir_path
+
     use_ir_loc = os.environ.get("USE_IR_LOC", None)
     for ext, compile_ir in list(stages.items())[first_stage:]:
         next_module = compile_ir(module, metadata)
@@ -179,6 +183,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             next_module.create_location_snapshot(ir_full_name)
             print(f"Creating new locations for {ir_full_name}")
         module = next_module
+
+    os.environ.pop("MLIR_DUMP_PATH", None)
+    parse_mlir_to_folder(mlir_path)
 
     if metadata_json:
         metadata["name"] = metadata_json["name"]
@@ -252,3 +259,40 @@ def get_cache_key(src_hash, backend, backend_options, env_vars):
     runner_key = f'{__version__}'
     key = f"{triton_key()}-{runner_key}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
     return key
+
+def parse_mlir_to_folder(mlir_path):
+    if not os.path.exists(mlir_path) or os.environ.get("MLIR_ENABLE_DUMP", "0") == "0":
+        return
+    folder_path = os.path.join(os.path.dirname(mlir_path), "mlir")
+    import shutil
+    shutil.rmtree(folder_path, ignore_errors=True)
+    os.makedirs(folder_path, exist_ok=True)
+    content = open(mlir_path).read()
+
+    import re
+
+    pattern = re.compile(
+        r'// -----// IR Dump Before (?P<pass_name>.*?) '
+        r'\((?P<pass_key>.*?)\) '
+        r'\((?P<operation>.*?)\) //----- //\n'
+        r'(?P<body>.*?)(?=// -----// IR Dump Before|\Z)',
+        re.DOTALL
+    )
+    item = 'source'
+    title = 'Python ast_to_ttir'
+    last_body = None
+    for idx, match in enumerate(pattern.finditer(content)):
+        pass_name = match.group("pass_name").strip()
+        pass_key = match.group("pass_key").strip()
+        operation = match.group("operation").strip()
+        body = match.group("body").strip()
+        changed = "-changed" if last_body and last_body != body else ""
+        changed_text = ", This Pass IR has changed!\n" if changed else "\n"
+        with open(os.path.join(folder_path, f"{idx+1:02d}{changed}-{item}.mlir"), "w") as fp:
+            fp.write(f"// IR Dump After {title}{changed_text}// Next run Pass --{pass_key}\n\n{body}")
+        item = f"{pass_name}"
+        title = f"{item} ({operation})\n// Current Run Pass --{pass_key}"
+        last_body = body
+
+    fp = open(os.path.join(folder_path, f"{idx+2:02d}-{item}.mlir"), "w")
+    print(f"// IR Dump After {title}\n", file=fp)
