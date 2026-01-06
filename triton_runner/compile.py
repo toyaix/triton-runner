@@ -80,6 +80,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_path = metadata_group.get(metadata_filename)
     always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
     if not always_compile and metadata_path is not None:
+        parse_mlir_to_folder(os.path.join(os.path.dirname(metadata_path), "all.mlir"))
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
         if metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"] and is_triton_geq_v3_4:
@@ -260,7 +261,11 @@ def get_cache_key(src_hash, backend, backend_options, env_vars):
     return key
 
 def parse_mlir_to_folder(mlir_path):
+    if not os.path.exists(mlir_path) or os.environ.get("MLIR_ENABLE_DUMP", "0") == "0":
+        return
     folder_path = os.path.join(os.path.dirname(mlir_path), "mlir")
+    import shutil
+    shutil.rmtree(folder_path, ignore_errors=True)
     os.makedirs(folder_path, exist_ok=True)
     content = open(mlir_path).read()
 
@@ -269,7 +274,8 @@ def parse_mlir_to_folder(mlir_path):
     pattern = re.compile(
         r'// -----// IR Dump Before (?P<pass_name>.*?) '
         r'\((?P<pass_key>.*?)\) '
-        r'\((?P<operation>.*?)\) //----- //\n(?P<body>.*?)(?=(// -----// IR Dump Before|\Z))',
+        r'\((?P<operation>.*?)\) //----- //\n'
+        r'(?P<body>.*?)(?=// -----// IR Dump Before|\Z)',
         re.DOTALL
     )
     item = 'source'
