@@ -16,7 +16,7 @@ def warning_dump_mode_ssa_and_op(ssa, op, loc, size, encoding):
     blue_print(f"{get_project_name()} In dump mode, ssa={ssa}, op={op}, loc={loc}, size={size}{encoding}")
 
 def warning_size_not_supported(ssa, op, loc, size):
-    yellow_print(f"{get_project_name()} Warning: size={size} is not supported. And ssa={ssa}, op={op}, loc={loc}")
+    yellow_print(f"{get_project_name()} Warning: size={size}(>3D tensor) is not supported. And ssa={ssa}, op={op}, loc={loc}")
 
 def print_triton_cache_dir(metadata_path, cache_hit=False):
     if os.environ.get("RUNNER_PROD", "0") != "1":
