@@ -82,8 +82,12 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
     metadata_path = metadata_group.get(metadata_filename)
     always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
+    mlir_dump_path = os.environ.get("MLIR_DUMP_PATH", None)
     if not always_compile and metadata_path is not None:
-        parse_mlir_to_folder(os.path.join(os.path.dirname(metadata_path), "all.mlir"))
+        if mlir_dump_path is None:
+            parse_mlir_to_folder(os.path.join(os.path.dirname(metadata_path), "all.mlir"))
+        else:
+            parse_mlir_to_folder(mlir_dump_path)
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
         if metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"] and is_triton_geq_v3_4:
@@ -165,8 +169,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
 
     print_triton_cache_dir(metadata_group[ir_filename])
 
-    mlir_path = os.path.join(os.path.dirname(metadata_group[ir_filename]), "all.mlir")
-    os.environ["MLIR_DUMP_PATH"] = mlir_path
+    if mlir_dump_path is None:
+        mlir_dump_path = os.path.join(os.path.dirname(metadata_group[ir_filename]), "all.mlir")
+    os.environ["MLIR_DUMP_PATH"] = mlir_dump_path
 
     use_ir_loc = os.environ.get("USE_IR_LOC", None)
     for ext, compile_ir in list(stages.items())[first_stage:]:
@@ -188,7 +193,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         module = next_module
 
     os.environ.pop("MLIR_DUMP_PATH", None)
-    parse_mlir_to_folder(mlir_path)
+    parse_mlir_to_folder(mlir_dump_path)
 
     if metadata_json:
         metadata["name"] = metadata_json["name"]
