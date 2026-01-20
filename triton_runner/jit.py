@@ -2,11 +2,11 @@ import triton
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 from typing import Callable, Iterable, Optional, Union, overload
-from triton_runner.compile import native_compile, get_source_ir
+from .compile import native_compile, get_source_ir
 import os
 import json
 import re
-from triton_runner.dump_utils import get_injected_ir
+from .dump_utils import get_injected_ir
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
