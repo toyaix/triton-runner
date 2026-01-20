@@ -17,7 +17,21 @@ from .version_utils import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, is_di
 from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_4, is_triton_geq_v3_5
 from .version_utils import triton_version
 
-
+from triton.backends.compiler import Language
+class GCNIRSource(IRSource):
+    """
+    IRSource specialization for AMD GCN / ROCm backend.
+    """
+    def __init__(self, path, context, backend, arch=None):
+        self.path = path
+        path = Path(path)
+        self.ext = path.suffix[1:]
+        assert self.ext == "amdgcn"
+        self.language = Language.TRITON
+        self.src = path.read_text()
+        ir.load_dialects(context)
+        backend.load_dialects(context)
+        
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
     if target is None:
         target = driver.active.get_current_target()
@@ -31,8 +45,11 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if src.endswith("llir"):
             module = Path(src).read_text()
             llvm.init_targets()
-        elif src.endswith("cubin"):
+        elif src.endswith("cubin") or src.endswith("hsaco"):
             module = Path(src).read_bytes()
+        elif src.endswith("amdgcn"):
+            llvm.init_targets()
+            src = GCNIRSource(src, context, backend)
         else:
             if is_triton_leq_v3_2:
                 src = IRSource(src)
@@ -52,7 +69,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     env_vars = get_cache_invalidating_env_vars()
     if isinstance(src, ASTSource) or isinstance(src, IRSource):
         src_hash = src.hash()
-    elif src.endswith("cubin"):
+    elif src.endswith("cubin") or src.endswith("hsaco"):
         src_hash = hashlib.sha256(module).hexdigest()
     else:
         src_hash = hashlib.sha256(module.encode("utf-8")).hexdigest()
@@ -127,7 +144,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
 
     # For IRSource, we have already grabbed the context + called both
     # ir.load_dialects and backend.load_dialects.
-    if not isinstance(src, IRSource):
+    if not isinstance(src, IRSource) or src_ext == "amdgcn":
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
@@ -139,9 +156,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     else:
         codegen_fns = backend.get_codegen_implementation(options)
     try:
-        if src_ext == "ptx":
+        if src_ext == "ptx" or src_ext == "amdgcn":
             module = src.src
-        elif src_ext not in {"llir", "cubin"}:
+        elif src_ext not in {"llir", "cubin", "hsaco"}:
             module = get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context)
     except Exception as e:
         filter_traceback(e)

@@ -2,17 +2,17 @@ import triton
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 from typing import Callable, Iterable, Optional, Union, overload
-from .compile import native_compile, get_source_ir
+from triton_runner.compile import native_compile, get_source_ir
 import os
 import json
 import re
-from .dump_utils import get_injected_ir
+from triton_runner.dump_utils import get_injected_ir
 
 
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def get_runner_args_set(self):
-        return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "cubin_dir", "ttir_src", "ttgir_src"}
+        return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "amdgcn_dir", "cubin_dir", "hsaco_dir", "ttir_src", "ttgir_src"}
 
     def get_dump_args_set(self):
         return {"dump_tensor", "dump_value", "dump_grid"}
@@ -263,7 +263,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 with open(src, "w") as file:
                     file.write(dump_content)
             metadata_json = {}
-            if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
+            if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir",  "amdgcn_dir", "hsaco_dir"}:
                 json_file_name = f"{self.__name__}.json"
                 json_path = os.path.join(kwargs[source_dir_type], json_file_name)
                 metadata_json = json.loads(open(json_path, "r").read())
