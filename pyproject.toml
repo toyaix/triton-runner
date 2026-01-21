@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 readme = "README.md"
-version = "0.3.3"
+version = "0.3.4"
 authors = [
     { name = "Bob Huang", email = "x@bobhuang.xyz" },
 ]
