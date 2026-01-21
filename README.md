@@ -69,7 +69,9 @@ flowchart LR
 
     subgraph Backend
         D --> E["PTX"]:::supported
+        D --> G["GCN"]:::supported
         E --> F["cubin<br>CUDA Binary"]:::supported
+        G --> H["hsaco<br>HIP Binary"]:::supported
     end
 
     classDef supported fill:#AED6F1,stroke:#2E86C1,stroke-width:2px,color:#000000;
