@@ -94,3 +94,17 @@ python examples/runner/v3.4.0/cubin/sm75/matmul.py
 python examples/runner/v3.5.x/gluon/01-intro.py
 python examples/runner/v3.5.x/gluon/02-layouts.py
 ```
+
+### AMD CDNA3 (MI300 series)
+
+```shell
+python examples/runner/amd/v3.6.0/ttir/matmul.py
+
+python examples/runner/amd/v3.6.0/ttgir/matmul.py
+
+python examples/runner/amd/v3.6.0/llir/matmul.py
+
+python examples/runner/amd/v3.6.0/amdgcn/matmul.py
+
+python examples/runner/amd/v3.6.0/hsaco/matmul.py
+```
