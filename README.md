@@ -16,6 +16,8 @@ Triton Runner is compatible with Triton v3.6.0, **v3.5.x(primary)**, v3.4.0, v3.
 
 Triton Runner supports multi-level dump across Python/TTIR/TTGIR on Triton v3.6.0, v3.5.x, v3.4.0, v3.3.x.
 
+- 🆕 **MLIR split(Triton >= 3.3.0)**: Enable MLIR splitting in the cache directory by setting `MLIR_ENABLE_DUMP=1`.
+
 - 🆕 **Cross-vendor support**: Added AMD GPU support.
 
 ## ✨ Features
