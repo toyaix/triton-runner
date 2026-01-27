@@ -10,11 +10,15 @@ Multi-Level Triton Runner(Dump) 🔧
 <a ><b>English</b></a> | <a href="README.zh.md"><b>中文</b></a>
 </p>
 
-Triton Runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin launches in complex pass pipelines.
+Triton Runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin/GCN/hsaco launches in complex pass pipelines.
 
-Triton Runner is compatible with Triton **v3.5.x(primary)**, v3.4.0, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.
+Triton Runner is compatible with Triton v3.6.0, **v3.5.x(primary)**, v3.4.0, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.
 
-Triton Runner supports multi-level dump across Python/TTIR/TTGIR on Triton v3.5.x, v3.4.0, v3.3.x.
+Triton Runner supports multi-level dump across Python/TTIR/TTGIR on Triton v3.6.0, v3.5.x, v3.4.0, v3.3.x.
+
+- 🆕 **MLIR split(Triton >= 3.3.0)**: Enable MLIR splitting in the cache directory by setting `MLIR_ENABLE_DUMP=1`.
+
+- 🆕 **Cross-vendor support**: Added AMD GPU support.
 
 ## ✨ Features
 
@@ -69,14 +73,16 @@ flowchart LR
 
     subgraph Backend
         D --> E["PTX"]:::supported
+        D --> G["GCN"]:::supported
         E --> F["cubin<br>CUDA Binary"]:::supported
+        G --> H["hsaco<br>HIP Binary"]:::supported
     end
 
     classDef supported fill:#AED6F1,stroke:#2E86C1,stroke-width:2px,color:#000000;
     classDef unsupported fill:#F5B7B1,stroke:#C0392B,stroke-width:2px,color:#000000;
 ```
 
-[TLX](https://github.com/facebookexperimental/triton) (Minimally Invasive Paths to Performance Portability) with commit [9a7a23d](https://github.com/facebookexperimental/triton/commit/9a7a23d0cfa4ed4b37eb9b177b0e36beb254f9e6) is supported in [examples/runner/tlx](examples/runner/tlx).
+[TLX](https://github.com/facebookexperimental/triton) (Minimally Invasive Paths to Performance Portability) with commit [9a7a23d](https://github.com/facebookexperimental/triton/commit/9a7a23d0cfa4ed4b37eb9b177b0e36beb254f9e6)(Oct 19, 2025) is supported in [examples/runner/tlx](examples/runner/tlx).
 
 #### 1. Python Runner
 

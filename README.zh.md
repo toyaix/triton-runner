@@ -10,11 +10,11 @@ Multi-Level Triton Runner(Dump) 🔧
 <a href="README.md"><b>English</b></a> | <a><b>中文</b></a>
 </p>
 
-Triton Runner 是一个面向 [OpenAI/Triton](https://github.com/triton-lang/triton) 的多层级 runner 工具，用于调试 Triton IR，支持在多个编译阶段直接运行 GPU kernel，包括 Python Triton、Python Gluon、TTIR(Triton IR)、TTGIR(Triton GPU IR)、LLIR(LLVM IR)、PTX、cubin。该工具旨在提升 Triton 用户对编译流程的可观测性与可控性，同时降低对 Triton 源码的编译Pass pipeline的限制，从而进行性能调优和调试。
+Triton Runner 是一个面向 [OpenAI/Triton](https://github.com/triton-lang/triton) 的多层级 runner 工具，用于调试 Triton IR，支持在多个编译阶段直接运行 GPU kernel，包括 Python Triton、Python Gluon、TTIR(Triton IR)、TTGIR(Triton GPU IR)、LLIR(LLVM IR)、PTX、cubin、AMD GCN、AMD hsaco。该工具旨在提升 Triton 用户对编译流程的可观测性与可控性，同时降低对 Triton 源码的编译Pass pipeline的限制，从而进行性能调优和调试。
 
-Triton Runner 兼容 Triton **v3.5.x(主要版本)**, v3.4.0, v3.3.x, v3.2.0, v3.1.0 or v3.0.0。
+Triton Runner 兼容 Triton v3.6.0, **v3.5.x(主要版本)**, v3.4.0, v3.3.x, v3.2.0, v3.1.0 or v3.0.0。
 
-Triton Runner 还提供了在 Triton v3.5.x, v3.4.0, v3.3.x 的1D/2D tensor dump。
+Triton Runner 还提供了在 Triton v3.6.0, v3.5.x, v3.4.0, v3.3.x 的1D/2D tensor dump。
 
 ## 快速安装
 
