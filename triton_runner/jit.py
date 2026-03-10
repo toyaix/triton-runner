@@ -19,6 +19,28 @@ def _non_constexpr_bound_values(bound_args, signature):
     return tuple(value for key, value in bound_args.items() if signature.get(key) != "constexpr")
 
 
+def _kernel_signature_from_bound_args(bound_args, signature, kwargs):
+    entries = []
+    for key, value in bound_args.items():
+        arg_type = signature.get(key)
+        if arg_type is None:
+            continue
+        spec = value if arg_type == "constexpr" else None
+        entries.append((key, arg_type, spec, key in kwargs))
+    return tuple(entries)
+
+
+def _normalize_kernel_metadata(metadata):
+    if isinstance(metadata, dict):
+        return dict(metadata)
+    if hasattr(metadata, "_asdict"):
+        return dict(metadata._asdict())
+    fields = getattr(metadata, "_fields", None)
+    if fields is not None:
+        return {field: getattr(metadata, field) for field in fields}
+    raise TypeError(f"Unsupported kernel metadata object: {type(metadata)!r}")
+
+
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def get_runner_args_set(self):
@@ -308,6 +330,7 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
         # specialization is list[tuple[str, Any]], where first element of tuple is
         # the type and the second parameter is the 'specialization' value.
         bound_args, specialization, options = binder(*args, **kwargs)
+        signature = _signature_from_specialization(self.params, specialization)
 
         # add a cache field to the kernel specializations for kernel specific
         # pass pipelines
@@ -350,10 +373,9 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
             if TRITON_TVM_FFI:
                 print('no warmup and run with tvm')
                 from . import tvm_ffi
-                import os
-                cubin_dir = os.path.dirname(next(iter(kernel.metadata_group.values())))
-                mod = tvm_ffi.build_module(cubin_dir)
-                signature = _signature_from_specialization(self.params, specialization)
+                metadata = _normalize_kernel_metadata(kernel.metadata)
+                metadata["kernel_signature"] = str(_kernel_signature_from_bound_args(bound_args, signature, kwargs))
+                mod = tvm_ffi.build_module(kernel, metadata=metadata)
                 mod[f"{kernel.name}"](grid_0, grid_1, grid_2, *_non_constexpr_bound_values(bound_args, signature))
                 return kernel
 
