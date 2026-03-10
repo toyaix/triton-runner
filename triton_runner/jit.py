@@ -3,6 +3,7 @@ from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 from typing import Callable, Iterable, Optional, Union, overload
 from .compile import native_compile, get_source_ir
+import ast
 import os
 import json
 import re
@@ -19,13 +20,23 @@ def _non_constexpr_bound_values(bound_args, signature):
     return tuple(value for key, value in bound_args.items() if signature.get(key) != "constexpr")
 
 
+def _literal_kernel_signature_value(arg_type, value):
+    if arg_type != "constexpr":
+        return None
+    try:
+        ast.literal_eval(repr(value))
+        return value
+    except (ValueError, SyntaxError):
+        return repr(value)
+
+
 def _kernel_signature_from_bound_args(bound_args, signature, kwargs):
     entries = []
     for key, value in bound_args.items():
         arg_type = signature.get(key)
         if arg_type is None:
             continue
-        spec = value if arg_type == "constexpr" else None
+        spec = _literal_kernel_signature_value(arg_type, value)
         entries.append((key, arg_type, spec, key in kwargs))
     return tuple(entries)
 
