@@ -9,6 +9,16 @@ import re
 from .dump_utils import get_injected_ir
 
 
+def _signature_from_specialization(params, specialization):
+    sigkeys = [param.name for param in params]
+    sigvals = [item[0] for item in specialization]
+    return {key: value for key, value in zip(sigkeys, sigvals)}
+
+
+def _non_constexpr_bound_values(bound_args, signature):
+    return tuple(value for key, value in bound_args.items() if signature.get(key) != "constexpr")
+
+
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def get_runner_args_set(self):
@@ -336,6 +346,17 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
             grid_2 = grid[2] if grid_size > 2 else 1
             if hasattr(kernel, "result"):
                 kernel = kernel.result()
+            from . import TRITON_TVM_FFI
+            if TRITON_TVM_FFI:
+                print('no warmup and run with tvm')
+                from . import tvm_ffi
+                import os
+                cubin_dir = os.path.dirname(next(iter(kernel.metadata_group.values())))
+                mod = tvm_ffi.build_module(cubin_dir)
+                signature = _signature_from_specialization(self.params, specialization)
+                mod[f"{kernel.name}"](grid_0, grid_1, grid_2, *_non_constexpr_bound_values(bound_args, signature))
+                return kernel
+
             # launch kernel
             launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
             kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,

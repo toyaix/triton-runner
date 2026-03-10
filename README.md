@@ -48,6 +48,14 @@ cd triton-runner
 pip install -e .
 ```
 
+#### TVM-FFI
+
+Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) on Triton v3.5+ (using the v3.5 runner launch semantics). Install the optional dependency first:
+
+```shell
+pip install triton-runner[tvm-ffi]
+```
+
 ## 🚀 Quick Start
 
 See the provided examples in the [triton-runner.org](https://triton-runner.org) repository for your first run.
@@ -111,6 +119,8 @@ Because TTGIR is upwardly compatible, you can run the example using the `TTGIR R
 In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need to provide the corresponding file. Like the TTGIR runner, You can place it in the same directory as the current Python file and use `llir_dir=triton_runner.get_file_dir(__file__)`. Since all of them are architecture-specific, be sure to use the corresponding [metadata JSON file](examples/runner/v3.5.x/llir/sm90/matmul_kernel_make_tensor_desciptor.json). See an example in [examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py](./examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py#L76).
 
 If your architecture is `sm90`(Hopper), you can run the example using the LLIR runner with `python examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py`.
+
+
 
 #### 5. Gluon Runner
 
