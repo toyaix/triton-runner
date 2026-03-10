@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import json
 import os
 import re
 import shutil
@@ -12,7 +11,6 @@ from typing import Any
 
 from triton.compiler.compiler import CompiledKernel
 
-from .jit import RunnerJITFunction
 from .version_utils import is_triton_geq_v3_5, triton_version
 
 
@@ -159,209 +157,28 @@ def _sanitize_identifier(name: str) -> str:
     return sanitized
 
 
-def _load_metadata(metadata: Any) -> dict[str, Any]:
-    if isinstance(metadata, Path):
-        return json.loads(metadata.read_text())
-    if isinstance(metadata, str):
-        candidate = Path(metadata)
-        if candidate.exists():
-            return json.loads(candidate.read_text())
-        return json.loads(metadata)
-    return _normalize_metadata(metadata)
+def _artifact_from_compiled_kernel(kernel: CompiledKernel, metadata: Any) -> _CompiledArtifact:
+    asm = getattr(kernel, "asm", None)
+    if asm is None or "cubin" not in asm:
+        raise ValueError("TVM-FFI export requires `kernel.asm['cubin']`.")
 
+    cubin_bytes = asm["cubin"]
+    if isinstance(cubin_bytes, memoryview):
+        cubin_bytes = cubin_bytes.tobytes()
+    elif isinstance(cubin_bytes, bytearray):
+        cubin_bytes = bytes(cubin_bytes)
+    elif not isinstance(cubin_bytes, bytes):
+        raise TypeError(f"Unsupported cubin type on kernel.asm['cubin']: {type(cubin_bytes)!r}")
 
-def _load_cubin_bytes(cubin: bytes | bytearray | memoryview | str | Path) -> bytes:
-    if isinstance(cubin, bytes):
-        return cubin
-    if isinstance(cubin, bytearray):
-        return bytes(cubin)
-    if isinstance(cubin, memoryview):
-        return cubin.tobytes()
-    if isinstance(cubin, (str, Path)):
-        return Path(cubin).read_bytes()
-    raise TypeError(f"Unsupported cubin input type: {type(cubin)!r}")
-
-
-def _artifact_from_raw_inputs(
-    cubin: bytes | bytearray | memoryview | str | Path,
-    metadata: Any,
-) -> _CompiledArtifact:
-    metadata_dict = _load_metadata(metadata)
+    metadata_dict = _normalize_metadata(metadata)
     signature = _parse_kernel_signature(metadata_dict.get("kernel_signature"))
     return _CompiledArtifact(
         kernel_name=str(metadata_dict["name"]),
         module_name=_module_name_for_metadata(metadata_dict),
-        cubin_bytes=_load_cubin_bytes(cubin),
-        metadata=metadata_dict,
-        signature=signature,
-    )
-
-
-def _artifact_with_overrides(
-    artifact: _CompiledArtifact,
-    *,
-    cubin: bytes | bytearray | memoryview | str | Path | None = None,
-    metadata: Any | None = None,
-) -> _CompiledArtifact:
-    metadata_dict = artifact.metadata
-    kernel_name = artifact.kernel_name
-    module_name = artifact.module_name
-    signature = artifact.signature
-    cubin_bytes = artifact.cubin_bytes
-
-    if metadata is not None:
-        metadata_dict = _load_metadata(metadata)
-        kernel_name = str(metadata_dict["name"])
-        module_name = _module_name_for_metadata(metadata_dict)
-        signature = _parse_kernel_signature(metadata_dict.get("kernel_signature"))
-    if cubin is not None:
-        cubin_bytes = _load_cubin_bytes(cubin)
-
-    return _CompiledArtifact(
-        kernel_name=kernel_name,
-        module_name=module_name,
         cubin_bytes=cubin_bytes,
         metadata=metadata_dict,
         signature=signature,
     )
-
-
-def _find_json_and_cubin(cache_dir: Path, kernel_name: str | None) -> tuple[Path, Path]:
-    if cache_dir.is_file():
-        if cache_dir.suffix not in {".json", ".cubin"}:
-            raise ValueError(f"Expected a cache directory or .json/.cubin file, got {cache_dir}")
-        kernel_name = cache_dir.stem
-        cache_dir = cache_dir.parent
-    if not cache_dir.exists():
-        raise FileNotFoundError(cache_dir)
-    if not cache_dir.is_dir():
-        raise ValueError(f"Expected directory, got {cache_dir}")
-
-    if kernel_name is not None:
-        json_path = cache_dir / f"{kernel_name}.json"
-        cubin_path = cache_dir / f"{kernel_name}.cubin"
-        if not json_path.exists() or not cubin_path.exists():
-            raise FileNotFoundError(f"Expected {json_path.name} and {cubin_path.name} in {cache_dir}")
-        return json_path, cubin_path
-
-    json_candidates = sorted(
-        p for p in cache_dir.glob("*.json")
-        if not p.name.startswith("__grp__")
-    )
-    if len(json_candidates) != 1:
-        raise ValueError(
-            f"Found {len(json_candidates)} json candidates in {cache_dir}; "
-            "pass kernel_name to disambiguate.")
-    json_path = json_candidates[0]
-    cubin_path = cache_dir / f"{json_path.stem}.cubin"
-    if not cubin_path.exists():
-        raise FileNotFoundError(f"Expected {cubin_path.name} next to {json_path.name}")
-    return json_path, cubin_path
-
-
-def _artifact_from_paths(cache_dir: Path, kernel_name: str | None) -> _CompiledArtifact:
-    json_path, cubin_path = _find_json_and_cubin(cache_dir, kernel_name)
-    metadata = json.loads(json_path.read_text())
-    signature = _parse_kernel_signature(metadata.get("kernel_signature"))
-    return _CompiledArtifact(
-        kernel_name=str(metadata["name"]),
-        module_name=_module_name_for_metadata(metadata),
-        cubin_bytes=cubin_path.read_bytes(),
-        metadata=metadata,
-        signature=signature,
-    )
-
-
-def _artifact_from_compiled_kernel(kernel: CompiledKernel) -> _CompiledArtifact:
-    metadata_group = getattr(kernel, "metadata_group", None)
-    asm = getattr(kernel, "asm", None)
-    metadata_obj = getattr(kernel, "metadata", None)
-
-    metadata: dict[str, Any] | None = None
-    cubin_bytes: bytes | None = None
-
-    if metadata_obj is not None:
-        metadata = _normalize_metadata(metadata_obj)
-
-    if asm is not None and "cubin" in asm:
-        cubin_bytes = asm["cubin"]
-        if isinstance(cubin_bytes, memoryview):
-            cubin_bytes = cubin_bytes.tobytes()
-
-    if (metadata is None or cubin_bytes is None) and metadata_group:
-        json_path = None
-        cubin_path = None
-        for file_name, file_path in metadata_group.items():
-            if file_name.endswith(".json"):
-                json_path = Path(file_path)
-            elif file_name.endswith(".cubin"):
-                cubin_path = Path(file_path)
-        if json_path is not None:
-            metadata = metadata or json.loads(json_path.read_text())
-        if cubin_path is not None:
-            cubin_bytes = cubin_bytes or cubin_path.read_bytes()
-
-    if metadata is None or cubin_bytes is None:
-        raise ValueError("Could not extract cubin/json artifact from the compiled Triton kernel.")
-
-    signature = _parse_kernel_signature(metadata.get("kernel_signature"))
-    return _CompiledArtifact(
-        kernel_name=str(metadata["name"]),
-        module_name=_module_name_for_metadata(metadata),
-        cubin_bytes=cubin_bytes,
-        metadata=metadata,
-        signature=signature,
-    )
-
-
-def _compile_runner_kernel(
-    runner: RunnerJITFunction[Any],
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-    grid: Any,
-) -> CompiledKernel:
-    if grid is None:
-        raise ValueError("grid is required when source is a RunnerJITFunction.")
-    if not args:
-        raise ValueError("At least one sample argument is required to compile a RunnerJITFunction.")
-    return runner.warmup(*args, grid=grid, **kwargs)
-
-
-def _resolve_artifact(
-    source: RunnerJITFunction[Any] | CompiledKernel | str | Path | None,
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-    *,
-    grid: Any,
-    kernel_name: str | None,
-    cubin: bytes | bytearray | memoryview | str | Path | None,
-    metadata: Any | None,
-) -> _CompiledArtifact:
-    if cubin is not None or metadata is not None:
-        if source is None:
-            if cubin is None or metadata is None:
-                raise ValueError("Both cubin and metadata are required for direct artifact export.")
-            if args or kwargs:
-                raise ValueError("Positional/keyword kernel arguments are only valid when source is a RunnerJITFunction.")
-            return _artifact_from_raw_inputs(cubin, metadata)
-
-    if source is None:
-        raise TypeError("source is required unless cubin and metadata are provided.")
-    if isinstance(source, RunnerJITFunction):
-        kernel = _compile_runner_kernel(source, args, kwargs, grid)
-        artifact = _artifact_from_compiled_kernel(kernel)
-        return _artifact_with_overrides(artifact, cubin=cubin, metadata=metadata)
-    if isinstance(source, (str, Path)):
-        if args or kwargs:
-            raise ValueError("Positional/keyword kernel arguments are only valid when source is a RunnerJITFunction.")
-        artifact = _artifact_from_paths(Path(source), kernel_name)
-        return _artifact_with_overrides(artifact, cubin=cubin, metadata=metadata)
-    if isinstance(source, CompiledKernel) or hasattr(source, "metadata") and hasattr(source, "asm"):
-        if args or kwargs:
-            raise ValueError("Positional/keyword kernel arguments are only valid when source is a RunnerJITFunction.")
-        artifact = _artifact_from_compiled_kernel(source)
-        return _artifact_with_overrides(artifact, cubin=cubin, metadata=metadata)
-    raise TypeError(f"Unsupported source type: {type(source)!r}")
 
 
 def _ffi_param_decl(entry: _SignatureEntry) -> str:
@@ -620,35 +437,24 @@ def _render_cuda_shim(artifact: _CompiledArtifact) -> str:
 
 
 def build_module(
-    source: RunnerJITFunction[Any] | CompiledKernel | str | Path | None = None,
-    *args: Any,
-    grid: Any = None,
-    kernel_name: str | None = None,
+    kernel: CompiledKernel,
+    *,
+    metadata: Any,
     module_name: str | None = None,
     build_directory: str | None = None,
     keep_module_alive: bool = True,
     extra_cuda_cflags: list[str] | tuple[str, ...] | None = None,
     extra_ldflags: list[str] | tuple[str, ...] | None = None,
-    cubin: bytes | bytearray | memoryview | str | Path | None = None,
-    metadata: Any | None = None,
-    **kwargs: Any,
 ):
     """Build a tvm-ffi module for a CUDA Triton kernel.
 
     Parameters
     ----------
-    source
-        A `RunnerJITFunction`, a compiled Triton kernel, or a cache directory/file
-        containing `<kernel>.cubin` and `<kernel>.json`. Optional when `cubin=`
-        and `metadata=` are provided directly.
-    *args, **kwargs
-        Sample kernel arguments used only when `source` is a `RunnerJITFunction`.
-    grid
-        Grid passed to `RunnerJITFunction.warmup(...)` when compiling from Python.
-        The exported tvm-ffi function still receives runtime `grid_x/grid_y/grid_z`
-        as its first three arguments.
-    kernel_name
-        Optional cache artifact stem when `source` is a directory with multiple kernels.
+    kernel
+        A compiled Triton kernel with an in-memory `asm["cubin"]`.
+    metadata
+        The concrete Triton metadata dict/object that should define the exported
+        kernel ABI, including `kernel_signature`.
     module_name
         Optional override for the generated tvm-ffi inline module name.
     build_directory
@@ -657,9 +463,6 @@ def build_module(
         Forwarded to `tvm_ffi.cpp.load_inline`.
     extra_cuda_cflags, extra_ldflags
         Extra flags forwarded to `tvm_ffi.cpp.load_inline`.
-    cubin, metadata
-        Optional direct artifact inputs. `cubin` may be bytes or a `.cubin` path;
-        `metadata` may be a dict/object, JSON string, or `.json` path.
     """
     if not is_triton_geq_v3_5:
         raise NotImplementedError(
@@ -667,15 +470,7 @@ def build_module(
 
     _, cpp = _require_tvm_ffi()
     _ensure_ninja_available()
-    artifact = _resolve_artifact(
-        source,
-        args,
-        dict(kwargs),
-        grid=grid,
-        kernel_name=kernel_name,
-        cubin=cubin,
-        metadata=metadata,
-    )
+    artifact = _artifact_from_compiled_kernel(kernel, metadata)
     if module_name is not None:
         artifact = _CompiledArtifact(
             kernel_name=artifact.kernel_name,
