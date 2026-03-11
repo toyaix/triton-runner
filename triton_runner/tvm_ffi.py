@@ -87,29 +87,6 @@ def _require_tvm_ffi():
     return tvm_ffi, cpp
 
 
-def _ensure_ninja_available() -> None:
-    if shutil.which("ninja") is not None:
-        return
-
-    user_ninja = Path.home() / ".local" / "bin" / "ninja"
-    if user_ninja.exists():
-        path_entries = os.environ.get("PATH", "").split(os.pathsep) if os.environ.get("PATH") else []
-        user_bin = str(user_ninja.parent)
-        if user_bin not in path_entries:
-            os.environ["PATH"] = (
-                user_bin if not path_entries else user_bin + os.pathsep + os.environ["PATH"]
-            )
-        if shutil.which("ninja") is not None:
-            return
-
-    raise RuntimeError(
-        "`ninja` is required by apache-tvm-ffi but was not found on PATH. "
-        "Install it with `pip install triton-runner[tvm-ffi]`, `pip install ninja`, "
-        "or `apt install ninja-build`. If you installed it with `pip --user`, "
-        "add `$HOME/.local/bin` to PATH."
-    )
-
-
 def _normalize_metadata(metadata: Any) -> dict[str, Any]:
     if isinstance(metadata, dict):
         return dict(metadata)
@@ -124,20 +101,36 @@ def _normalize_metadata(metadata: Any) -> dict[str, Any]:
 def _parse_kernel_signature(kernel_signature: str | None) -> tuple[_SignatureEntry, ...]:
     if kernel_signature in (None, "", "None"):
         raise NotImplementedError("TVM-FFI export requires a concrete Triton kernel_signature.")
-    parsed = ast.literal_eval(kernel_signature)
-    if not isinstance(parsed, (list, tuple)):
+    parsed = ast.parse(kernel_signature, mode="eval").body
+    if not isinstance(parsed, (ast.List, ast.Tuple)):
         raise TypeError(f"Unsupported kernel_signature shape: {type(parsed)!r}")
+
     entries: list[_SignatureEntry] = []
-    for item in parsed:
-        if not isinstance(item, (list, tuple)):
-            raise TypeError(f"Invalid kernel_signature entry: {item!r}")
-        if len(item) == 4:
-            name, type_name, specialization, is_kwargs = item
-        elif len(item) == 3:
-            name, type_name, specialization = item
+    for item in parsed.elts:
+        if not isinstance(item, (ast.List, ast.Tuple)):
+            raise TypeError(f"Invalid kernel_signature entry: {ast.unparse(item)!r}")
+        if len(item.elts) == 4:
+            name_node, type_name_node, specialization_node, is_kwargs_node = item.elts
+            is_kwargs = ast.literal_eval(is_kwargs_node)
+        elif len(item.elts) == 3:
+            name_node, type_name_node, specialization_node = item.elts
             is_kwargs = False
         else:
-            raise TypeError(f"Unsupported kernel_signature entry length {len(item)}: {item!r}")
+            raise TypeError(
+                f"Unsupported kernel_signature entry length {len(item.elts)}: {ast.unparse(item)!r}"
+            )
+
+        name = ast.literal_eval(name_node)
+        type_name = ast.literal_eval(type_name_node)
+        try:
+            specialization = ast.literal_eval(specialization_node)
+        except (TypeError, ValueError, SyntaxError):
+            if type_name != "constexpr":
+                raise
+            # Triton may stringify constexpr specializations as Python reprs
+            # such as BlockedLayout(...), which are not literal_eval-able.
+            specialization = ast.unparse(specialization_node)
+
         entries.append(
             _SignatureEntry(
                 name=str(name),
@@ -434,68 +427,3 @@ def _render_cuda_shim(artifact: _CompiledArtifact) -> str:
         TVM_FFI_DLL_EXPORT_TYPED_FUNC({export_name}, triton_runner_tvm_ffi::{export_name});
         """
     )
-
-
-def build_module(
-    kernel: CompiledKernel,
-    *,
-    metadata: Any,
-    module_name: str | None = None,
-    build_directory: str | None = None,
-    keep_module_alive: bool = True,
-    extra_cuda_cflags: list[str] | tuple[str, ...] | None = None,
-    extra_ldflags: list[str] | tuple[str, ...] | None = None,
-):
-    """Build a tvm-ffi module for a CUDA Triton kernel.
-
-    Parameters
-    ----------
-    kernel
-        A compiled Triton kernel with an in-memory `asm["cubin"]`.
-    metadata
-        The concrete Triton metadata dict/object that should define the exported
-        kernel ABI, including `kernel_signature`.
-    module_name
-        Optional override for the generated tvm-ffi inline module name.
-    build_directory
-        Optional build directory forwarded to `tvm_ffi.cpp.load_inline`.
-    keep_module_alive
-        Forwarded to `tvm_ffi.cpp.load_inline`.
-    extra_cuda_cflags, extra_ldflags
-        Extra flags forwarded to `tvm_ffi.cpp.load_inline`.
-    """
-    if not is_triton_geq_v3_5:
-        raise NotImplementedError(
-            f"TVM-FFI export currently targets Triton Runner v3.5+ CUDA semantics, got Triton {triton_version}.")
-
-    _, cpp = _require_tvm_ffi()
-    _ensure_ninja_available()
-    artifact = _artifact_from_compiled_kernel(kernel, metadata)
-    if module_name is not None:
-        artifact = _CompiledArtifact(
-            kernel_name=artifact.kernel_name,
-            module_name=module_name,
-            cubin_bytes=artifact.cubin_bytes,
-            metadata=artifact.metadata,
-            signature=artifact.signature,
-        )
-    cuda_source = _render_cuda_shim(artifact)
-    ldflags = list(extra_ldflags or [])
-    if "-lcudart" not in ldflags:
-        ldflags.append("-lcudart")
-    if "-lcuda" not in ldflags:
-        ldflags.append("-lcuda")
-    return cpp.load_inline(
-        artifact.module_name,
-        cuda_sources=cuda_source,
-        build_directory=build_directory,
-        embed_cubin={_sanitize_identifier(artifact.module_name): artifact.cubin_bytes},
-        keep_module_alive=keep_module_alive,
-        extra_cuda_cflags=list(extra_cuda_cflags or []),
-        extra_ldflags=ldflags,
-    )
-
-
-__all__ = [
-    "build_module",
-]
