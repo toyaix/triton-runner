@@ -380,15 +380,6 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
             grid_2 = grid[2] if grid_size > 2 else 1
             if hasattr(kernel, "result"):
                 kernel = kernel.result()
-            from . import TRITON_TVM_FFI
-            if TRITON_TVM_FFI:
-                print('no warmup and run with tvm')
-                from . import tvm_ffi
-                metadata = _normalize_kernel_metadata(kernel.metadata)
-                metadata["kernel_signature"] = str(_kernel_signature_from_bound_args(bound_args, signature, kwargs))
-                mod = tvm_ffi.build_module(kernel, metadata=metadata)
-                mod[f"{kernel.name}"](grid_0, grid_1, grid_2, *_non_constexpr_bound_values(bound_args, signature))
-                return kernel
 
             # launch kernel
             launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
