@@ -25,6 +25,12 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 include-package-data = true
 
+[project.optional-dependencies]
+tvm-ffi = [
+    "apache-tvm-ffi",
+    "ninja",
+]
+
 [tool.setuptools.package-data]
 "triton_runner" = ["README.md"]
 

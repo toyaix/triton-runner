@@ -1,11 +1,21 @@
-import termcolor
 import os
 
+try:
+    import termcolor
+except ImportError:
+    termcolor = None
+
 def blue_print(text):
-    print(termcolor.colored(text, "blue"), flush=True)
+    if termcolor is None:
+        print(text, flush=True)
+    else:
+        print(termcolor.colored(text, "blue"), flush=True)
 
 def yellow_print(text):
-    print(termcolor.colored(text, "yellow"), flush=True)
+    if termcolor is None:
+        print(text, flush=True)
+    else:
+        print(termcolor.colored(text, "yellow"), flush=True)
 
 
 def get_project_name():

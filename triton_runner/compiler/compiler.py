@@ -15,37 +15,6 @@ def _raise_error(err, *args, **kwargs):
 
 class CompiledKernel_v3_5_0(CompiledKernel):
 
-    def __init__(self, src, metadata_group, hash):
-        from collections import namedtuple
-        metadata_path = next((Path(p) for c, p in metadata_group.items() if c.endswith(".json")))
-        metadata = json.loads(metadata_path.read_text())
-        metadata['cluster_dims'] = tuple(metadata['cluster_dims'])
-        # JSON serialization dumps the target as a dict. Restore it to a GPUTarget.
-        target = metadata['target']
-        metadata['target'] = GPUTarget(target['backend'], target['arch'], target['warp_size'])
-        KernelMetadata = namedtuple('KernelMetadata', sorted(list(metadata.keys())))
-        self.metadata = KernelMetadata(**metadata)
-        backend = make_backend(self.metadata.target)
-        self.packed_metadata = backend.pack_metadata(self.metadata)
-        self.src = src
-        self.hash = hash
-        self.name = self.metadata.name
-        # stores the text of each level of IR that was generated during compilation
-        asm_files = [Path(p) for c, p in metadata_group.items() if not c.endswith(".json")]
-        binary_ext = backend.binary_ext
-        self.asm = AsmDict({
-            file.suffix[1:]: file.read_bytes() if file.suffix[1:] == binary_ext else file.read_text()
-            for file in asm_files
-        })
-        self.metadata_group = metadata_group
-        self.kernel = self.asm[binary_ext]
-        # binaries are lazily initialized
-        # because it involves doing runtime things
-        # (e.g., checking amount of shared memory on current device)
-        self.module = None
-        self.function = None
-        self._run = None
-
     def _init_handles(self):
         if self.module is not None:
             return
@@ -63,6 +32,17 @@ class CompiledKernel_v3_5_0(CompiledKernel):
         device = driver.active.get_current_device()
         # create launcher
         # self._run = driver.active.launcher_cls(self.src, self.metadata)
+
+        # create launcher – use TVM-FFI driver when enabled, otherwise CudaLauncher
+        from triton_runner import TRITON_TVM_FFI
+        if TRITON_TVM_FFI:
+            from triton_runner.driver.tvm_ffi_driver import TvmFfiLauncher
+            self._run = TvmFfiLauncher(self.src, self.metadata, self.asm)
+            # TVM-FFI loads the cubin internally; set module to a sentinel to
+            # prevent re-initialisation on the next call.
+            self.module = True
+            self.function = None
+            return
         from triton_runner.driver.v3_5_0.driver import CudaLauncher as CudaLauncher_v3_5_0
         self._run = CudaLauncher_v3_5_0(self.src, self.metadata)
         # not enough shared memory to run the kernel
@@ -86,32 +66,3 @@ class CompiledKernel_v3_5_0(CompiledKernel):
         if is_triton_v3_5:
             if knobs.runtime.kernel_load_end_hook is not None:
                 knobs.runtime.kernel_load_end_hook(self.module, self.function, self.name, self.metadata_group, self.hash)
-    @property
-    def run(self):
-        if self._run is None:
-            self._init_handles()
-        return self._run
-
-    def launch_metadata(self, grid, stream, *args):
-        if knobs.runtime.launch_enter_hook is None:
-            return None
-        self._init_handles()
-        ret = LazyDict({"name": self.name, "function": self.function, "stream": stream})
-        if not isinstance(self.src, ASTSource) or self.src.fn.launch_metadata is None:
-            return ret
-        arg_dict = {name: arg for name, arg in zip(self.src.fn.arg_names, args)}
-        ret.add(self.src.fn.launch_metadata, (grid, self.metadata, arg_dict))
-        return ret
-
-    def __getitem__(self, grid):
-        self._init_handles()
-
-        def runner(*args, stream=None):
-            if stream is None:
-                device = driver.active.get_current_device()
-                stream = driver.active.get_current_stream(device)
-            launch_metadata = self.launch_metadata(grid, stream, *args)
-            self.run(grid[0], grid[1], grid[2], stream, self.function, self.packed_metadata, launch_metadata,
-                     knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *args)
-
-        return runner

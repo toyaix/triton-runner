@@ -16,6 +16,18 @@ from . import __version__
 from .version_utils import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, is_disable_multithreading
 from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_4, is_triton_geq_v3_5
 from .version_utils import triton_version
+from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
+from . import TRITON_TVM_FFI
+
+
+def _is_cuda_target(target):
+    return getattr(target, "backend", None) == "cuda"
+
+
+def _should_use_compiled_kernel_v3_5_0(target, metadata_json):
+    if not is_triton_geq_v3_5 or not _is_cuda_target(target):
+        return False
+    return metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"] or TRITON_TVM_FFI
 
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
@@ -90,8 +102,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             parse_mlir_to_folder(mlir_dump_path)
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
-        if metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"] and is_triton_geq_v3_4:
-            from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
+        if _should_use_compiled_kernel_v3_5_0(target, metadata_json):
             return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
         else:
             return CompiledKernel(ast_src, metadata_group, hash)
@@ -227,6 +238,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if is_disable_multithreading:
             context.disable_multithreading()
     # return handle to compiled kernel
+
+    if _should_use_compiled_kernel_v3_5_0(target, metadata_json):
+        return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
     return CompiledKernel(ast_src, metadata_group, hash)
 
 def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context):

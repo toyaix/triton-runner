@@ -3,6 +3,7 @@ from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 from typing import Callable, Iterable, Optional, Union, overload
 from .compile import native_compile, get_source_ir
+import ast
 import os
 import json
 import re
@@ -111,6 +112,8 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         # [Triton Runner] dump before _call_hook
         src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
+        if self.need_dump(kwargs):
+            kernel_signature = kernel_signature + (('dump_tensor', '*fp32', 'D', False),)
         if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
             return None
         ast_src = self.ASTSource(self, signature, constexprs, attrs)
@@ -235,10 +238,14 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
         return src
 
     def get_dump_key(self, key, kwargs):
+        if self.need_dump(kwargs):
+            key += "|dump_tensor"
         if "dump_value" in kwargs:
-            key += kwargs["dump_value"]
+            key += f"|dump_value={kwargs['dump_value']}"
+        if "dump_grid" in kwargs:
+            key += f"|dump_grid={kwargs['dump_grid']}"
         if (runner_source_dir_str := self.get_runner_source_dir_str(kwargs)):
-            key += runner_source_dir_str
+            key += f"|runner_src={runner_source_dir_str}"
         return key
 
     def get_src_and_metadata_json(self, kwargs, source_dir_type, src, ast_src):
