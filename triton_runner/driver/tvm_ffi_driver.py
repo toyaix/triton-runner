@@ -26,9 +26,11 @@ class TvmFfiLauncher:
     def __init__(self, src, metadata, asm):
         from ..tvm_ffi import (
             _CompiledArtifact,
+            _expand_bound_args_for_tvm_ffi,
             _module_name_for_metadata,
             _normalize_metadata,
             _parse_kernel_signature,
+            _parse_tensordesc_specs,
             _render_cuda_shim,
             _require_tvm_ffi,
             _sanitize_identifier,
@@ -46,7 +48,12 @@ class TvmFfiLauncher:
 
         kernel_signature = metadata_dict.get("kernel_signature")
         signature = _parse_kernel_signature(kernel_signature)
-        self._is_constexpr = tuple(entry.is_constexpr for entry in signature)
+        self._signature = signature
+        self._descriptor_specs = _parse_tensordesc_specs(
+            tuple(entry for entry in signature if not entry.is_constexpr),
+            metadata_dict,
+        )
+        self._expand_bound_args_for_tvm_ffi = _expand_bound_args_for_tvm_ffi
 
         artifact = _CompiledArtifact(
             kernel_name=str(metadata_dict["name"]),
@@ -98,10 +105,11 @@ class TvmFfiLauncher:
 
         if launch_enter_hook is not None:
             launch_enter_hook(launch_metadata)
-        non_constexpr_args = [
-            arg for arg, is_const in zip(bound_args, self._is_constexpr)
-            if not is_const
-        ]
+        non_constexpr_args = self._expand_bound_args_for_tvm_ffi(
+            self._signature,
+            bound_args,
+            self._descriptor_specs,
+        )
         self._tvm_func(gridX, gridY, gridZ, *non_constexpr_args)
 
         if launch_exit_hook is not None:
