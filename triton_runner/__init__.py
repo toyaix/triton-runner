@@ -12,7 +12,16 @@ def _env_flag(name, default=True):
         return default
     return value.strip().lower() not in {"0", "false", "off", "no", ""}
 
-TRITON_TVM_FFI = _env_flag("TRITON_TVM_FFI", default=False)
+
+def _init_tvm_ffi_flag():
+    enabled = _env_flag("TRITON_TVM_FFI", default=False)
+    if enabled:
+        from .tvm_ffi import _require_tvm_ffi
+        _require_tvm_ffi()
+    return enabled
+
+
+TRITON_TVM_FFI = _init_tvm_ffi_flag()
 
 
 from .jit import jit
