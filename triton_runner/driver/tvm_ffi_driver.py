@@ -26,7 +26,6 @@ class TvmFfiLauncher:
     def __init__(self, src, metadata, asm):
         from ..tvm_ffi import (
             _CompiledArtifact,
-            _ensure_ninja_available,
             _module_name_for_metadata,
             _normalize_metadata,
             _parse_kernel_signature,
@@ -67,7 +66,6 @@ class TvmFfiLauncher:
             self._tvm_mod = cached
         else:
             _, cpp = _require_tvm_ffi()
-            _ensure_ninja_available()
 
             build_dir = os.path.join(_get_tvm_ffi_cache_dir(), cache_hash)
             os.makedirs(build_dir, exist_ok=True)
@@ -100,12 +98,10 @@ class TvmFfiLauncher:
 
         if launch_enter_hook is not None:
             launch_enter_hook(launch_metadata)
-
         non_constexpr_args = [
             arg for arg, is_const in zip(bound_args, self._is_constexpr)
             if not is_const
         ]
-        print('tvm launch')
         self._tvm_func(gridX, gridY, gridZ, *non_constexpr_args)
 
         if launch_exit_hook is not None:
