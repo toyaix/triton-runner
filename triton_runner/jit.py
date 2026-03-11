@@ -10,48 +10,6 @@ import re
 from .dump_utils import get_injected_ir
 
 
-def _signature_from_specialization(params, specialization):
-    sigkeys = [param.name for param in params]
-    sigvals = [item[0] for item in specialization]
-    return {key: value for key, value in zip(sigkeys, sigvals)}
-
-
-def _non_constexpr_bound_values(bound_args, signature):
-    return tuple(value for key, value in bound_args.items() if signature.get(key) != "constexpr")
-
-
-def _literal_kernel_signature_value(arg_type, value):
-    if arg_type != "constexpr":
-        return None
-    try:
-        ast.literal_eval(repr(value))
-        return value
-    except (ValueError, SyntaxError):
-        return repr(value)
-
-
-def _kernel_signature_from_bound_args(bound_args, signature, kwargs):
-    entries = []
-    for key, value in bound_args.items():
-        arg_type = signature.get(key)
-        if arg_type is None:
-            continue
-        spec = _literal_kernel_signature_value(arg_type, value)
-        entries.append((key, arg_type, spec, key in kwargs))
-    return tuple(entries)
-
-
-def _normalize_kernel_metadata(metadata):
-    if isinstance(metadata, dict):
-        return dict(metadata)
-    if hasattr(metadata, "_asdict"):
-        return dict(metadata._asdict())
-    fields = getattr(metadata, "_fields", None)
-    if fields is not None:
-        return {field: getattr(metadata, field) for field in fields}
-    raise TypeError(f"Unsupported kernel metadata object: {type(metadata)!r}")
-
-
 class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
     def get_runner_args_set(self):
@@ -341,7 +299,6 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
         # specialization is list[tuple[str, Any]], where first element of tuple is
         # the type and the second parameter is the 'specialization' value.
         bound_args, specialization, options = binder(*args, **kwargs)
-        signature = _signature_from_specialization(self.params, specialization)
 
         # add a cache field to the kernel specializations for kernel specific
         # pass pipelines
@@ -380,7 +337,6 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
             grid_2 = grid[2] if grid_size > 2 else 1
             if hasattr(kernel, "result"):
                 kernel = kernel.result()
-
             # launch kernel
             launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
             kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
