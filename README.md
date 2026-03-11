@@ -1,24 +1,27 @@
-<h3 align="center">
-Multi-Level Triton Runner(Dump) 🔧
-</h3>
+<h3 align="center">Multi-Level Triton Runner</h3>
 
 <p align="center">
-<a href="./doc/"><b>Documentation</b></a> ｜ <a href="README.zh.md#用户文档"><b>用户文档</b></a> | <a href="https://triton-runner.org"><b>🔗 triton-runner.org</b></a>
+<a href="./doc/runner.md"><b>Runner Docs</b></a> |
+<a href="./doc/dump.md"><b>Dump Docs</b></a> |
+<a href="./doc/benchmark.md"><b>Benchmark Docs</b></a> |
+<a href="./README.zh.md"><b>中文文档</b></a> |
+<a href="https://triton-runner.org"><b>triton-runner.org</b></a>
 </p>
 
 <p align="center">
-<a ><b>English</b></a> | <a href="README.zh.md"><b>中文</b></a>
+<b>English</b> | <a href="./README.zh.md"><b>中文</b></a>
 </p>
 
-Triton Runner is a lightweight, multi-level execution engine for [OpenAI/Triton](https://github.com/triton-lang/triton), designed to support IR/PTX/cubin/GCN/hsaco launches in complex pass pipelines.
+Triton Runner is a lightweight execution and debugging layer for [Triton](https://github.com/triton-lang/triton). It lets you launch kernels from multiple compilation stages, inspect intermediate IR, and reuse compiled artifacts directly during performance tuning.
 
-Triton Runner is compatible with Triton v3.6.0, **v3.5.x(primary)**, v3.4.0, v3.3.x, v3.2.0, v3.1.0 or v3.0.0.
+Compatibility summary:
 
-Triton Runner supports multi-level dump across Python/TTIR/TTGIR on Triton v3.6.0, v3.5.x, v3.4.0, v3.3.x.
-
-- 🆕 **MLIR split(Triton >= 3.3.0)**: Enable MLIR splitting in the cache directory by setting `MLIR_ENABLE_DUMP=1`.
-
-- 🆕 **Cross-vendor support**: Added AMD GPU support.
+- Supported Triton versions: `v3.0.0` through `v3.6.0`
+- Primary target: `v3.5.x`
+- Supported runner inputs: Python Triton, Gluon, TTIR, TTGIR, LLIR, PTX, cubin, AMDGCN, and hsaco
+- Dump support: Python, TTIR, and TTGIR
+- Optional CUDA bridge: TVM-FFI on Triton `v3.5+`
+- MLIR split output: set `MLIR_ENABLE_DUMP=1` to expand `all.mlir` into per-pass files in the cache directory
 
 ## ✨ Features
 
@@ -29,9 +32,7 @@ Triton Runner supports multi-level dump across Python/TTIR/TTGIR on Triton v3.6.
 
 ## 📦 Installation
 
-### Quick Installation
-
-You can install the latest stable release of Triton from pip.
+### Install from PyPI
 
 ```shell
 pip install triton-runner
@@ -39,33 +40,31 @@ pip install triton-runner
 
 ### Install from source
 
-You can install from source to access the latest features and developments.
-
 ```shell
 git clone https://github.com/toyaix/triton-runner
 cd triton-runner
-
 pip install -e .
 ```
 
-#### TVM-FFI
+### Optional: TVM-FFI
 
-Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) on Triton v3.5+ (using the v3.5 runner launch semantics). Install the optional dependency first:
+Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) for Triton `v3.5+`.
 
 ```shell
 pip install triton-runner[tvm-ffi]
-
-# use TVM-FFI
 export TRITON_TVM_FFI=1
 ```
 
 ## 🚀 Quick Start
 
-See the provided examples in the [triton-runner.org](https://triton-runner.org) repository for your first run.
+- Multi-level runner examples: [examples/runner/README.md](./examples/runner/README.md)
+- Dump examples: [examples/dump/README.md](./examples/dump/README.md)
+- Benchmarks: [benchmark/README.md](./benchmark/README.md)
+- Issue case studies: [doc/solving_triton_issues/README.md](./doc/solving_triton_issues/README.md)
 
-### I. Multi-Level Runner
+## I. Multi-Level Runner
 
-All of Triton’s compilation levels are supported by Triton Runner.
+Triton Runner can launch kernels from multiple points in the Triton compilation pipeline.
 
 ```mermaid
 ---
@@ -93,91 +92,90 @@ flowchart LR
     classDef unsupported fill:#F5B7B1,stroke:#C0392B,stroke-width:2px,color:#000000;
 ```
 
-[TLX](https://github.com/facebookexperimental/triton) (Minimally Invasive Paths to Performance Portability) with commit [9a7a23d](https://github.com/facebookexperimental/triton/commit/9a7a23d0cfa4ed4b37eb9b177b0e36beb254f9e6)(Oct 19, 2025) is supported in [examples/runner/tlx](examples/runner/tlx).
+[TLX](https://github.com/facebookexperimental/triton) support is available for commit [9a7a23d](https://github.com/facebookexperimental/triton/commit/9a7a23d0cfa4ed4b37eb9b177b0e36beb254f9e6) in [examples/runner/tlx/README.md](./examples/runner/tlx/README.md).
 
-#### 1. Python Runner
+### 1. Python Runner
 
-You can run your Triton code using `@triton_runner.jit` instead of `@triton.jit`. See an example in [examples/runner/v3.5.x/python/matmul.py](./examples/runner/v3.5.x/python/matmul.py#L12)
+Use `@triton_runner.jit` instead of `@triton.jit`. See [examples/runner/v3.5.x/python/matmul.py](./examples/runner/v3.5.x/python/matmul.py).
 
-You can run the example with `python examples/runner/v3.5.x/python/matmul.py`. After running successfully, you should see output like `[Triton Runner] Triton kernel`.
+```shell
+python examples/runner/v3.5.x/python/matmul.py
+```
 
-If the kernel cache is hit, the following message will be displayed: `[Triton Runner] Triton kernel cache hit and saved at`. This indicates that the kernel was compiled and cached during a previous run.
+On success, Triton Runner prints the kernel launch banner. When the kernel cache is reused, it also prints the cache location.
 
-#### 2. TTIR Runner
+### 2. TTIR Runner
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need to provide the TTIR file. You can place it in the same directory as the current Python file and use `ttir_dir=triton_runner.get_file_dir(__file__)`. See an example in [examples/runner/v3.5.x/ttir/matmul.py](./examples/runner/v3.5.x/ttir/matmul/matmul.py#L67). Alternatively, you can use the Triton cache directory generated by the Python runner(previous step).
+Provide the `.ttir` file and point the runner at its directory, typically with `ttir_dir=triton_runner.get_file_dir(__file__)`. See [examples/runner/v3.5.x/ttir/matmul/matmul.py](./examples/runner/v3.5.x/ttir/matmul/matmul.py).
 
-You can run the example with `python examples/runner/v3.5.x/ttir/matmul/matmul.py`.
+You can also reuse the Triton cache generated by the Python runner.
 
-#### 3. TTGIR Runner
+```shell
+python examples/runner/v3.5.x/ttir/matmul/matmul.py
+```
 
-TTGIR(Triton GPU IR) is architecture-aware and upwardly compatible. In the `.ttgir` file, you might see a target annotation like `ttg.target = "cuda:90"`, which specifies the GPU backend.
+### 3. TTGIR Runner
 
-Similar to the `TTIR Runner`, you need to provide a `.ttgir` file and specify its location in the program. See an example in [examples/runner/v3.5.x/ttgir/sm90/matmul-with-tma-v4.py](./examples/runner/v3.5.x/ttgir/sm90/matmul-with-tma-v4.py#L76).
+TTGIR is architecture-aware. Provide the matching `.ttgir` file and, when needed, the corresponding metadata JSON. See [examples/runner/v3.5.x/ttgir/sm90/matmul-with-tma-v4.py](./examples/runner/v3.5.x/ttgir/sm90/matmul-with-tma-v4.py).
 
-Because TTGIR is upwardly compatible, you can run the example using the `TTGIR Runner` with `python examples/runner/v3.5.x/ttgir/sm75/matmul.py`. If you got `torch.AcceleratorError: CUDA error: an illegal instruction was encountered`, please add corresponding metadata JSON file.
+If you hit `torch.AcceleratorError: CUDA error: an illegal instruction was encountered`, the selected TTGIR artifact likely does not match the target GPU, or the metadata JSON is missing.
 
-#### 4. LLIR/PTX/cubin Runner
+### 4. LLIR / PTX / cubin Runner
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need to provide the corresponding file. Like the TTGIR runner, You can place it in the same directory as the current Python file and use `llir_dir=triton_runner.get_file_dir(__file__)`. Since all of them are architecture-specific, be sure to use the corresponding [metadata JSON file](examples/runner/v3.5.x/llir/sm90/matmul_kernel_make_tensor_desciptor.json). See an example in [examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py](./examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py#L76).
+For LLIR, PTX, and cubin launches, provide the input file plus the matching metadata JSON.
 
-If your architecture is `sm90`(Hopper), you can run the example using the LLIR runner with `python examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py`.
+- LLIR example: [examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py](./examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py)
+- PTX example: [examples/runner/v3.5.x/ptx/sm90/matmul-with-tma-v4.py](./examples/runner/v3.5.x/ptx/sm90/matmul-with-tma-v4.py)
+- cubin example: [examples/runner/v3.5.x/cubin/sm90/matmul-with-tma-v4.py](./examples/runner/v3.5.x/cubin/sm90/matmul-with-tma-v4.py)
+- Example metadata: [examples/runner/v3.5.x/llir/sm90/matmul_kernel_make_tensor_desciptor.json](./examples/runner/v3.5.x/llir/sm90/matmul_kernel_make_tensor_desciptor.json)
 
+### 5. Gluon Runner
 
-#### 5. Gluon Runner
-
-Gluon is a GPU programming language based on the same compiler stack as Triton. But unlike Triton, Gluon is a lower-level language that gives the user more control and responsibility when implementing kernels.
-
-Currently, only two cases are supported.
+Gluon uses the same compiler stack as Triton but exposes a lower-level programming model. The repository currently includes two Gluon examples:
 
 ```shell
 python examples/runner/v3.5.x/gluon/01-intro.py
 python examples/runner/v3.5.x/gluon/02-layouts.py
 ```
 
-#### 6. Hopper Examples
+### 6. Architecture Examples
 
-I provide examples for different architectures and Triton versions. Here's example commands for multi-level targeting `sm90 (H100, H200, H20, etc.)` with Triton v3.5.x.
+Architecture-specific examples are collected in [examples/runner/README.md](./examples/runner/README.md).
+
+- NVIDIA examples cover `sm75`, `sm80`, `sm86`, `sm90`, and `sm120`
+- AMD examples for MI300/CDNA3 are under [examples/runner/amd/v3.6.0](./examples/runner/amd/v3.6.0)
+
+Representative commands:
 
 ```shell
 python examples/runner/v3.5.x/python/matmul-with-tma-v4.py
-python examples/runner/v3.5.x/ttir/matmul-with-tma/matmul-with-tma-v4.py
 python examples/runner/v3.5.x/ttgir/sm90/matmul-with-tma-v4.py
-python examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py
-python examples/runner/v3.5.x/ptx/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.5.x/cubin/sm90/matmul-with-tma-v4.py
-python examples/runner/v3.5.x/gluon/01-intro.py
-python examples/runner/v3.5.x/gluon/02-layouts.py
+python examples/runner/amd/v3.6.0/hsaco/matmul.py
 ```
 
-#### 7. More Architectures Examples
+If your GPU does not match one of the bundled examples, set `TRITON_CACHE_DIR=$PWD/.cache`, compile once on the target machine, and then reuse the generated kernel cache.
 
-For [architecture-specific](https://developer.nvidia.com/cuda-gpus) example commands, please refer to the [examples/runner](./examples/runner) directory:
-- sm90: Hopper (H100, H200, H20, etc.)
-- sm80: Ampere (A100, A30)
-- sm120: Blackwell (RTX PRO 6000, RTX 5090, etc.)
-- sm86: Ampere (A10, RTX 3090, etc.)
-- sm75: Turing (T4, RTX 2080, etc.)
+### 7. Versioned Examples
 
-If your GPU does not have one of the above compute capabilities, you can use `TRITON_CACHE_DIR=$PWD/.cache` to output the Triton cache to the current directory, and use this kernel cache directory to run your program.
+Use the example set that matches your Triton version:
 
-#### 8. More Triton Version Examples
+- Triton `v3.6.0`: [examples/runner/v3.6.0](./examples/runner/v3.6.0)
+- Triton `v3.5.x`: [examples/runner/v3.5.x](./examples/runner/v3.5.x)
+- Triton `v3.4.0`: [examples/runner/v3.4.0](./examples/runner/v3.4.0)
+- Triton `v3.3.x`: [examples/runner/v3.3.x](./examples/runner/v3.3.x)
+- Triton `v3.2.0`: [examples/runner/v3.2.0](./examples/runner/v3.2.0)
+- Triton `v3.1.0`: [examples/runner/v3.1.0](./examples/runner/v3.1.0)
+- Triton `v3.0.0`: [examples/runner/v3.0.0](./examples/runner/v3.0.0)
+- TLX examples: [examples/runner/tlx](./examples/runner/tlx)
 
-Please refer to the appropriate examples directory based on your Triton version:
-- For Triton v3.5.0 or v3.5.1, in [examples/runner/v3.5.x](./examples/runner/v3.5.x).
-- For Triton v3.4.0, in [examples/runner/v3.4.0](./examples/runner/v3.4.0).
-- For Triton v3.3.1 or v3.3.0, in [examples/runner/v3.3.x](./examples/runner/v3.3.x).
-- For Triton v3.2.0, in [examples/runner/v3.2.0](./examples/runner/v3.2.0).
-- For Triton v3.1.0, in [examples/runner/v3.1.0](./examples/runner/v3.1.0).
-- For Triton v3.0.0, in [examples/runner/v3.0.0](./examples/runner/v3.0.0).
+## II. Multi-Level Dump
 
-### II. Multi-Level Dump
-
-Python/TTIR/TTGIR now support dump on Triton v3.5.0, v3.4.0, v3.3.x.
+Triton Runner supports dump workflows at the Python, TTIR, and TTGIR levels.
 
 ```mermaid
 ---
-title: Triton Compilation Pipeline
+title: Triton Dump Coverage
 ---
 flowchart LR
 
@@ -198,68 +196,73 @@ flowchart LR
     classDef unsupported fill:#F5B7B1,stroke:#C0392B,stroke-width:2px,color:#000000;
 ```
 
-#### 1. Python Dump
+The full dump guide lives in [examples/dump/README.md](./examples/dump/README.md).
 
-In addition to using `@triton_runner.jit` instead of `@triton.jit`, you also need use `triton_runner.language.dump()` in your Triton kernel. And we allocate a temporary tensor called dump_tensor, and simply pass it to the kernel through the dump_tensor parameter. Here are some example commands for dump.
+### 1. Python Dump
+
+Inside a Triton kernel, use `triton_runner.language.dump()` to inspect a block. You can also use `triton_runner.language.dump_boundary()` for boundary blocks and `triton_runner.language.dump_grids()` for grid inspection.
+
+Representative examples:
 
 ```shell
 python examples/dump/python/01-vec_add/dump_output.py
 python examples/dump/python/03-matrix_multiplication/dump_acc.py
 python examples/dump/python/04-softmax/dump_max_in_loop.py
-python examples/dump/python/05-softmax_lse/dump_log_acc.py
 python examples/dump/python/06-attention/dump_out.py
 ```
 
-In addition to `triton_runner.language.dump()`, which dumps the contents of a block, Triton Runner also provides `triton_runner.language.dump_boundary()` for dumping the boundary blocks and `triton_runner.language.dump_grids()` for inspecting all grid values. See more in [examples/dump/README.md](./examples/dump/README.md#1-python-dump).
+### 2. TTIR Dump
 
-#### 2. TTIR Dump
-
-Dump is supported for TTIR ops like `tt.load`, `arith.addf`, and `tt.trans`. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#2-ttir-dump).
+TTIR dump examples cover common ops such as `tt.load`, `arith.addf`, and `tt.trans`.
 
 ```shell
 python examples/dump/ttir/01-vector_add/dump_addf.py
 python examples/dump/ttir/03-matrix_multiplication/dump_acc.py
 python examples/dump/ttir/04-softmax/dump_maxnumf.py
-python examples/dump/ttir/05-softmax_lse/dump_more.py
 python examples/dump/ttir/06-attention/dump_out.py
 ```
 
-#### 3. TTGIR Dump
+### 3. TTGIR Dump
 
-Dump is supported for TTGIR level like `tt.load`, `arith.addf`, and `tt.trans`. Here are some example commands for dump. See more in [examples/dump/README.md](./examples/dump/README.md#3-ttgir-dump).
+TTGIR dump examples cover the same class of operations at the GPU IR level.
 
 ```shell
 python examples/dump/ttgir/01-vec_add/dump_addf.py
 python examples/dump/ttgir/03-matrix_multiplication/dump_acc.py
 python examples/dump/ttgir/04-softmax/dump_maxnumf.py
-python examples/dump/ttgir/05-softmax_lse/dump_more.py
 python examples/dump/ttgir/06-attention/dump_out.py
 ```
 
-### III. Benchmarks
+## III. Benchmarks
 
-Benchmarks Referencing [TritonBench](https://github.com/pytorch-labs/tritonbench)
-  - `launch_latency`: Measures kernel launch overhead.
-  - `matmul`: Provides a benchmark for matrix multiplication performance.
+Benchmark examples are under [benchmark/README.md](./benchmark/README.md). The repository currently includes:
+
+- `launch_latency`: kernel launch overhead
+- `matmul`: matrix multiplication performance
+- `flash_attention`: attention benchmark cases
+
+Example commands:
 
 ```shell
 python benchmark/launch_latency/bench.py
-
 python benchmark/matmul/mma/bench.py
+python benchmark/attn/flash_attention/bench.py
 ```
 
-### IV. Solving Triton Issues
+## IV. Solving Triton Issues
 
-To solve Triton’s performance and shared memory issues as shown in the [doc/solving_triton_issues](./doc/solving_triton_issues/) folder, we use the cubin Runner.
+The case studies in [doc/solving_triton_issues/README.md](./doc/solving_triton_issues/README.md) show how to reproduce and work around Triton regressions with Triton Runner, especially by reusing cubin artifacts.
 
+Current documented cases include:
+
+- [Triton 3.3 performance regression on small GEMMs](./doc/solving_triton_issues/performance-7096)
+- [Higher shared memory usage in Triton 3.3](./doc/solving_triton_issues/high_usage-7268)
 
 ## 📄 License
 
-This project is licensed under the **MIT License**.
-See the [LICENSE](./LICENSE) file for more details.
+This project is licensed under the **MIT License**. See [LICENSE](./LICENSE) for details.
 
 This project includes code from:
 
 - Triton (MIT License): https://github.com/triton-lang/triton
-
 - TritonBench (BSD 3-Clause License): https://github.com/pytorch-labs/tritonbench
