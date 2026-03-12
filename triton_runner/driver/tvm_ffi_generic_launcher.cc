@@ -1,0 +1,710 @@
+#define TVM_FFI_CUBIN_LAUNCHER_USE_DRIVER_API 1
+
+#include <cuda.h>
+#include <cuda_bf16.h>
+#include <cuda_fp16.h>
+#include <cuda_runtime.h>
+#include <dlfcn.h>
+#include <tvm/ffi/container/array.h>
+#include <tvm/ffi/container/tensor.h>
+#include <tvm/ffi/error.h>
+#include <tvm/ffi/extra/c_env_api.h>
+#include <tvm/ffi/extra/cuda/cubin_launcher.h>
+#include <tvm/ffi/function.h>
+#include <tvm/ffi/string.h>
+
+#include <array>
+#include <cstdint>
+#include <deque>
+#include <limits>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace triton_runner_tvm_ffi {
+
+using tvm::ffi::Any;
+using tvm::ffi::AnyView;
+using tvm::ffi::Array;
+using tvm::ffi::Bytes;
+using tvm::ffi::PackedArgs;
+using tvm::ffi::String;
+using tvm::ffi::TensorView;
+
+inline void CheckCudaRuntimeError(cudaError_t err) {
+  if (err != cudaSuccess) {
+    TVM_FFI_THROW(RuntimeError)
+        << "CUDA Runtime Error: " << cudaGetErrorName(err) << " (" << static_cast<int>(err)
+        << "): " << cudaGetErrorString(err);
+  }
+}
+
+inline void CheckCudaDriverError(CUresult err) {
+  if (err != CUDA_SUCCESS) {
+    const char* err_name = nullptr;
+    const char* err_string = nullptr;
+    cuGetErrorName(err, &err_name);
+    cuGetErrorString(err, &err_string);
+    TVM_FFI_THROW(RuntimeError)
+        << "CUDA Driver Error: " << (err_name != nullptr ? err_name : "<unknown>") << " ("
+        << static_cast<int>(err) << "): " << (err_string != nullptr ? err_string : "<unknown>");
+  }
+}
+
+#define TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(stmt) \
+  do {                                                       \
+    ::cudaError_t __err = (stmt);                            \
+    ::triton_runner_tvm_ffi::CheckCudaRuntimeError(__err);   \
+  } while (0)
+
+#define TVM_FFI_CHECK_TRITON_RUNNER_CUDA_DRIVER_ERROR(stmt) \
+  do {                                                      \
+    ::CUresult __err = (stmt);                              \
+    ::triton_runner_tvm_ffi::CheckCudaDriverError(__err);   \
+  } while (0)
+
+using cuTensorMapEncodeTiled_t = CUresult (*)(
+    CUtensorMap*,
+    CUtensorMapDataType,
+    cuuint32_t,
+    void*,
+    const cuuint64_t*,
+    const cuuint64_t*,
+    const cuuint32_t*,
+    const cuuint32_t*,
+    CUtensorMapInterleave,
+    CUtensorMapSwizzle,
+    CUtensorMapL2promotion,
+    CUtensorMapFloatOOBfill);
+
+inline cuTensorMapEncodeTiled_t GetCuTensorMapEncodeTiledHandle() {
+  static void* lib_handle = nullptr;
+  static cuTensorMapEncodeTiled_t func = nullptr;
+  if (func != nullptr) {
+    return func;
+  }
+  if (lib_handle == nullptr) {
+    lib_handle = dlopen("libcuda.so.1", RTLD_LAZY | RTLD_LOCAL);
+    TVM_FFI_CHECK(lib_handle != nullptr, RuntimeError)
+        << "Failed to open libcuda.so.1 for tensor descriptor support.";
+  }
+  dlerror();
+  func = reinterpret_cast<cuTensorMapEncodeTiled_t>(dlsym(lib_handle, "cuTensorMapEncodeTiled"));
+  const char* err = dlerror();
+  TVM_FFI_CHECK(err == nullptr && func != nullptr, RuntimeError)
+      << "Failed to retrieve cuTensorMapEncodeTiled from libcuda.so.1.";
+  return func;
+}
+
+inline void FillTmaDescriptor(CUtensorMap* tensor_map,
+                              void* global_address,
+                              int swizzle,
+                              int elem_size,
+                              int elem_type,
+                              const uint32_t* block_size,
+                              int rank,
+                              const int64_t* shape,
+                              const int64_t* strides,
+                              bool padding_nan,
+                              bool fp4_padded,
+                              const char* arg_name) {
+  TVM_FFI_CHECK(rank > 0 && rank <= 5, ValueError)
+      << "Tensor descriptor " << arg_name << " has unsupported rank " << rank;
+  TVM_FFI_CHECK(strides[rank - 1] == 1, ValueError)
+      << "Tensor descriptor " << arg_name << " requires innermost stride == 1.";
+
+  uint32_t block_size_int[5] = {1, 1, 1, 1, 1};
+  uint64_t shape_int[5] = {1, 1, 1, 1, 1};
+  uint64_t strides_bytes[5] = {0, 0, 0, 0, 0};
+  uint32_t element_strides[5] = {1, 1, 1, 1, 1};
+
+  for (int i = 0; i < rank; ++i) {
+    TVM_FFI_CHECK(shape[i] >= 0, ValueError)
+        << "Tensor descriptor " << arg_name << " shape[" << i << "] must be non-negative.";
+    int reversed = rank - i - 1;
+    uint64_t dim = static_cast<uint64_t>(shape[i]);
+    if (fp4_padded && i == rank - 1) {
+      dim *= 2;
+    }
+    shape_int[reversed] = dim;
+    block_size_int[reversed] = block_size[i];
+  }
+
+  for (int i = 0; i + 1 < rank; ++i) {
+    TVM_FFI_CHECK(strides[i] >= 0, ValueError)
+        << "Tensor descriptor " << arg_name << " stride[" << i << "] must be non-negative.";
+    int reversed = rank - i - 2;
+    strides_bytes[reversed] = static_cast<uint64_t>(elem_size) * static_cast<uint64_t>(strides[i]);
+  }
+  strides_bytes[rank - 1] =
+      shape_int[rank - 1] * static_cast<uint64_t>(rank == 1 ? elem_size : strides_bytes[rank - 2]);
+
+  CUtensorMapFloatOOBfill fill =
+      padding_nan ? CU_TENSOR_MAP_FLOAT_OOB_FILL_NAN_REQUEST_ZERO_FMA : CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE;
+  auto encode = GetCuTensorMapEncodeTiledHandle();
+  auto result = encode(
+      tensor_map,
+      static_cast<CUtensorMapDataType>(elem_type),
+      static_cast<cuuint32_t>(rank),
+      global_address,
+      shape_int,
+      strides_bytes,
+      block_size_int,
+      element_strides,
+      CU_TENSOR_MAP_INTERLEAVE_NONE,
+      static_cast<CUtensorMapSwizzle>(swizzle),
+      CU_TENSOR_MAP_L2_PROMOTION_L2_128B,
+      fill);
+  TVM_FFI_CHECK_TRITON_RUNNER_CUDA_DRIVER_ERROR(result);
+}
+
+struct ScratchBuffer {
+  void* base = nullptr;
+  void* aligned = nullptr;
+  size_t capacity = 0;
+  size_t alignment = 1;
+};
+
+static std::mutex g_scratch_mu;
+static std::unordered_map<int, ScratchBuffer> g_global_scratch_buffers;
+static std::unordered_map<int, ScratchBuffer> g_profile_scratch_buffers;
+
+inline void* AlignPtr(void* ptr, size_t alignment) {
+  uintptr_t raw = reinterpret_cast<uintptr_t>(ptr);
+  uintptr_t mask = alignment - 1;
+  uintptr_t aligned = (raw + mask) & ~mask;
+  return reinterpret_cast<void*>(aligned);
+}
+
+inline void* GetScratchBuffer(std::unordered_map<int, ScratchBuffer>& buffers,
+                              int device_id,
+                              size_t size,
+                              size_t alignment) {
+  if (size == 0) {
+    return nullptr;
+  }
+  if (alignment == 0) {
+    alignment = 1;
+  }
+  std::lock_guard<std::mutex> guard(g_scratch_mu);
+  auto& buffer = buffers[device_id];
+  if (buffer.base == nullptr || buffer.capacity < size || buffer.alignment < alignment) {
+    int previous_device = -1;
+    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&previous_device));
+    if (previous_device != device_id) {
+      TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(device_id));
+    }
+    if (buffer.base != nullptr) {
+      TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaFree(buffer.base));
+    }
+    void* base = nullptr;
+    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaMalloc(&base, size + alignment - 1));
+    buffer.base = base;
+    buffer.aligned = AlignPtr(base, alignment);
+    buffer.capacity = size;
+    buffer.alignment = alignment;
+    if (previous_device != device_id) {
+      TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(previous_device));
+    }
+  }
+  return buffer.aligned;
+}
+
+enum class ArgKind {
+  kPointer,
+  kI1,
+  kI8,
+  kI16,
+  kI32,
+  kI64,
+  kU1,
+  kU8,
+  kU16,
+  kU32,
+  kU64,
+  kFp16,
+  kBf16,
+  kFp32,
+  kFp64,
+  kTensorDesc,
+};
+
+struct TensorDescMetadata {
+  bool present = false;
+  int swizzle = 0;
+  int elem_size = 0;
+  int elem_type = 0;
+  bool fp4_padded = false;
+  std::array<uint32_t, 5> block_size = {1, 1, 1, 1, 1};
+};
+
+struct RuntimeArgSpec {
+  std::string name;
+  ArgKind kind;
+  int rank = 0;
+  TensorDescMetadata tensordesc_meta;
+};
+
+struct RegisteredKernel {
+  std::unique_ptr<tvm::ffi::CubinModule> module;
+  std::unique_ptr<tvm::ffi::CubinKernel> kernel;
+  uint32_t block_x = 0;
+  uint32_t shared_memory = 0;
+  size_t global_scratch_size = 0;
+  size_t global_scratch_align = 1;
+  size_t profile_scratch_size = 0;
+  size_t profile_scratch_align = 1;
+  std::vector<RuntimeArgSpec> runtime_args;
+};
+
+static std::mutex g_kernel_mu;
+static std::unordered_map<int64_t, std::unique_ptr<RegisteredKernel>> g_registered_kernels;
+
+struct alignas(128) KernelArgSlot {
+  union {
+    void* ptr;
+    bool b;
+    int8_t i8;
+    int16_t i16;
+    int32_t i32;
+    int64_t i64;
+    uint8_t u8;
+    uint16_t u16;
+    uint32_t u32;
+    uint64_t u64;
+    __half fp16;
+    __nv_bfloat16 bf16;
+    float fp32;
+    double fp64;
+    CUtensorMap tensor_map;
+  };
+};
+
+inline ArgKind ArgKindFromCode(int64_t code) {
+  switch (code) {
+    case 0:
+      return ArgKind::kPointer;
+    case 1:
+      return ArgKind::kI1;
+    case 2:
+      return ArgKind::kI8;
+    case 3:
+      return ArgKind::kI16;
+    case 4:
+      return ArgKind::kI32;
+    case 5:
+      return ArgKind::kI64;
+    case 6:
+      return ArgKind::kU1;
+    case 7:
+      return ArgKind::kU8;
+    case 8:
+      return ArgKind::kU16;
+    case 9:
+      return ArgKind::kU32;
+    case 10:
+      return ArgKind::kU64;
+    case 11:
+      return ArgKind::kFp16;
+    case 12:
+      return ArgKind::kBf16;
+    case 13:
+      return ArgKind::kFp32;
+    case 14:
+      return ArgKind::kFp64;
+    case 15:
+      return ArgKind::kTensorDesc;
+    default:
+      TVM_FFI_THROW(ValueError) << "Unsupported Triton runtime arg kind code: " << code;
+      return ArgKind::kPointer;
+  }
+}
+
+inline RegisteredKernel* GetRegisteredKernel(int64_t handle) {
+  auto* kernel = reinterpret_cast<RegisteredKernel*>(static_cast<uintptr_t>(handle));
+  TVM_FFI_CHECK(kernel != nullptr, KeyError)
+      << "No registered TVM-FFI Triton kernel for handle=" << handle;
+  return kernel;
+}
+
+int64_t RegisterKernel(const String& kernel_name,
+                       const Bytes& cubin,
+                       int64_t block_x,
+                       int64_t shared_memory,
+                       int64_t global_scratch_size,
+                       int64_t global_scratch_align,
+                       int64_t profile_scratch_size,
+                       int64_t profile_scratch_align,
+                       const Array<String>& runtime_arg_names,
+                       const Array<int64_t>& runtime_arg_kind_codes,
+                       const Array<int64_t>& runtime_arg_ranks,
+                       const Array<int64_t>& runtime_arg_meta_present,
+                       const Array<int64_t>& runtime_arg_swizzles,
+                       const Array<int64_t>& runtime_arg_elem_sizes,
+                       const Array<int64_t>& runtime_arg_elem_types,
+                       const Array<int64_t>& runtime_arg_fp4_padded,
+                       const Array<int64_t>& runtime_arg_block_size_offsets,
+                       const Array<int64_t>& runtime_arg_block_size_values) {
+  int64_t runtime_arg_count = runtime_arg_names.size();
+  TVM_FFI_CHECK(runtime_arg_kind_codes.size() == runtime_arg_count, ValueError)
+      << "runtime_arg_kind_codes size mismatch";
+  TVM_FFI_CHECK(runtime_arg_ranks.size() == runtime_arg_count, ValueError)
+      << "runtime_arg_ranks size mismatch";
+  TVM_FFI_CHECK(runtime_arg_meta_present.size() == runtime_arg_count, ValueError)
+      << "runtime_arg_meta_present size mismatch";
+  TVM_FFI_CHECK(runtime_arg_swizzles.size() == runtime_arg_count, ValueError)
+      << "runtime_arg_swizzles size mismatch";
+  TVM_FFI_CHECK(runtime_arg_elem_sizes.size() == runtime_arg_count, ValueError)
+      << "runtime_arg_elem_sizes size mismatch";
+  TVM_FFI_CHECK(runtime_arg_elem_types.size() == runtime_arg_count, ValueError)
+      << "runtime_arg_elem_types size mismatch";
+  TVM_FFI_CHECK(runtime_arg_fp4_padded.size() == runtime_arg_count, ValueError)
+      << "runtime_arg_fp4_padded size mismatch";
+  TVM_FFI_CHECK(runtime_arg_block_size_offsets.size() == runtime_arg_count + 1, ValueError)
+      << "runtime_arg_block_size_offsets size mismatch";
+
+  auto kernel = std::make_unique<RegisteredKernel>();
+  kernel->block_x = static_cast<uint32_t>(block_x);
+  kernel->shared_memory = static_cast<uint32_t>(shared_memory);
+  kernel->global_scratch_size = static_cast<size_t>(global_scratch_size);
+  kernel->global_scratch_align = static_cast<size_t>(global_scratch_align);
+  kernel->profile_scratch_size = static_cast<size_t>(profile_scratch_size);
+  kernel->profile_scratch_align = static_cast<size_t>(profile_scratch_align);
+  kernel->runtime_args.reserve(static_cast<size_t>(runtime_arg_count));
+
+  for (int64_t i = 0; i < runtime_arg_count; ++i) {
+    RuntimeArgSpec spec;
+    spec.name = runtime_arg_names[i];
+    spec.kind = ArgKindFromCode(runtime_arg_kind_codes[i]);
+    spec.rank = static_cast<int>(runtime_arg_ranks[i]);
+    int64_t block_offset = runtime_arg_block_size_offsets[i];
+    int64_t block_end = runtime_arg_block_size_offsets[i + 1];
+    TVM_FFI_CHECK(block_offset >= 0 && block_end >= block_offset, ValueError)
+        << "Invalid tensor descriptor block_size offsets for " << spec.name;
+    TVM_FFI_CHECK(block_end <= runtime_arg_block_size_values.size(), ValueError)
+        << "Tensor descriptor block_size offset out of bounds for " << spec.name;
+
+    if (spec.kind == ArgKind::kTensorDesc) {
+      TVM_FFI_CHECK(spec.rank > 0 && spec.rank <= 5, ValueError)
+          << "Tensor descriptor " << spec.name << " has unsupported rank " << spec.rank;
+      if (runtime_arg_meta_present[i] != 0) {
+        TVM_FFI_CHECK(block_end - block_offset == spec.rank, ValueError)
+            << "Tensor descriptor block_size rank mismatch for " << spec.name;
+        spec.tensordesc_meta.present = true;
+        spec.tensordesc_meta.swizzle = static_cast<int>(runtime_arg_swizzles[i]);
+        spec.tensordesc_meta.elem_size = static_cast<int>(runtime_arg_elem_sizes[i]);
+        spec.tensordesc_meta.elem_type = static_cast<int>(runtime_arg_elem_types[i]);
+        spec.tensordesc_meta.fp4_padded = runtime_arg_fp4_padded[i] != 0;
+        for (int j = 0; j < spec.rank; ++j) {
+          spec.tensordesc_meta.block_size[static_cast<size_t>(j)] =
+              static_cast<uint32_t>(runtime_arg_block_size_values[block_offset + j]);
+        }
+      } else {
+        TVM_FFI_CHECK(block_end == block_offset, ValueError)
+            << "Tensor descriptor without metadata must not carry block_size values for " << spec.name;
+      }
+    } else {
+      TVM_FFI_CHECK(spec.rank == 0, ValueError)
+          << "Non-tensor runtime arg " << spec.name << " must have rank 0";
+      TVM_FFI_CHECK(runtime_arg_meta_present[i] == 0, ValueError)
+          << "Non-tensor runtime arg " << spec.name << " must not carry tensor metadata";
+      TVM_FFI_CHECK(block_end == block_offset, ValueError)
+          << "Non-tensor runtime arg " << spec.name << " must not carry block_size values";
+    }
+    kernel->runtime_args.push_back(std::move(spec));
+  }
+
+  kernel->module = std::make_unique<tvm::ffi::CubinModule>(cubin);
+  kernel->kernel = std::make_unique<tvm::ffi::CubinKernel>(
+      kernel->module->GetKernelWithMaxDynamicSharedMemory(kernel_name.c_str(), kernel->shared_memory));
+
+  int64_t handle = static_cast<int64_t>(reinterpret_cast<uintptr_t>(kernel.get()));
+  {
+    std::lock_guard<std::mutex> guard(g_kernel_mu);
+    g_registered_kernels[handle] = std::move(kernel);
+  }
+  return handle;
+}
+
+inline void StoreIntegerArg(ArgKind kind, const Any& arg, std::deque<KernelArgSlot>* slots, std::vector<void*>* out) {
+  slots->emplace_back();
+  KernelArgSlot& slot = slots->back();
+  switch (kind) {
+    case ArgKind::kI1:
+      slot.b = arg.cast<bool>();
+      out->push_back(&slot.b);
+      break;
+    case ArgKind::kI8:
+      slot.i8 = arg.cast<int8_t>();
+      out->push_back(&slot.i8);
+      break;
+    case ArgKind::kI16:
+      slot.i16 = arg.cast<int16_t>();
+      out->push_back(&slot.i16);
+      break;
+    case ArgKind::kI32:
+      slot.i32 = arg.cast<int32_t>();
+      out->push_back(&slot.i32);
+      break;
+    case ArgKind::kI64:
+      slot.i64 = arg.cast<int64_t>();
+      out->push_back(&slot.i64);
+      break;
+    case ArgKind::kU1:
+      slot.b = arg.cast<bool>();
+      out->push_back(&slot.b);
+      break;
+    case ArgKind::kU8:
+      slot.u8 = arg.cast<uint8_t>();
+      out->push_back(&slot.u8);
+      break;
+    case ArgKind::kU16:
+      slot.u16 = arg.cast<uint16_t>();
+      out->push_back(&slot.u16);
+      break;
+    case ArgKind::kU32:
+      slot.u32 = arg.cast<uint32_t>();
+      out->push_back(&slot.u32);
+      break;
+    case ArgKind::kU64:
+      slot.u64 = arg.cast<uint64_t>();
+      out->push_back(&slot.u64);
+      break;
+    default:
+      TVM_FFI_THROW(RuntimeError) << "Invalid integer arg kind";
+  }
+}
+
+inline void StoreFloatArg(ArgKind kind, const Any& arg, std::deque<KernelArgSlot>* slots, std::vector<void*>* out) {
+  double value = arg.cast<double>();
+  slots->emplace_back();
+  KernelArgSlot& slot = slots->back();
+  switch (kind) {
+    case ArgKind::kFp16:
+      slot.fp16 = __float2half(static_cast<float>(value));
+      out->push_back(&slot.fp16);
+      break;
+    case ArgKind::kBf16:
+      slot.bf16 = __float2bfloat16(static_cast<float>(value));
+      out->push_back(&slot.bf16);
+      break;
+    case ArgKind::kFp32:
+      slot.fp32 = static_cast<float>(value);
+      out->push_back(&slot.fp32);
+      break;
+    case ArgKind::kFp64:
+      slot.fp64 = value;
+      out->push_back(&slot.fp64);
+      break;
+    default:
+      TVM_FFI_THROW(RuntimeError) << "Invalid float arg kind";
+  }
+}
+
+inline void LaunchPacked(PackedArgs args, Any* ret) {
+  TVM_FFI_CHECK(args.size() >= 4, ValueError) << "Expected at least 4 launch arguments, got " << args.size();
+  int64_t registry_handle = args[0].cast<int64_t>();
+  int32_t grid_x = args[1].cast<int32_t>();
+  int32_t grid_y = args[2].cast<int32_t>();
+  int32_t grid_z = args[3].cast<int32_t>();
+  RegisteredKernel* kernel = GetRegisteredKernel(registry_handle);
+
+  DLDevice device{};
+  bool device_initialized = false;
+  auto bind_device = [&](DLDevice candidate, const char* arg_name) {
+    TVM_FFI_CHECK(candidate.device_type == kDLCUDA, ValueError)
+        << "TVM-FFI Triton export only supports CUDA tensors, got device_type="
+        << candidate.device_type << " for argument " << arg_name;
+    if (!device_initialized) {
+      device = candidate;
+      device_initialized = true;
+      return;
+    }
+    TVM_FFI_CHECK(device.device_type == candidate.device_type && device.device_id == candidate.device_id, ValueError)
+        << "All tensor arguments must live on the same CUDA device.";
+  };
+
+  std::deque<KernelArgSlot> slots;
+  std::vector<void*> launch_args;
+  launch_args.reserve(kernel->runtime_args.size() * 4 + 2);
+  size_t arg_index = 4;
+
+  for (const RuntimeArgSpec& spec : kernel->runtime_args) {
+    switch (spec.kind) {
+      case ArgKind::kPointer: {
+        TVM_FFI_CHECK(arg_index < static_cast<size_t>(args.size()), ValueError)
+            << "Missing runtime argument for " << spec.name;
+        TensorView tensor = args[static_cast<int64_t>(arg_index++)].cast<TensorView>();
+        bind_device(tensor.device(), spec.name.c_str());
+        slots.emplace_back();
+        slots.back().ptr = tensor.data_ptr();
+        launch_args.push_back(&slots.back().ptr);
+        break;
+      }
+      case ArgKind::kI1:
+      case ArgKind::kI8:
+      case ArgKind::kI16:
+      case ArgKind::kI32:
+      case ArgKind::kI64:
+      case ArgKind::kU1:
+      case ArgKind::kU8:
+      case ArgKind::kU16:
+      case ArgKind::kU32:
+      case ArgKind::kU64: {
+        TVM_FFI_CHECK(arg_index < static_cast<size_t>(args.size()), ValueError)
+            << "Missing runtime argument for " << spec.name;
+        StoreIntegerArg(spec.kind, args[static_cast<int64_t>(arg_index++)], &slots, &launch_args);
+        break;
+      }
+      case ArgKind::kFp16:
+      case ArgKind::kBf16:
+      case ArgKind::kFp32:
+      case ArgKind::kFp64: {
+        TVM_FFI_CHECK(arg_index < static_cast<size_t>(args.size()), ValueError)
+            << "Missing runtime argument for " << spec.name;
+        StoreFloatArg(spec.kind, args[static_cast<int64_t>(arg_index++)], &slots, &launch_args);
+        break;
+      }
+      case ArgKind::kTensorDesc: {
+        TVM_FFI_CHECK(arg_index + static_cast<size_t>(2 * spec.rank + 2) <= static_cast<size_t>(args.size()), ValueError)
+            << "Missing tensor descriptor runtime arguments for " << spec.name;
+        TensorView base = args[static_cast<int64_t>(arg_index++)].cast<TensorView>();
+        bind_device(base.device(), spec.name.c_str());
+
+        std::array<int64_t, 5> shape = {0, 0, 0, 0, 0};
+        std::array<int64_t, 5> stride = {0, 0, 0, 0, 0};
+        for (int i = 0; i < spec.rank; ++i) {
+          int64_t dim = args[static_cast<int64_t>(arg_index++)].cast<int64_t>();
+          TVM_FFI_CHECK(dim >= 0 && dim <= static_cast<int64_t>(std::numeric_limits<int32_t>::max()), ValueError)
+              << "Tensor descriptor " << spec.name << " shape[" << i << "] must fit in int32.";
+          shape[static_cast<size_t>(i)] = dim;
+        }
+        for (int i = 0; i < spec.rank; ++i) {
+          stride[static_cast<size_t>(i)] = args[static_cast<int64_t>(arg_index++)].cast<int64_t>();
+        }
+        bool padding_nan = args[static_cast<int64_t>(arg_index++)].cast<bool>();
+
+        if (spec.tensordesc_meta.present) {
+          slots.emplace_back();
+          FillTmaDescriptor(&slots.back().tensor_map,
+                            base.data_ptr(),
+                            spec.tensordesc_meta.swizzle,
+                            spec.tensordesc_meta.elem_size,
+                            spec.tensordesc_meta.elem_type,
+                            spec.tensordesc_meta.block_size.data(),
+                            spec.rank,
+                            shape.data(),
+                            stride.data(),
+                            padding_nan,
+                            spec.tensordesc_meta.fp4_padded,
+                            spec.name.c_str());
+          launch_args.push_back(&slots.back().tensor_map);
+          for (int i = 0; i < spec.rank; ++i) {
+            slots.emplace_back();
+            slots.back().i32 = static_cast<int32_t>(shape[static_cast<size_t>(i)]);
+            launch_args.push_back(&slots.back().i32);
+          }
+          for (int i = 0; i < spec.rank; ++i) {
+            slots.emplace_back();
+            slots.back().i64 = stride[static_cast<size_t>(i)];
+            launch_args.push_back(&slots.back().i64);
+          }
+        } else {
+          slots.emplace_back();
+          slots.back().ptr = base.data_ptr();
+          launch_args.push_back(&slots.back().ptr);
+          for (int i = 0; i < spec.rank; ++i) {
+            slots.emplace_back();
+            slots.back().i64 = shape[static_cast<size_t>(i)];
+            launch_args.push_back(&slots.back().i64);
+          }
+          for (int i = 0; i < spec.rank; ++i) {
+            slots.emplace_back();
+            slots.back().i64 = stride[static_cast<size_t>(i)];
+            launch_args.push_back(&slots.back().i64);
+          }
+          slots.emplace_back();
+          slots.back().b = padding_nan;
+          launch_args.push_back(&slots.back().b);
+          for (int i = 0; i < spec.rank; ++i) {
+            slots.emplace_back();
+            slots.back().i32 = static_cast<int32_t>(shape[static_cast<size_t>(i)]);
+            launch_args.push_back(&slots.back().i32);
+          }
+          for (int i = 0; i < spec.rank; ++i) {
+            slots.emplace_back();
+            slots.back().i64 = stride[static_cast<size_t>(i)];
+            launch_args.push_back(&slots.back().i64);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  TVM_FFI_CHECK(arg_index == static_cast<size_t>(args.size()), ValueError)
+      << "Unexpected extra launch arguments: got " << args.size() << ", consumed " << arg_index;
+
+  if (!device_initialized) {
+    int current_device = 0;
+    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&current_device));
+    device.device_type = kDLCUDA;
+    device.device_id = current_device;
+    device_initialized = true;
+  }
+
+  int previous_device = -1;
+  TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&previous_device));
+  if (previous_device != device.device_id) {
+    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(device.device_id));
+  }
+
+  tvm::ffi::dim3 grid(static_cast<unsigned>(grid_x), static_cast<unsigned>(grid_y), static_cast<unsigned>(grid_z));
+  tvm::ffi::dim3 block(kernel->block_x, 1u, 1u);
+  cudaStream_t stream = static_cast<cudaStream_t>(TVMFFIEnvGetStream(device.device_type, device.device_id));
+
+  void* global_scratch = GetScratchBuffer(
+      g_global_scratch_buffers,
+      device.device_id,
+      static_cast<size_t>(grid_x) * static_cast<size_t>(grid_y) * static_cast<size_t>(grid_z) *
+          kernel->global_scratch_size,
+      kernel->global_scratch_align);
+  void* profile_scratch = GetScratchBuffer(
+      g_profile_scratch_buffers,
+      device.device_id,
+      static_cast<size_t>(grid_x) * static_cast<size_t>(grid_y) * static_cast<size_t>(grid_z) *
+          kernel->profile_scratch_size,
+      kernel->profile_scratch_align);
+
+  launch_args.push_back(&global_scratch);
+  launch_args.push_back(&profile_scratch);
+
+  if (grid_x > 0 && grid_y > 0 && grid_z > 0) {
+    auto result = kernel->kernel->Launch(launch_args.data(), grid, block, stream, kernel->shared_memory);
+    TVM_FFI_CHECK_CUBIN_LAUNCHER_CUDA_ERROR(result);
+  }
+
+  if (previous_device != device.device_id) {
+    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(previous_device));
+  }
+  *ret = nullptr;
+}
+
+}  // namespace triton_runner_tvm_ffi
+
+TVM_FFI_DLL_EXPORT_TYPED_FUNC(register_kernel, triton_runner_tvm_ffi::RegisterKernel)
+
+extern "C" TVM_FFI_DLL_EXPORT int __tvm_ffi_launch(void* self,
+                                                   const TVMFFIAny* args,
+                                                   int32_t num_args,
+                                                   TVMFFIAny* result) {
+  TVM_FFI_SAFE_CALL_BEGIN();
+  triton_runner_tvm_ffi::LaunchPacked(
+      tvm::ffi::PackedArgs(reinterpret_cast<const tvm::ffi::AnyView*>(args), num_args),
+      reinterpret_cast<tvm::ffi::Any*>(result));
+  TVM_FFI_SAFE_CALL_END();
+}
