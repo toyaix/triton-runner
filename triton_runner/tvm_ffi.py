@@ -3,8 +3,7 @@ from __future__ import annotations
 import ast
 import os
 import re
-import shutil
-import textwrap
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -34,6 +33,13 @@ _INTEGER_SCALAR_TYPES = {
     "u32": "uint32_t",
     "u64": "uint64_t",
 }
+
+_TENSORDESC_PATTERN = re.compile(r"tensordesc<([^[>]*)\[([^]]*)\]>")
+_TMA_DTYPE_DEVICE_TO_HOST = {i: i for i in range(16)}
+_TMA_DTYPE_DEVICE_TO_HOST[8] = 10
+_TMA_DTYPE_DEVICE_TO_HOST[9] = 8
+_TMA_DTYPE_DEVICE_TO_HOST[10] = 9
+_MAX_TENSOR_DESC_RANK = 5
 
 
 @dataclass(frozen=True)
@@ -67,6 +73,50 @@ class _CompiledArtifact:
     cubin_bytes: bytes
     metadata: dict[str, Any]
     signature: tuple[_SignatureEntry, ...]
+
+
+@dataclass(frozen=True)
+class _TensorDescSpec:
+    entry: _SignatureEntry
+    dtype_name: str
+    rank: int
+    metadata: dict[str, Any] | None
+
+    @property
+    def name(self) -> str:
+        return self.entry.name
+
+    @property
+    def base_name(self) -> str:
+        return f"{self.name}_base"
+
+    @property
+    def padding_name(self) -> str:
+        return f"{self.name}_padding_nan"
+
+    def shape_name(self, index: int) -> str:
+        return f"{self.name}_shape_{index}"
+
+    def stride_name(self, index: int) -> str:
+        return f"{self.name}_stride_{index}"
+
+
+def _get_tvm_ffi_cache_dir() -> str:
+    cache_dir = os.environ.get("TRITON_CACHE_DIR")
+    if cache_dir is None:
+        cache_dir = os.path.join(Path.home(), ".triton", "cache")
+    return os.path.join(cache_dir, "tvm_ffi_launcher")
+
+
+def _ensure_tvm_ffi_cache_dir(*parts: str) -> str:
+    preferred = os.path.join(_get_tvm_ffi_cache_dir(), *parts)
+    try:
+        os.makedirs(preferred, exist_ok=True)
+        return preferred
+    except PermissionError:
+        fallback = os.path.join(tempfile.gettempdir(), "triton_runner_cache", "tvm_ffi_launcher", *parts)
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
 
 
 def _module_name_for_metadata(metadata: dict[str, Any]) -> str:
@@ -174,66 +224,155 @@ def _artifact_from_compiled_kernel(kernel: CompiledKernel, metadata: Any) -> _Co
     )
 
 
-def _ffi_param_decl(entry: _SignatureEntry) -> str:
-    if entry.is_pointer:
-        return f"tvm::ffi::TensorView {entry.name}"
-    if entry.is_integer_scalar:
-        return f"{_INTEGER_SCALAR_TYPES[entry.type_name]} {entry.name}"
-    if entry.is_float_scalar:
-        return f"double {entry.name}"
-    raise NotImplementedError(f"Unsupported Triton scalar argument type: {entry.type_name}")
+def _shared_library_path(build_dir: str | Path, module_name: str) -> Path:
+    ext = ".dll" if os.name == "nt" else ".so"
+    return Path(build_dir) / f"{module_name}{ext}"
 
 
-def _kernel_arg_decl(entry: _SignatureEntry) -> str:
-    local_name = f"{entry.name}_kernel_arg"
-    if entry.is_pointer:
-        return f"void* {local_name} = {entry.name}.data_ptr();"
-    if entry.is_integer_scalar:
-        return f"{_INTEGER_SCALAR_TYPES[entry.type_name]} {local_name} = {entry.name};"
-    if entry.type_name == "fp16":
-        return f"__half {local_name} = __float2half(static_cast<float>({entry.name}));"
-    if entry.type_name == "bf16":
-        return f"__nv_bfloat16 {local_name} = __float2bfloat16(static_cast<float>({entry.name}));"
-    if entry.type_name in {"fp32", "f32"}:
-        return f"float {local_name} = static_cast<float>({entry.name});"
-    if entry.type_name == "fp64":
-        return f"double {local_name} = {entry.name};"
-    raise NotImplementedError(f"Unsupported Triton scalar argument type: {entry.type_name}")
+def _maybe_load_cached_module(tvm_ffi_module: Any, build_dir: str | Path, module_name: str) -> Any | None:
+    lib_path = _shared_library_path(build_dir, module_name)
+    if not lib_path.is_file():
+        return None
+    return tvm_ffi_module.load_module(lib_path, keep_module_alive=True)
 
 
-def _kernel_arg_ref(entry: _SignatureEntry) -> str:
-    return f"&{entry.name}_kernel_arg"
+def _parse_tensordesc_specs(
+        runtime_entries: tuple[_SignatureEntry, ...], metadata: dict[str, Any]) -> tuple[_TensorDescSpec, ...]:
+    raw_metadata = metadata.get("tensordesc_meta") or ()
+    specs: list[_TensorDescSpec] = []
+    meta_index = 0
+
+    for entry in runtime_entries:
+        if not entry.type_name.startswith("tensordesc"):
+            continue
+
+        match = _TENSORDESC_PATTERN.fullmatch(entry.type_name)
+        if match is None:
+            raise TypeError(f"Unsupported tensordesc Triton signature: {entry.type_name}")
+
+        shape_signature = match.group(2).strip()
+        rank = 1 if not shape_signature else shape_signature.count(",") + 1
+        if rank > _MAX_TENSOR_DESC_RANK:
+            raise NotImplementedError(
+                f"TVM-FFI export supports tensor descriptors up to rank {_MAX_TENSOR_DESC_RANK}, got {entry.type_name}."
+            )
+
+        spec_metadata: dict[str, Any] | None = None
+        if raw_metadata:
+            if meta_index >= len(raw_metadata):
+                raise ValueError(
+                    "Tensor descriptor metadata is shorter than the number of tensordesc runtime arguments."
+                )
+            raw_item = raw_metadata[meta_index]
+            if raw_item is not None:
+                block_size = tuple(int(v) for v in raw_item.get("block_size", ()))
+                if len(block_size) != rank:
+                    raise ValueError(
+                        f"Tensor descriptor metadata for {entry.name} has block_size rank {len(block_size)}, expected {rank}."
+                    )
+                elem_type = int(raw_item["elem_type"])
+                spec_metadata = {
+                    "swizzle": int(raw_item["swizzle"]),
+                    "elem_size": int(raw_item["elem_size"]),
+                    "elem_type": int(_TMA_DTYPE_DEVICE_TO_HOST.get(elem_type, elem_type)),
+                    "block_size": block_size,
+                    "fp4_padded": bool(raw_item.get("fp4_padded", False)),
+                }
+            meta_index += 1
+
+        specs.append(
+            _TensorDescSpec(
+                entry=entry,
+                dtype_name=match.group(1),
+                rank=rank,
+                metadata=spec_metadata,
+            ))
+
+    if raw_metadata and specs and meta_index != len(raw_metadata):
+        raise ValueError(
+            "Tensor descriptor metadata count does not match the number of tensordesc runtime arguments."
+        )
+
+    return tuple(specs)
 
 
-def _render_device_binding(pointer_entries: tuple[_SignatureEntry, ...]) -> str:
-    lines = [
-        "  DLDevice device{};",
-        "  bool device_initialized = false;",
-        "  auto bind_device = [&](DLDevice candidate, const char* arg_name) {",
-        "    TVM_FFI_CHECK(candidate.device_type == kDLCUDA, ValueError)",
-        '        << "TVM-FFI Triton export only supports CUDA tensors, got device_type="',
-        '        << candidate.device_type << " for argument " << arg_name;',
-        "    if (!device_initialized) {",
-        "      device = candidate;",
-        "      device_initialized = true;",
-        "      return;",
-        "    }",
-        "    TVM_FFI_CHECK(device.device_type == candidate.device_type && device.device_id == candidate.device_id, ValueError)",
-        '        << "All tensor arguments must live on the same CUDA device.";',
-        "  };",
-    ]
-    if pointer_entries:
-        for entry in pointer_entries:
-            lines.append(f'  bind_device({entry.name}.device(), "{entry.name}");')
-    else:
-        lines.extend([
-            "  int current_device = 0;",
-            "  TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&current_device));",
-            "  device.device_type = kDLCUDA;",
-            "  device.device_id = current_device;",
-            "  device_initialized = true;",
-        ])
-    return "\n".join(lines)
+def _expand_tensordesc_arg_for_tvm_ffi(arg: Any, spec: _TensorDescSpec) -> list[Any]:
+    missing = [field for field in ("base", "shape", "strides") if not hasattr(arg, field)]
+    if missing:
+        raise TypeError(
+            f"Tensor descriptor argument {spec.name} must expose {', '.join(missing)} for TVM-FFI export."
+        )
+
+    shape = tuple(int(v) for v in getattr(arg, "shape"))
+    strides = tuple(int(v) for v in getattr(arg, "strides"))
+    if len(shape) != spec.rank:
+        raise ValueError(f"Tensor descriptor argument {spec.name} expected rank {spec.rank}, got shape {shape}.")
+    if len(strides) != spec.rank:
+        raise ValueError(f"Tensor descriptor argument {spec.name} expected rank {spec.rank}, got strides {strides}.")
+
+    padding = getattr(arg, "padding", None) == "nan"
+    return [getattr(arg, "base"), *shape, *strides, padding]
+
+
+def _expand_bound_args_for_tvm_ffi(
+        signature: tuple[_SignatureEntry, ...],
+        bound_args: tuple[Any, ...],
+        descriptor_specs: tuple[_TensorDescSpec, ...],
+) -> list[Any]:
+    if len(bound_args) != len(signature):
+        raise ValueError(
+            f"Expected {len(signature)} bound arguments for TVM-FFI launch, got {len(bound_args)}."
+        )
+
+    expanded: list[Any] = []
+    descriptor_index = 0
+    for entry, arg in zip(signature, bound_args):
+        if entry.is_constexpr:
+            continue
+        if entry.type_name.startswith("tensordesc"):
+            expanded.extend(_expand_tensordesc_arg_for_tvm_ffi(arg, descriptor_specs[descriptor_index]))
+            descriptor_index += 1
+        else:
+            expanded.append(arg)
+
+    if descriptor_index != len(descriptor_specs):
+        raise ValueError(
+            "Tensor descriptor expansion count does not match the number of tensordesc runtime arguments."
+        )
+
+    return expanded
+
+
+def _runtime_arg_registration_specs(
+        runtime_entries: tuple[_SignatureEntry, ...],
+        metadata: dict[str, Any],
+) -> list[dict[str, Any]]:
+    descriptor_specs = _parse_tensordesc_specs(runtime_entries, metadata)
+    descriptor_index = 0
+    runtime_args: list[dict[str, Any]] = []
+
+    for entry in runtime_entries:
+        if entry.type_name.startswith("tensordesc"):
+            spec = descriptor_specs[descriptor_index]
+            descriptor_index += 1
+            runtime_args.append({
+                "name": spec.name,
+                "kind": "tensordesc",
+                "rank": spec.rank,
+                "metadata": spec.metadata,
+            })
+            continue
+
+        if entry.is_pointer:
+            kind = "pointer"
+        elif entry.is_integer_scalar or entry.is_float_scalar:
+            kind = entry.type_name
+        else:
+            raise NotImplementedError(f"Unsupported Triton runtime argument type: {entry.type_name}")
+
+        runtime_args.append({"name": entry.name, "kind": kind})
+
+    return runtime_args
 
 
 def _validate_launch_metadata(metadata: dict[str, Any]) -> None:
@@ -251,179 +390,3 @@ def _validate_launch_metadata(metadata: dict[str, Any]) -> None:
             "Current apache-tvm-ffi releases expose only `CubinKernel.Launch(...)`; "
             "the Triton metadata uses unsupported launch features: " + ", ".join(unsupported)
         )
-
-
-def _render_attr_setup(metadata: dict[str, Any]) -> str:
-    shared = int(metadata.get("shared", 0))
-
-    lines = [
-        "  tvm::ffi::dim3 grid(static_cast<unsigned>(grid_x), static_cast<unsigned>(grid_y), static_cast<unsigned>(grid_z));",
-        f"  tvm::ffi::dim3 block(static_cast<unsigned>(32 * {int(metadata['num_warps'])}), 1u, 1u);",
-        "  cudaStream_t stream = static_cast<cudaStream_t>(TVMFFIEnvGetStream(device.device_type, device.device_id));",
-        f"  constexpr uint32_t shared_memory = static_cast<uint32_t>({shared});",
-        "  int previous_device = -1;",
-        "  TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&previous_device));",
-        "  if (previous_device != device.device_id) {",
-        "    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(device.device_id));",
-        "  }",
-    ]
-    return "\n".join(lines)
-
-
-def _render_launch_code(metadata: dict[str, Any], runtime_entries: tuple[_SignatureEntry, ...]) -> str:
-    args_refs = ", ".join(_kernel_arg_ref(entry) for entry in runtime_entries)
-    args_refs = f"{args_refs}, " if args_refs else ""
-    cluster_dims = tuple(int(v) for v in metadata.get("cluster_dims", (1, 1, 1)))
-    cluster_cta_count = cluster_dims[0] * cluster_dims[1] * cluster_dims[2]
-
-    return textwrap.dedent(
-        f"""\
-          void* global_scratch = GetScratchBuffer(
-              g_global_scratch_buffers,
-              device.device_id,
-              static_cast<size_t>(grid_x) * static_cast<size_t>(grid_y) * static_cast<size_t>(grid_z) *
-                  static_cast<size_t>({cluster_cta_count}) * static_cast<size_t>({int(metadata.get("global_scratch_size", 0))}),
-              static_cast<size_t>({int(metadata.get("global_scratch_align", 1))}));
-          void* profile_scratch = GetScratchBuffer(
-              g_profile_scratch_buffers,
-              device.device_id,
-              static_cast<size_t>(grid_x) * static_cast<size_t>(grid_y) * static_cast<size_t>(grid_z) *
-                  static_cast<size_t>({cluster_cta_count}) * static_cast<size_t>({int(metadata.get("profile_scratch_size", 0))}),
-              static_cast<size_t>({int(metadata.get("profile_scratch_align", 1))}));
-
-          void* args[] = {{{args_refs}&global_scratch, &profile_scratch}};
-          if (grid_x > 0 && grid_y > 0 && grid_z > 0) {{
-            auto result = kernel.Launch(args, grid, block, stream, shared_memory);
-            TVM_FFI_CHECK_CUBIN_LAUNCHER_CUDA_ERROR(result);
-          }}
-
-          if (previous_device != device.device_id) {{
-            TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(previous_device));
-          }}
-        """
-    )
-
-
-def _render_cuda_shim(artifact: _CompiledArtifact) -> str:
-    metadata = artifact.metadata
-    runtime_entries = tuple(entry for entry in artifact.signature if not entry.is_constexpr)
-    _validate_launch_metadata(metadata)
-    unsupported = [entry.type_name for entry in runtime_entries if entry.type_name.startswith("tensordesc")]
-    if unsupported:
-        raise NotImplementedError(
-            "TVM-FFI export does not yet support tensordesc/TLX Triton signatures: "
-            + ", ".join(sorted(set(unsupported))))
-
-    embed_name = _sanitize_identifier(artifact.module_name)
-    export_name = _sanitize_identifier(artifact.kernel_name)
-    runtime_param_list = ", ".join(["int32_t grid_x", "int32_t grid_y", "int32_t grid_z", *[
-        _ffi_param_decl(entry) for entry in runtime_entries
-    ]])
-    pointer_entries = tuple(entry for entry in runtime_entries if entry.is_pointer)
-    arg_decls = "\n".join(f"  {_kernel_arg_decl(entry)}" for entry in runtime_entries)
-    launch_code = _render_launch_code(metadata, runtime_entries)
-    device_binding = _render_device_binding(pointer_entries)
-    shared = int(metadata.get("shared", 0))
-
-    return textwrap.dedent(
-        f"""\
-        #define TVM_FFI_CUBIN_LAUNCHER_USE_DRIVER_API 1
-        #include <cuda.h>
-        #include <cuda_bf16.h>
-        #include <cuda_fp16.h>
-        #include <cuda_runtime.h>
-        #include <tvm/ffi/container/tensor.h>
-        #include <tvm/ffi/error.h>
-        #include <tvm/ffi/extra/c_env_api.h>
-        #include <tvm/ffi/extra/cuda/cubin_launcher.h>
-        #include <tvm/ffi/function.h>
-
-        #include <cstdint>
-        #include <mutex>
-        #include <unordered_map>
-
-        TVM_FFI_EMBED_CUBIN({embed_name});
-
-        namespace triton_runner_tvm_ffi {{
-
-        inline void CheckCudaRuntimeError(cudaError_t err) {{
-          if (err != cudaSuccess) {{
-            TVM_FFI_THROW(RuntimeError)
-                << "CUDA Runtime Error: " << cudaGetErrorName(err) << " ("
-                << static_cast<int>(err) << "): " << cudaGetErrorString(err);
-          }}
-        }}
-
-        #define TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(stmt) \\
-          do {{ \\
-            ::cudaError_t __err = (stmt); \\
-            ::triton_runner_tvm_ffi::CheckCudaRuntimeError(__err); \\
-          }} while (0)
-
-        struct ScratchBuffer {{
-          void* base = nullptr;
-          void* aligned = nullptr;
-          size_t capacity = 0;
-          size_t alignment = 1;
-        }};
-
-        static std::mutex g_scratch_mu;
-        static std::unordered_map<int, ScratchBuffer> g_global_scratch_buffers;
-        static std::unordered_map<int, ScratchBuffer> g_profile_scratch_buffers;
-
-        inline void* AlignPtr(void* ptr, size_t alignment) {{
-          uintptr_t raw = reinterpret_cast<uintptr_t>(ptr);
-          uintptr_t mask = alignment - 1;
-          uintptr_t aligned = (raw + mask) & ~mask;
-          return reinterpret_cast<void*>(aligned);
-        }}
-
-        inline void* GetScratchBuffer(std::unordered_map<int, ScratchBuffer>& buffers,
-                                      int device_id,
-                                      size_t size,
-                                      size_t alignment) {{
-          if (size == 0) {{
-            return nullptr;
-          }}
-          if (alignment == 0) {{
-            alignment = 1;
-          }}
-          std::lock_guard<std::mutex> guard(g_scratch_mu);
-          auto& buffer = buffers[device_id];
-          if (buffer.base == nullptr || buffer.capacity < size || buffer.alignment < alignment) {{
-            int previous_device = -1;
-            TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&previous_device));
-            if (previous_device != device_id) {{
-              TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(device_id));
-            }}
-            if (buffer.base != nullptr) {{
-              TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaFree(buffer.base));
-            }}
-            void* base = nullptr;
-            TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaMalloc(&base, size + alignment - 1));
-            buffer.base = base;
-            buffer.aligned = AlignPtr(base, alignment);
-            buffer.capacity = size;
-            buffer.alignment = alignment;
-            if (previous_device != device_id) {{
-              TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(previous_device));
-            }}
-          }}
-          return buffer.aligned;
-        }}
-
-        void {export_name}({runtime_param_list}) {{
-          static auto kernel =
-              EmbedCubinModule_{embed_name}::Global()->mod.GetKernelWithMaxDynamicSharedMemory(
-                  "{artifact.kernel_name}", {shared});
-        {device_binding}
-        {_render_attr_setup(metadata)}
-        {arg_decls}
-        {launch_code.rstrip()}
-        }}
-
-        }}  // namespace triton_runner_tvm_ffi
-
-        TVM_FFI_DLL_EXPORT_TYPED_FUNC({export_name}, triton_runner_tvm_ffi::{export_name});
-        """
-    )

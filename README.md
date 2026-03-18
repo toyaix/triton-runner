@@ -52,6 +52,8 @@ Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github
 
 ```shell
 pip install triton-runner[tvm-ffi]
+
+pip install -e .[tvm-ffi]
 export TRITON_TVM_FFI=1
 ```
 
