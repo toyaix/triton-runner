@@ -46,26 +46,24 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
             pack=1
         )
 
-        # 生成写入地址
+        # Compute the destination address for the thread-local dump.
         ptr = dump_tensor + tid
 
-        # 转换为 float
+        # Convert the thread id to float.
         val = tid.to(tl.float32)
-        # # bitcast 为 i32
+        # Bitcast the float value to int32.
         val_i32 = val.to(tl.int32, bitcast=True)
-        # from triton.language.extra import libdevice
-        # val_i32 = libdevice.float_as_int(val)
 
-        # 使用 inline asm 写全局内存，不受 pred mask 约束
+        # Use inline assembly to write global memory without a predicate mask.
         tl.inline_asm_elementwise(
-            asm="mov.u32 $0, 0x0; st.global.b32 [$2], $1;",  # store 后返回原值
+            asm="mov.u32 $0, 0x0; st.global.b32 [$2], $1;",  # Return the original value after the store.
             constraints=("=r,r,l"),
             args=(val_i32, ptr),
             dtype=tl.int32,
             is_pure=False,
             pack=1
         )
-        # %ntid.x 当前 block 的线程数
+        # %ntid.x is the number of threads in the current block.
         blockdim = tl.inline_asm_elementwise(
             asm="mov.u32 $0, %ntid.x;",
             constraints="=r",
