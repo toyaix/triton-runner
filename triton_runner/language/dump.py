@@ -8,8 +8,12 @@ from triton.language.core import builtin, _unwrap_shape
 def dump(val: tl.tensor, offset=0, dump_grid=None, _semantic=None):
     shape = val.shape
     ndim = len(shape)
-    if ndim > 2:
-        raise ValueError(f"Expected 1 <= ndim <= 2 but got {ndim} dimensions, you can use reshape")
+    if ndim >= 2:
+        unwrapped = _unwrap_shape(shape)
+        flat_size = 1
+        for d in unwrapped:
+            flat_size *= d
+        val = _semantic.reshape(val, [flat_size], False)
     dump_pid_0, dump_pid_1, dump_pid_2 = 0, 0, 0
     if dump_grid:
         if isinstance(dump_grid, tl.constexpr) or isinstance(dump_grid, tl.tensor):
