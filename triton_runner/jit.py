@@ -167,7 +167,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             r'.*'
             r'tensor<'
             r'(?P<size>(?:\d+x)*\d+)'
-            r'(?:x(?:[^,<>]|<[^>]*>)+)?'
+            r'x(?P<elem_ty>(?:[^,<>]|<[^>]*>)+)'
             r'(?:,\s*(?P<encoding>#[^>]+))?'
             r'>'
             r'[^<]*?'
@@ -180,9 +180,10 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 indent = match.group("indent")
                 op = match.group("op")
                 size = match.group("size")
+                elem_ty = match.group("elem_ty")
                 loc = match.group("loc")
                 encoding = match.group("encoding")
-                return get_injected_ir(ssa_value, op, original_line, indent, size, encoding, loc, dump_grid=dump_grid)
+                return get_injected_ir(ssa_value, op, original_line, indent, size, elem_ty, encoding, loc, dump_grid=dump_grid)
             return replacer
         return pattern.sub(make_replacer(dump_grid), full_text, count=1)
 
@@ -194,7 +195,7 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
             r'(?P<op>\S+)\s+'
             r'(?P<args>[^\n{}]*)'
             r'\{(?P<attrs>[^\n}]*\btt\.dump\s*=\s*[^\n}]+)\}\s*'
-            r':\s*tensor<(?P<size>(?:\d+x)*\d+)(?:x[^\n>]*)?>'
+            r':\s*tensor<(?P<size>(?:\d+x)*\d+)x(?P<elem_ty>(?:[^,<>]|<[^>]*>)+)(?:,\s*#[^>]+)?>'
             r'[^\n]*?loc\((?P<loc>#[^)]+)\)'
             r'\n.*=\s*(?P<offset_val>.*)',
             re.MULTILINE
@@ -205,11 +206,12 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 indent = match.group("indent")
                 op = match.group("op")
                 size = match.group("size")
+                elem_ty = match.group("elem_ty")
                 loc = match.group("loc")
                 ssa_value = match.group("ssa_value")
                 offset_val = match.group("offset_val")
                 clean_line = re.sub(r"\s*\{[^{}]*\}", "", original_line)
-                return get_injected_ir(ssa_value, op, clean_line, indent, size, None, loc,
+                return get_injected_ir(ssa_value, op, clean_line, indent, size, elem_ty, None, loc,
                                        python_dump=True, offset_val=offset_val, replace_id=replace_id)
             return replacer
         full_text, count = pattern.subn(make_replacer(0), full_text, count=1)
