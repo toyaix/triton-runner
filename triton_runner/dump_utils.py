@@ -34,18 +34,21 @@ def get_1d_injected_ir(ssa_value, ir_begin, indent, size, encoding, loc, python_
     return f"""{ir_begin}
 {ir_indent}%runner_dump_range{id_str}          = tt.make_range {{end = {size} : i32, start = 0 : i32}} : tensor<{size}xi32{encoding}> {loc}
 {ir_indent}%runner_dump_off_val{id_str}        = {off_ir}
-{ir_indent}%runner_dump_with_offset{id_str}    = tt.addptr %runner_dump_tensor, %runner_dump_off_val{id_str} : !tt.ptr<f32>, i32 loc(#loc1)
+{ir_indent}%runner_dump_with_offset{id_str}    = tt.addptr %runner_dump_tensor, %runner_dump_off_val{id_str} : !tt.ptr<f32>, i32 {loc}
 {ir_indent}%runner_dump_splat{id_str}          = tt.splat %runner_dump_with_offset{id_str} : !tt.ptr<f32> -> tensor<{size}x!tt.ptr<f32>{encoding}> {loc}
 {ir_indent}%runner_dump_ptr{id_str}            = tt.addptr %runner_dump_splat{id_str}, %runner_dump_range{id_str} : tensor<{size}x!tt.ptr<f32>{encoding}>, tensor<{size}xi32{encoding}> {loc}
 {ir_indent}tt.store %runner_dump_ptr{id_str}, {ssa_value} : tensor<{size}x!tt.ptr<f32>{encoding}> {loc}
 {get_injected_ir_end(indent, python_dump)}
 """
 
-def get_2d_injected_ir_without_encoding(ssa_value, ir_begin, indent, size, elem_ty, loc, python_dump, offset_val, replace_id):
+def get_nd_injected_ir_without_encoding(ssa_value, ir_begin, indent, size, elem_ty, loc, python_dump, offset_val, replace_id):
     ir_indent = indent if python_dump else f"{indent}  "
     id_str = f"_{replace_id}" if python_dump else f""
-    size_0, size_1 = size.split('x')
-    flat_size = str(int(size_0) * int(size_1))
+    dims = size.split('x')
+    flat_size = 1
+    for d in dims:
+        flat_size *= int(d)
+    flat_size = str(flat_size)
     ir_begin = f"""{ir_begin}
 {ir_indent}%runner_dump_reshape{id_str}        = tt.reshape {ssa_value} : tensor<{size}x{elem_ty}> -> tensor<{flat_size}x{elem_ty}> {loc}"""
     return get_1d_injected_ir(f"%runner_dump_reshape{id_str}", ir_begin, indent, flat_size, "", loc, python_dump, offset_val, replace_id)
@@ -82,7 +85,9 @@ def get_injected_ir(ssa_value, op, original_line, indent, size, elem_ty, encodin
         if encoding:
             return get_2d_injected_ir_with_encoding(ssa_value, ir_begin, indent, size, encoding, loc)
         else:
-            return get_2d_injected_ir_without_encoding(ssa_value, ir_begin, indent, size, elem_ty, loc, python_dump, offset_val, replace_id)
+            return get_nd_injected_ir_without_encoding(ssa_value, ir_begin, indent, size, elem_ty, loc, python_dump, offset_val, replace_id)
     else:
-        warning_size_not_supported(ssa_value, op, loc, size)
-        return original_line
+        if encoding:
+            warning_size_not_supported(ssa_value, op, loc, size)
+            return original_line
+        return get_nd_injected_ir_without_encoding(ssa_value, ir_begin, indent, size, elem_ty, loc, python_dump, offset_val, replace_id)

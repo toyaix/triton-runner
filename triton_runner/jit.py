@@ -181,6 +181,10 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
                 op = match.group("op")
                 size = match.group("size")
                 elem_ty = match.group("elem_ty")
+                # tt.load type is tensor<...x!tt.ptr<elem_ty>>, extract inner type
+                ptr_match = re.match(r'!tt\.ptr<(.+)>', elem_ty)
+                if ptr_match:
+                    elem_ty = ptr_match.group(1)
                 loc = match.group("loc")
                 encoding = match.group("encoding")
                 return get_injected_ir(ssa_value, op, original_line, indent, size, elem_ty, encoding, loc, dump_grid=dump_grid)
