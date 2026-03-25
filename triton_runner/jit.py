@@ -155,6 +155,8 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         def replacer(match):
             prefix, args_str, suffix = match.groups()
+            if "%runner_dump_tensor: !tt.ptr<f32>" in args_str:
+                return match.group(0)
             new_args_str = args_str + ', %runner_dump_tensor: !tt.ptr<f32>'
             return f"{prefix}({new_args_str}){suffix}"
 
