@@ -34,6 +34,10 @@ from . import torch_utils
 def configure_jit_backend():
     import triton
     triton.jit = jit
+
+
+def configure_autotune_backend():
+    import triton
     triton.autotune = autotune
 
 def get_file_dir(file):

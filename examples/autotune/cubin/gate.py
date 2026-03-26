@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import triton
 import triton_runner
 triton_runner.configure_jit_backend()
+triton_runner.configure_autotune_backend()
 import triton.language as tl
 from pathlib import Path
 
@@ -18,7 +19,7 @@ NUM_WARPS_AUTOTUNE = [2, 4, 8, 16] if is_amd else [4, 8, 16, 32]
 
 cache_dir = Path(triton_runner.get_file_dir(__file__)).parent / f"kda_gate_fwd_kernel_cache_sm{capability}"
 
-@triton_runner.autotune(
+@triton.autotune(
     configs=[
         triton.Config({'autotune_cubin_dir': str(p)}) for p in cache_dir.iterdir() if p.is_dir()
     ],

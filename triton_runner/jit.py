@@ -295,6 +295,7 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def run(self, *args, grid, warmup, **kwargs):
+        self.handle_autotune(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 

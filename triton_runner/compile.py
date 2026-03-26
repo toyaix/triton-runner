@@ -21,13 +21,11 @@ from . import TRITON_TVM_FFI
 
 
 def _is_cuda_target(target):
-    return getattr(target, "backend", None) == "cuda"
+    return isinstance(target, GPUTarget) and target.backend == "cuda"
 
 
 def _should_use_compiled_kernel_v3_5_0(target, metadata_json):
-    if not is_triton_geq_v3_5 or not _is_cuda_target(target):
-        return False
-    return metadata_json.get("triton_version", None) in ["3.5.0", "3.5.1"] or TRITON_TVM_FFI
+    return is_triton_geq_v3_5 and TRITON_TVM_FFI  and _is_cuda_target(target)
 
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
