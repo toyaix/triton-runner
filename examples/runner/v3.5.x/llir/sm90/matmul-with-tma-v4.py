@@ -9,9 +9,9 @@ else:
 
 
 import triton_runner
+triton_runner.configure_jit_backend()
 
-# @triton.jit
-@triton_runner.jit
+@triton.jit
 def matmul_kernel_make_tensor_desciptor(a_ptr, b_ptr, c_ptr,  #
                                         M, N, K,  #
                                         BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr,

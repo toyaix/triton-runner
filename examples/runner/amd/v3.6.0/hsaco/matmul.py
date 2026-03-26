@@ -6,10 +6,10 @@ DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
 import triton_runner
+triton_runner.configure_jit_backend()
 
 
-# @triton.jit
-@triton_runner.jit
+@triton.jit
 def mutmul_native(
     a_ptr,
     b_ptr,

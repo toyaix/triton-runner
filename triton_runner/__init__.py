@@ -31,6 +31,11 @@ if is_triton_geq_v3_4:
 from . import color_print
 from . import torch_utils
 
+def configure_jit_backend():
+    import triton
+    triton.jit = jit
+    triton.autotune = autotune
+
 def get_file_dir(file):
     import os
     return os.path.dirname(os.path.abspath(file))

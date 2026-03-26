@@ -2,6 +2,7 @@ import triton
 import triton.language as tl
 import torch
 import triton_runner
+triton_runner.configure_jit_backend()
 
 if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
     DEVICE = torch.cuda.current_device()
@@ -78,8 +79,7 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 4 : i32, ttg.targ
 }
 """
 
-# @triton.jit
-@triton_runner.jit
+@triton.jit
 def matmul_kernel(
     a_ptr, b_ptr, c_ptr,
     M, N, K,

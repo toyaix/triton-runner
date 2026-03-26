@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import triton
 import triton_runner
+triton_runner.configure_jit_backend()
 import triton.language as tl
 from pathlib import Path
 
@@ -23,7 +24,7 @@ cache_dir = Path(triton_runner.get_file_dir(__file__)).parent / f"kda_gate_fwd_k
     ],
     key=['H', 'D'],
 )
-@triton_runner.jit
+@triton.jit
 def kda_gate_fwd_kernel(
     g, A, y,
     g_bias,

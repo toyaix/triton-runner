@@ -8,6 +8,7 @@ import triton.language as tl
 from triton import Config
 import triton_runner
 import triton_runner.language as dl
+triton_runner.configure_jit_backend()
 
 
 @triton.jit
@@ -119,7 +120,7 @@ fp8_gemm_configs = [
 ]
 
 @triton.autotune(configs=fp8_gemm_configs, key=['N', 'K'])
-@triton_runner.jit
+@triton.jit
 def fp8_gemm_kernel(a_ptr, b_ptr, c_ptr,
                     a_s_ptr, b_s_ptr,
                     M, N: tl.constexpr, K: tl.constexpr,

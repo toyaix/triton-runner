@@ -3,11 +3,12 @@ import triton
 import triton.language as tl
 import triton_runner
 import triton_runner.language as dl
+triton_runner.configure_jit_backend()
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
-@triton_runner.jit
+@triton.jit
 def load_store_3d_kernel(
     input_ptr, output_ptr,
     D0, D1, D2,
