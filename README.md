@@ -98,7 +98,39 @@ flowchart LR
 
 ### 1. Python Runner
 
-Use `@triton_runner.jit` instead of `@triton.jit`. See [examples/runner/v3.5.x/python/matmul.py](./examples/runner/v3.5.x/python/matmul.py).
+Triton Runner supports two integration styles for Python kernels, and both are valid:
+
+1. Replace `@triton.jit` with `@triton_runner.jit`
+2. Monkey-patch Triton's decorators and keep using `@triton.jit`
+
+If the module also uses `@triton.autotune`, call `triton_runner.configure_autotune_backend()` when using the monkey-patch style.
+
+```python
+import triton_runner
+
+@triton_runner.jit
+def kernel(...):
+    ...
+```
+
+```python
+import triton
+import triton.language as tl
+import triton_runner
+
+triton_runner.configure_jit_backend()
+# Optional when using @triton.autotune
+# triton_runner.configure_autotune_backend()
+
+@triton.jit
+def kernel(...):
+    ...
+```
+
+Examples:
+
+- Python runner: [examples/runner/v3.5.x/python/matmul.py](./examples/runner/v3.5.x/python/matmul.py)
+- cubin autotune with monkey patch: [examples/autotune/cubin/gate.py](./examples/autotune/cubin/gate.py)
 
 ```shell
 python examples/runner/v3.5.x/python/matmul.py

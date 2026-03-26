@@ -7,6 +7,7 @@ import triton.language.extra.tlx as tlx
 from triton._internal_testing import is_cuda
 from triton.tools.tensor_descriptor import TensorDescriptor
 import triton_runner
+triton_runner.configure_jit_backend()
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
@@ -36,7 +37,7 @@ configs = [
 
 
 @triton.autotune(configs=configs, key=["N_CTX", "HEAD_DIM", "FP8_OUTPUT"])
-@triton_runner.jit
+@triton.jit
 def _attn_fwd_ws_pipelined_pingpong(sm_scale, M,  #
                                     Z, H, desc_q, desc_k, desc_v, desc_o, N_CTX,  #
                                     HEAD_DIM: tl.constexpr,  #

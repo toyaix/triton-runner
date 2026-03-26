@@ -2,9 +2,10 @@ import torch
 import triton
 import triton.language as tl
 import triton_runner
+triton_runner.configure_jit_backend()
 
 
-@triton_runner.jit
+@triton.jit
 def matrix_transpose_kernel(input_ptr, output_ptr, rows, cols, BLOCK_SIZE: tl.constexpr):
     row_index = tl.program_id(axis=0)
     col_index = tl.program_id(axis=1)

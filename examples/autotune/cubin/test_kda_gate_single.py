@@ -3,7 +3,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from fla.ops.kda.gate import kda_gate_ref
+from fla.ops.kda.gate import naive_kda_gate
 from gate import fused_kda_gate
 from fla.utils import assert_close, device
 
@@ -27,7 +27,8 @@ def test_kda_gate_single():
     if g_bias is not None:
         g_bias = g_bias.to(device).requires_grad_(True)
 
-    ref = kda_gate_ref(g.clone(), A.clone(), D, g_bias.clone() if g_bias is not None else None)
+    g_ref = g.clone().view(B, T, H, D)
+    ref = naive_kda_gate(g_ref, A.clone(), g_bias.clone() if g_bias is not None else None)
     tri = fused_kda_gate(g.clone(), A.clone(), D, g_bias.clone() if g_bias is not None else None)
 
     assert_close('o', ref, tri, 1e-4)

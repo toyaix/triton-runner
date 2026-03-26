@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import triton
 import triton_runner
+triton_runner.configure_jit_backend()
 import triton.language as tl
 
 from fla.ops.utils.op import log
@@ -21,7 +22,7 @@ NUM_WARPS_AUTOTUNE = [2, 4, 8, 16] if is_amd else [4, 8, 16, 32]
     key=['H', 'D'],
     **autotune_cache_kwargs,
 )
-@triton_runner.jit
+@triton.jit
 def kda_gate_fwd_kernel(
     g, A, y,
     g_bias,

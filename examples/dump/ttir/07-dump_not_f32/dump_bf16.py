@@ -2,8 +2,9 @@ import torch
 import triton
 import triton.language as tl
 import triton_runner
+triton_runner.configure_jit_backend()
 
-@triton_runner.jit
+@triton.jit
 def matrix_multiplication_kernel(
     a_ptr, b_ptr, c_ptr,
     M, N, K,

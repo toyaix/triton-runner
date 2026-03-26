@@ -2,6 +2,7 @@ import triton
 import triton.language as tl
 import torch
 import triton_runner
+triton_runner.configure_jit_backend()
 import time
 
 if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
@@ -10,8 +11,7 @@ else:
     DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
-# @triton.jit
-@triton_runner.jit
+@triton.jit
 def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
                   BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr):
     # pass

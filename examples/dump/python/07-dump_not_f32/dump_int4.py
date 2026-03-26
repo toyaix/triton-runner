@@ -7,6 +7,7 @@ import triton
 import triton.language as tl
 import triton_runner
 import triton_runner.language as dl
+triton_runner.configure_jit_backend()
 
 
 AUTOTUNE_CONFIGS = [
@@ -68,7 +69,7 @@ def _group_quantize_tensor(w, n_bit=4, q_group_size=16):
 
 
 @triton.autotune(configs=AUTOTUNE_CONFIGS, key=["M", "N", "K"])
-@triton_runner.jit
+@triton.jit
 def matmul_kernel(
     # Pointers to matrices
     a_ptr,

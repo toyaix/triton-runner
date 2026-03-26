@@ -4,9 +4,10 @@ import triton
 import triton.language as tl
 import triton_runner
 import triton_runner.language as dl
+triton_runner.configure_jit_backend()
 
 
-@triton_runner.jit
+@triton.jit
 def softmax_kernel(
     input_ptr, output_ptr,
     N,

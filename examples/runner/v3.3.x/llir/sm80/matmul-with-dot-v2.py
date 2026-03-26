@@ -2,9 +2,9 @@ import triton
 import triton.language as tl
 
 import triton_runner
+triton_runner.configure_jit_backend()
 
-# @triton.jit
-@triton_runner.jit
+@triton.jit
 def matmul_kernel(
     a_ptr, b_ptr, c_ptr,
     M, N, K,
