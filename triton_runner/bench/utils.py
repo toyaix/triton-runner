@@ -77,8 +77,11 @@ def bench_host_us(fn: Callable[[], None], *, warmup: int, iters: int, repeats: i
     return statistics.median(samples)
 
 
-def make_compiled_launch(compiled_kernel, grid: tuple[int, int], bound_args: tuple[object, ...]) -> Callable[[], None]:
-    launcher = compiled_kernel[(grid[0], grid[1], 1)]
+def make_compiled_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
+    grid_x = grid[0]
+    grid_y = grid[1] if len(grid) > 1 else 1
+    grid_z = grid[2] if len(grid) > 2 else 1
+    launcher = compiled_kernel[(grid_x, grid_y, grid_z)]
 
     def launch() -> None:
         launcher(*bound_args)
@@ -86,12 +89,14 @@ def make_compiled_launch(compiled_kernel, grid: tuple[int, int], bound_args: tup
     return launch
 
 
-def make_direct_launch(compiled_kernel, grid: tuple[int, int], bound_args: tuple[object, ...]) -> Callable[[], None]:
+def make_direct_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
     launcher = compiled_kernel._get_launcher()
     direct_args = tuple(arg for entry, arg in zip(launcher._signature, bound_args, strict=True) if not entry.is_constexpr)
-    grid_x, grid_y = grid
+    grid_x = grid[0]
+    grid_y = grid[1] if len(grid) > 1 else 1
+    grid_z = grid[2] if len(grid) > 2 else 1
 
     def launch() -> None:
-        launcher._tvm_func(launcher._registry_handle, grid_x, grid_y, 1, *direct_args)
+        launcher._tvm_func(launcher._registry_handle, grid_x, grid_y, grid_z, *direct_args)
 
     return launch
