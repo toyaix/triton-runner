@@ -271,10 +271,7 @@ def get_source_ir(src, target=None, options=None):
         raise
     return module
 
-if is_triton_geq_v3_5 or is_tlx:
-    from triton.runtime.cache import triton_key
-else:
-    from triton.compiler.compiler import triton_key
+from .triton_compat import triton_key
 
 def get_cache_key(src_hash, backend, backend_options, env_vars):
     runner_key = f'{__version__}'
