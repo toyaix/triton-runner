@@ -7,11 +7,7 @@ ALL_VERSIONS = ["3.6.0", "3.5.1", "3.4.0", "3.3.1", "3.2.0", "3.1.0", "3.0.0"]
 
 versions = sys.argv[1:] if len(sys.argv) > 1 else ALL_VERSIONS
 
-conda_prefix = os.environ.get("CONDA_PREFIX")
-if conda_prefix:
-    python_exe = os.path.join(conda_prefix, "bin", "python")
-else:
-    python_exe = sys.executable
+python_exe = sys.executable
 
 passed = []
 failed = []
