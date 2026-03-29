@@ -2,11 +2,10 @@ from pathlib import Path
 import copy
 
 from triton import knobs
-from triton.compiler.compiler import CompiledKernel, max_shared_mem, json, GPUTarget, make_backend, AsmDict, ASTSource, LazyDict
+from triton.compiler.compiler import CompiledKernel, max_shared_mem, json
 from triton.runtime.driver import driver
 from triton.runtime.autotuner import OutOfResources
 import functools
-
 
 
 def _raise_error(err, *args, **kwargs):
@@ -66,3 +65,50 @@ class CompiledKernel_v3_5_0(CompiledKernel):
         if is_triton_v3_5:
             if knobs.runtime.kernel_load_end_hook is not None:
                 knobs.runtime.kernel_load_end_hook(self.module, self.function, self.name, self.metadata_group, self.hash)
+
+
+class CompiledTVMFFIKernel:
+    def __init__(self, cubin_path, json_path):
+        self._cubin_path = cubin_path
+        self._json_path = json_path
+        self._run_launcher = None
+
+    def _get_launcher(self):
+        if self._run_launcher is None:
+            from triton_runner.driver.tvm_ffi_driver import TvmFfiLauncher
+            cubin_bytes = Path(self._cubin_path).read_bytes()
+            metadata = json.loads(Path(self._json_path).read_text())
+            self._run_launcher = TvmFfiLauncher(None, metadata, {"cubin": cubin_bytes})
+        return self._run_launcher
+
+    def run(self, gridX, gridY, gridZ, stream, launch_enter_hook, launch_exit_hook, *args):
+        launcher = self._get_launcher()
+        launcher(
+            gridX,
+            gridY,
+            gridZ,
+            stream,
+            None,
+            None,
+            None,
+            launch_enter_hook,
+            launch_exit_hook,
+            *args,
+        )
+
+    def __getitem__(self, grid):
+        def runner(*args, stream=None):
+            if stream is None:
+                device = driver.active.get_current_device()
+                stream = driver.active.get_current_stream(device)
+            self.run(
+                grid[0],
+                grid[1],
+                grid[2],
+                stream,
+                knobs.runtime.launch_enter_hook,
+                knobs.runtime.launch_exit_hook,
+                *args,
+            )
+
+        return runner

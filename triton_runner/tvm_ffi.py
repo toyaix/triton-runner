@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from triton.compiler.compiler import CompiledKernel
-
 from .version_utils import is_triton_geq_v3_5, triton_version
 
 
@@ -69,7 +67,6 @@ class _SignatureEntry:
 @dataclass(frozen=True)
 class _CompiledArtifact:
     kernel_name: str
-    module_name: str
     cubin_bytes: bytes
     metadata: dict[str, Any]
     signature: tuple[_SignatureEntry, ...]
@@ -78,27 +75,12 @@ class _CompiledArtifact:
 @dataclass(frozen=True)
 class _TensorDescSpec:
     entry: _SignatureEntry
-    dtype_name: str
     rank: int
     metadata: dict[str, Any] | None
 
     @property
     def name(self) -> str:
         return self.entry.name
-
-    @property
-    def base_name(self) -> str:
-        return f"{self.name}_base"
-
-    @property
-    def padding_name(self) -> str:
-        return f"{self.name}_padding_nan"
-
-    def shape_name(self, index: int) -> str:
-        return f"{self.name}_shape_{index}"
-
-    def stride_name(self, index: int) -> str:
-        return f"{self.name}_stride_{index}"
 
 
 def _get_tvm_ffi_cache_dir() -> str:
@@ -117,12 +99,6 @@ def _ensure_tvm_ffi_cache_dir(*parts: str) -> str:
         fallback = os.path.join(tempfile.gettempdir(), "triton_runner_cache", "tvm_ffi_launcher", *parts)
         os.makedirs(fallback, exist_ok=True)
         return fallback
-
-
-def _module_name_for_metadata(metadata: dict[str, Any]) -> str:
-    kernel_name = str(metadata["name"])
-    hash_prefix = str(metadata.get("hash", "inline"))[:8]
-    return f"triton_runner_{kernel_name}_{hash_prefix}"
 
 
 def _require_tvm_ffi():
@@ -191,39 +167,6 @@ def _parse_kernel_signature(kernel_signature: str | None) -> tuple[_SignatureEnt
     return tuple(entries)
 
 
-def _sanitize_identifier(name: str) -> str:
-    sanitized = re.sub(r"[^0-9A-Za-z_]", "_", name)
-    if not sanitized:
-        sanitized = "triton_runner_tvm_ffi"
-    if sanitized[0].isdigit():
-        sanitized = f"_{sanitized}"
-    return sanitized
-
-
-def _artifact_from_compiled_kernel(kernel: CompiledKernel, metadata: Any) -> _CompiledArtifact:
-    asm = getattr(kernel, "asm", None)
-    if asm is None or "cubin" not in asm:
-        raise ValueError("TVM-FFI export requires `kernel.asm['cubin']`.")
-
-    cubin_bytes = asm["cubin"]
-    if isinstance(cubin_bytes, memoryview):
-        cubin_bytes = cubin_bytes.tobytes()
-    elif isinstance(cubin_bytes, bytearray):
-        cubin_bytes = bytes(cubin_bytes)
-    elif not isinstance(cubin_bytes, bytes):
-        raise TypeError(f"Unsupported cubin type on kernel.asm['cubin']: {type(cubin_bytes)!r}")
-
-    metadata_dict = _normalize_metadata(metadata)
-    signature = _parse_kernel_signature(metadata_dict.get("kernel_signature"))
-    return _CompiledArtifact(
-        kernel_name=str(metadata_dict["name"]),
-        module_name=_module_name_for_metadata(metadata_dict),
-        cubin_bytes=cubin_bytes,
-        metadata=metadata_dict,
-        signature=signature,
-    )
-
-
 def _shared_library_path(build_dir: str | Path, module_name: str) -> Path:
     ext = ".dll" if os.name == "nt" else ".so"
     return Path(build_dir) / f"{module_name}{ext}"
@@ -283,7 +226,6 @@ def _parse_tensordesc_specs(
         specs.append(
             _TensorDescSpec(
                 entry=entry,
-                dtype_name=match.group(1),
                 rank=rank,
                 metadata=spec_metadata,
             ))
@@ -296,51 +238,22 @@ def _parse_tensordesc_specs(
     return tuple(specs)
 
 
-def _expand_tensordesc_arg_for_tvm_ffi(arg: Any, spec: _TensorDescSpec) -> list[Any]:
-    missing = [field for field in ("base", "shape", "strides") if not hasattr(arg, field)]
-    if missing:
-        raise TypeError(
-            f"Tensor descriptor argument {spec.name} must expose {', '.join(missing)} for TVM-FFI export."
-        )
-
-    shape = tuple(int(v) for v in getattr(arg, "shape"))
-    strides = tuple(int(v) for v in getattr(arg, "strides"))
-    if len(shape) != spec.rank:
-        raise ValueError(f"Tensor descriptor argument {spec.name} expected rank {spec.rank}, got shape {shape}.")
-    if len(strides) != spec.rank:
-        raise ValueError(f"Tensor descriptor argument {spec.name} expected rank {spec.rank}, got strides {strides}.")
-
-    padding = getattr(arg, "padding", None) == "nan"
-    return [getattr(arg, "base"), *shape, *strides, padding]
-
-
-def _expand_bound_args_for_tvm_ffi(
+def _make_bound_args_launcher(
+        tvm_func: Any,
+        registry_handle: int,
         signature: tuple[_SignatureEntry, ...],
-        bound_args: tuple[Any, ...],
-        descriptor_specs: tuple[_TensorDescSpec, ...],
-) -> list[Any]:
-    if len(bound_args) != len(signature):
-        raise ValueError(
-            f"Expected {len(signature)} bound arguments for TVM-FFI launch, got {len(bound_args)}."
-        )
+        tvm_mod: Any | None = None,
+):
+    if tvm_mod is None:
+        from .driver.tvm_ffi_driver import _get_or_build_generic_launcher_module
 
-    expanded: list[Any] = []
-    descriptor_index = 0
-    for entry, arg in zip(signature, bound_args):
-        if entry.is_constexpr:
-            continue
-        if entry.type_name.startswith("tensordesc"):
-            expanded.extend(_expand_tensordesc_arg_for_tvm_ffi(arg, descriptor_specs[descriptor_index]))
-            descriptor_index += 1
-        else:
-            expanded.append(arg)
-
-    if descriptor_index != len(descriptor_specs):
-        raise ValueError(
-            "Tensor descriptor expansion count does not match the number of tensordesc runtime arguments."
-        )
-
-    return expanded
+        _, tvm_mod = _get_or_build_generic_launcher_module()
+    builder = getattr(tvm_mod, "make_bound_args_launcher")
+    return builder(
+        tvm_func,
+        int(registry_handle),
+        [entry.type_name for entry in signature],
+    )
 
 
 def _runtime_arg_registration_specs(
