@@ -390,17 +390,7 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
             if self._call_hook(key, signature, device, constants, options, configs, warmup, before=True):
                 return None
             ast_src = self.ASTSource(self, signature, constants, configs[0])
-            metadata_json = {}
-            if source_dir_type:
-                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-                src = os.path.join(kwargs[source_dir_type], source_file_name)
-                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
-                    json_file_name = f"{self.__name__}.json"
-                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-                    metadata_json = json.loads(open(json_path, "r").read())
-            else:
-                src = ast_src
-
+            src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, None, ast_src)
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path)
             self.cache[device][key] = kernel
             self._call_hook(key, signature, device, constants, options, configs, warmup, before=False)
@@ -472,16 +462,7 @@ class RunnerJITFunctionV3_1_0(RunnerJITFunction[KernelInterface[T]]):
             if self._call_hook(key, signature, device, constants, options, configs):
                 return None
             ast_src = self.ASTSource(self, signature, constants, configs[0])
-            metadata_json = {}
-            if source_dir_type:
-                source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
-                src = os.path.join(kwargs[source_dir_type], source_file_name)
-                if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir"}:
-                    json_file_name = f"{self.__name__}.json"
-                    json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-                    metadata_json = json.loads(open(json_path, "r").read())
-            else:
-                src = ast_src
+            src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, None, ast_src)
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path)
             self.cache[device][key] = kernel
 
