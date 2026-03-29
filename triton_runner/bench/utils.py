@@ -99,15 +99,18 @@ def _has_tensor_descriptor(args: tuple) -> bool:
 
 def make_direct_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
     launcher = compiled_kernel._get_launcher()
-    direct_args = tuple(arg for entry, arg in zip(launcher._signature, bound_args, strict=True) if not entry.is_constexpr)
     grid_x = grid[0]
     grid_y = grid[1] if len(grid) > 1 else 1
     grid_z = grid[2] if len(grid) > 2 else 1
 
-    if _has_tensor_descriptor(direct_args):
+    if _has_tensor_descriptor(bound_args):
+        # _launch_bound_args_for_tvm_ffi expects all args (runtime + constexpr) matching
+        # the full launcher signature — TensorDescriptor conversion happens in C++.
         def launch() -> None:
-            launcher._launch_bound_args_for_tvm_ffi(grid_x, grid_y, grid_z, *direct_args)
+            launcher._launch_bound_args_for_tvm_ffi(grid_x, grid_y, grid_z, *bound_args)
     else:
+        direct_args = tuple(arg for entry, arg in zip(launcher._signature, bound_args, strict=True) if not entry.is_constexpr)
+
         def launch() -> None:
             launcher._tvm_func(launcher._registry_handle, grid_x, grid_y, grid_z, *direct_args)
 
