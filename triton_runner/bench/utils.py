@@ -89,6 +89,14 @@ def make_compiled_launch(compiled_kernel, grid: tuple, bound_args: tuple[object,
     return launch
 
 
+def _has_tensor_descriptor(args: tuple) -> bool:
+    try:
+        from triton.tools.tensor_descriptor import TensorDescriptor
+        return any(isinstance(a, TensorDescriptor) for a in args)
+    except ImportError:
+        return False
+
+
 def make_direct_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
     launcher = compiled_kernel._get_launcher()
     direct_args = tuple(arg for entry, arg in zip(launcher._signature, bound_args, strict=True) if not entry.is_constexpr)
@@ -96,7 +104,11 @@ def make_direct_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, .
     grid_y = grid[1] if len(grid) > 1 else 1
     grid_z = grid[2] if len(grid) > 2 else 1
 
-    def launch() -> None:
-        launcher._tvm_func(launcher._registry_handle, grid_x, grid_y, grid_z, *direct_args)
+    if _has_tensor_descriptor(direct_args):
+        def launch() -> None:
+            launcher._launch_bound_args_for_tvm_ffi(grid_x, grid_y, grid_z, *direct_args)
+    else:
+        def launch() -> None:
+            launcher._tvm_func(launcher._registry_handle, grid_x, grid_y, grid_z, *direct_args)
 
     return launch
