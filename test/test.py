@@ -20,8 +20,9 @@ capability = capability[0] * 10 + capability[1]
 
 pattern = re.compile(rf"### sm{capability}.*?shell(.*?)```", re.DOTALL)
 runner_file_path = os.path.join("examples", "runner", f"v{uni_triton_version}", "README.md")
+from triton_runner.version_utils import is_triton_leq_v3_2
 match = pattern.search(get_content(runner_file_path))
-if match:
+if match and not (capability == 120 and is_triton_leq_v3_2):
     lines = get_lines(match)
     pattern = re.compile(rf"shell(.*?)```", re.DOTALL)
     bench_file_path = os.path.join("doc", "benchmark.md")
