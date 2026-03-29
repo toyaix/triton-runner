@@ -1,4 +1,4 @@
-__version__ = '0.3.4'
+__version__ = '0.3.5'
 
 from .version_utils import is_support_version, triton_version
 if not is_support_version:
