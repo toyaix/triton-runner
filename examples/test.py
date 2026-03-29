@@ -25,12 +25,17 @@ if match:
     lines = get_lines(match)
     pattern = re.compile(rf"shell(.*?)```", re.DOTALL)
     bench_file_path = os.path.join("doc", "benchmark.md")
-    lines.extend(get_lines(pattern.search(get_content(bench_file_path))))
     from triton_runner.version_utils import is_triton_geq_v3_3
+    bench_lines = get_lines(pattern.search(get_content(bench_file_path)))
+    bench_lines = [cmd for cmd in bench_lines if "matmul/mma" not in cmd or capability >= 80]
+    lines.extend(bench_lines)
     if is_triton_geq_v3_3:
         debug_file_path = os.path.join("doc", "dump.md")
+        dump_lines = []
         for i, m in enumerate(pattern.finditer((get_content(debug_file_path)), 1)):
-            lines.extend(get_lines(m))
+            dump_lines.extend(get_lines(m))
+        dump_lines = [cmd for cmd in dump_lines if "06-attention" not in cmd or capability >= 80]
+        lines.extend(dump_lines)
     triton_runner.color_print.yellow_print(f"TEST on triton v{triton_version}")
     fail_cmd = []
     for cmd in lines:
