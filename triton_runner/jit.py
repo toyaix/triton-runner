@@ -3,6 +3,7 @@ from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 from typing import Callable, Iterable, Optional, Union, overload
 from .compile import native_compile
+from .compiler.compiler import CompiledTVMFFIKernel
 import os
 from .jit_dump import DumpMixin
 from .jit_metadata import MetadataMixin
@@ -108,6 +109,24 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         grid_size = len(grid)
         return grid, grid[0], grid[1] if grid_size > 1 else 1, grid[2] if grid_size > 2 else 1
 
+    def _launch_kernel(self, kernel, grid, grid_0, grid_1, grid_2, stream, arg_values, launch_enter_hook, launch_exit_hook):
+        if isinstance(kernel, CompiledTVMFFIKernel):
+            kernel.run(grid_0, grid_1, grid_2, stream, launch_enter_hook, launch_exit_hook, *arg_values)
+            return
+        launch_metadata = kernel.launch_metadata(grid, stream, *arg_values)
+        kernel.run(
+            grid_0,
+            grid_1,
+            grid_2,
+            stream,
+            kernel.function,
+            kernel.packed_metadata,
+            launch_metadata,
+            launch_enter_hook,
+            launch_exit_hook,
+            *arg_values,
+        )
+
 
 class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
 
@@ -150,9 +169,17 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
             grid, grid_0, grid_1, grid_2 = self._resolve_grid(grid, bound_args)
             if hasattr(kernel, "result"):
                 kernel = kernel.result()
-            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
+            self._launch_kernel(
+                kernel,
+                grid,
+                grid_0,
+                grid_1,
+                grid_2,
+                stream,
+                tuple(bound_args.values()),
+                knobs.runtime.launch_enter_hook,
+                knobs.runtime.launch_exit_hook,
+            )
         return kernel
 
 
@@ -194,9 +221,17 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
             grid, grid_0, grid_1, grid_2 = self._resolve_grid(grid, bound_args)
             if hasattr(kernel, "result"):
                 kernel = kernel.result()
-            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
+            self._launch_kernel(
+                kernel,
+                grid,
+                grid_0,
+                grid_1,
+                grid_2,
+                stream,
+                tuple(bound_args.values()),
+                knobs.runtime.launch_enter_hook,
+                knobs.runtime.launch_exit_hook,
+            )
         return kernel
 
 
@@ -243,9 +278,17 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
         if not warmup:
             assert grid is not None
             grid, grid_0, grid_1, grid_2 = self._resolve_grid(grid, bound_args)
-            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
+            self._launch_kernel(
+                kernel,
+                grid,
+                grid_0,
+                grid_1,
+                grid_2,
+                stream,
+                tuple(bound_args.values()),
+                knobs.runtime.launch_enter_hook,
+                knobs.runtime.launch_exit_hook,
+            )
         return kernel
 
 
@@ -283,9 +326,17 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
             grid, grid_0, grid_1, grid_2 = self._resolve_grid(grid, bound_args)
             if hasattr(kernel, "result"):
                 kernel = kernel.result()
-            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
+            self._launch_kernel(
+                kernel,
+                grid,
+                grid_0,
+                grid_1,
+                grid_2,
+                stream,
+                tuple(bound_args.values()),
+                knobs.runtime.launch_enter_hook,
+                knobs.runtime.launch_exit_hook,
+            )
         return kernel
 
 
@@ -329,10 +380,17 @@ class RunnerJITFunctionV3_3_0(RunnerJITFunction[KernelInterface[T]]):
         if not warmup:
             assert grid is not None
             grid, grid_0, grid_1, grid_2 = self._resolve_grid(grid, bound_args)
-            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata,
-                       launch_metadata, self.CompiledKernel.launch_enter_hook, self.CompiledKernel.launch_exit_hook,
-                       *bound_args.values())
+            self._launch_kernel(
+                kernel,
+                grid,
+                grid_0,
+                grid_1,
+                grid_2,
+                stream,
+                tuple(bound_args.values()),
+                self.CompiledKernel.launch_enter_hook,
+                self.CompiledKernel.launch_exit_hook,
+            )
         return kernel
 
 
@@ -405,9 +463,17 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
         if not warmup:
             assert grid is not None
             grid, grid_0, grid_1, grid_2 = self._resolve_grid(grid, bound_args)
-            launch_metadata = kernel.launch_metadata(grid, stream, *non_constexpr_vals)
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                       self.CompiledKernel.launch_enter_hook, self.CompiledKernel.launch_exit_hook, *non_constexpr_vals)
+            self._launch_kernel(
+                kernel,
+                grid,
+                grid_0,
+                grid_1,
+                grid_2,
+                stream,
+                tuple(non_constexpr_vals),
+                self.CompiledKernel.launch_enter_hook,
+                self.CompiledKernel.launch_exit_hook,
+            )
         return kernel
 
 
@@ -476,9 +542,17 @@ class RunnerJITFunctionV3_1_0(RunnerJITFunction[KernelInterface[T]]):
         if not warmup:
             assert grid is not None
             grid, grid_0, grid_1, grid_2 = self._resolve_grid(grid, bound_args)
-            launch_metadata = kernel.launch_metadata(grid, stream, *non_constexpr_vals)
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                       self.CompiledKernel.launch_enter_hook, self.CompiledKernel.launch_exit_hook, *non_constexpr_vals)
+            self._launch_kernel(
+                kernel,
+                grid,
+                grid_0,
+                grid_1,
+                grid_2,
+                stream,
+                tuple(non_constexpr_vals),
+                self.CompiledKernel.launch_enter_hook,
+                self.CompiledKernel.launch_exit_hook,
+            )
         return kernel
 
 

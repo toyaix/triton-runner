@@ -7,10 +7,13 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from ._cuda_build import build_module_from_src, cuda_include_dirs, library_dirs
+
 _GENERIC_LAUNCHER_NAME = "triton_runner_tvm_ffi_generic_launcher"
 _generic_module_cache: dict[str, Any] = {}
 _registered_kernel_cache: dict[tuple[str, str], int] = {}
 _cache_lock = threading.Lock()
+_GENERIC_LAUNCHER_LIBRARIES = ["tvm_ffi", "cudart", "cuda", "dl"]
 _ARG_KIND_CODES = {
     "pointer": 0,
     "i1": 1,
@@ -34,6 +37,25 @@ _ARG_KIND_CODES = {
 
 def _get_generic_launcher_source_path() -> Path:
     return Path(__file__).with_name("tvm_ffi_generic_launcher.cc")
+
+
+def _build_generic_launcher_module(tvm_ffi_module: Any, module_name: str, build_dir: str | Path, source: str) -> Any:
+    from ..tvm_ffi import _shared_library_path
+
+    tvm_ffi_root = Path(tvm_ffi_module.__file__).resolve().parent
+    include_dirs = [str(tvm_ffi_root / "include"), *cuda_include_dirs()]
+    return build_module_from_src(
+        module_name=module_name,
+        build_dir=build_dir,
+        source=source,
+        include_dirs=include_dirs,
+        library_dirs=library_dirs(tvm_ffi_root / "lib", include_stubs=True),
+        libraries=_GENERIC_LAUNCHER_LIBRARIES,
+        ccflags=("-std=c++17",),
+        source_ext=".cc",
+        final_path=_shared_library_path(build_dir, module_name),
+        load_module=lambda path: tvm_ffi_module.load_module(path, keep_module_alive=True),
+    )
 
 
 def _registration_token_for_payload(payload: tuple[Any, ...]) -> str:
@@ -132,27 +154,6 @@ def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
     return payload, token
 
 
-def _get_cuda_host_build_config() -> tuple[list[str], list[str]]:
-    try:
-        from tvm_ffi.cpp.extension import _find_cuda_home  # type: ignore[attr-defined]
-
-        cuda_home = Path(_find_cuda_home())
-    except Exception:
-        cuda_home = Path("/usr/local/cuda")
-
-    include_dir = cuda_home / "include"
-    lib_dir = cuda_home / "lib64"
-    extra_include_paths: list[str] = []
-    extra_ldflags = ["-lcudart", "-lcuda", "-ldl"]
-
-    if include_dir.is_dir():
-        extra_include_paths.append(str(include_dir))
-    if lib_dir.is_dir():
-        extra_ldflags = [f"-L{lib_dir}", f"-Wl,-rpath,{lib_dir}", *extra_ldflags]
-
-    return extra_include_paths, extra_ldflags
-
-
 def _get_or_build_generic_launcher_module() -> tuple[str, Any]:
     from ..tvm_ffi import (
         _ensure_tvm_ffi_cache_dir,
@@ -161,28 +162,20 @@ def _get_or_build_generic_launcher_module() -> tuple[str, Any]:
     )
 
     cuda_source = _get_generic_launcher_source_path().read_text()
-    cache_key = hashlib.sha256(b"generic_launcher_cpp_v1\0" + cuda_source.encode("utf-8")).hexdigest()
+    cache_key = hashlib.sha256(b"generic_launcher_cpp_v2\0" + cuda_source.encode("utf-8")).hexdigest()
 
     with _cache_lock:
         cached = _generic_module_cache.get(cache_key)
     if cached is not None:
         return cache_key, cached
 
-    tvm_ffi_module, cpp = _require_tvm_ffi()
+    tvm_ffi_module, _ = _require_tvm_ffi()
     module_name = f"{_GENERIC_LAUNCHER_NAME}_{cache_key[:12]}"
     build_dir = _ensure_tvm_ffi_cache_dir("generic", cache_key)
-    extra_include_paths, extra_ldflags = _get_cuda_host_build_config()
 
     mod = _maybe_load_cached_module(tvm_ffi_module, build_dir, module_name)
     if mod is None:
-        mod = cpp.load_inline(
-            module_name,
-            cpp_sources=cuda_source,
-            build_directory=build_dir,
-            keep_module_alive=True,
-            extra_include_paths=extra_include_paths,
-            extra_ldflags=extra_ldflags,
-        )
+        mod = _build_generic_launcher_module(tvm_ffi_module, module_name, build_dir, cuda_source)
 
     with _cache_lock:
         _generic_module_cache[cache_key] = mod
@@ -222,11 +215,9 @@ class TvmFfiLauncher:
 
         from ..tvm_ffi import (
             _CompiledArtifact,
-            _expand_bound_args_for_tvm_ffi,
-            _module_name_for_metadata,
+            _make_bound_args_launcher,
             _normalize_metadata,
             _parse_kernel_signature,
-            _parse_tensordesc_specs,
         )
 
         metadata_dict = _normalize_metadata(metadata)
@@ -242,15 +233,9 @@ class TvmFfiLauncher:
         kernel_signature = metadata_dict.get("kernel_signature")
         signature = _parse_kernel_signature(kernel_signature)
         self._signature = signature
-        self._descriptor_specs = _parse_tensordesc_specs(
-            tuple(entry for entry in signature if not entry.is_constexpr),
-            metadata_dict,
-        )
-        self._expand_bound_args_for_tvm_ffi = _expand_bound_args_for_tvm_ffi
 
         artifact = _CompiledArtifact(
             kernel_name=str(metadata_dict["name"]),
-            module_name=_module_name_for_metadata(metadata_dict),
             cubin_bytes=cubin_bytes,
             metadata=metadata_dict,
             signature=signature,
@@ -265,6 +250,12 @@ class TvmFfiLauncher:
             registration_args,
         )
         self._tvm_func = _lookup_module_function(self._tvm_mod, "launch")
+        self._launch_bound_args_for_tvm_ffi = _make_bound_args_launcher(
+            self._tvm_func,
+            self._registry_handle,
+            signature,
+            tvm_mod=self._tvm_mod,
+        )
 
     def __call__(self, gridX, gridY, gridZ, stream, function, *args):
         del stream, function
@@ -278,12 +269,7 @@ class TvmFfiLauncher:
 
         if launch_enter_hook is not None:
             launch_enter_hook(launch_metadata)
-        non_constexpr_args = self._expand_bound_args_for_tvm_ffi(
-            self._signature,
-            bound_args,
-            self._descriptor_specs,
-        )
-        self._tvm_func(self._registry_handle, gridX, gridY, gridZ, *non_constexpr_args)
+        self._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *bound_args)
 
         if launch_exit_hook is not None:
             launch_exit_hook(launch_metadata)

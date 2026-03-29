@@ -26,10 +26,6 @@ def _is_cuda_target(target):
     return isinstance(target, GPUTarget) and target.backend == "cuda"
 
 
-def _should_use_compiled_kernel_v3_5_0(target, metadata_json):
-    return is_triton_geq_v3_5 and TRITON_TVM_FFI and _is_cuda_target(target)
-
-
 def _load_ir_source_module(src, context, backend):
     """Read an IR file from disk, returning (src, module).
 
@@ -81,20 +77,12 @@ def _merge_metadata_from_json(metadata, metadata_json):
         metadata["profile_scratch_align"] = metadata_json.get("profile_scratch_align", 1)
 
 
-def _make_compiled_kernel(use_v3_5_0, ast_src, metadata_group, hash):
-    if use_v3_5_0:
-        from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
-        return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
-    return CompiledKernel(ast_src, metadata_group, hash)
-
-
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
     if target is None:
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
     backend = make_backend(target)
-    use_compiled_kernel_v3_5_0 = _should_use_compiled_kernel_v3_5_0(target, metadata_json)
-
+    use_tvm_ffi_compiled_kernel = TRITON_TVM_FFI and _is_cuda_target(target)
     ir_source = not isinstance(src, ASTSource)
     module = None
     if ir_source:
@@ -137,6 +125,14 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_filename = f"{file_name}.json"
     metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
     metadata_path = metadata_group.get(metadata_filename)
+    binary_filename = f"{file_name}.cubin"
+
+    def make_compiled_kernel(cubin_path=None, json_path=None):
+        if use_tvm_ffi_compiled_kernel:
+            from triton_runner.compiler.compiler import CompiledTVMFFIKernel
+            return CompiledTVMFFIKernel(cubin_path, json_path)
+        return CompiledKernel(ast_src, metadata_group, hash)
+
     always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
     mlir_dump_path = os.environ.get("MLIR_DUMP_PATH", None)
     if not always_compile and metadata_path is not None:
@@ -146,7 +142,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             parse_mlir_to_folder(mlir_dump_path)
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
-        return _make_compiled_kernel(use_compiled_kernel_v3_5_0, ast_src, metadata_group, hash)
+        return make_compiled_kernel(
+            cubin_path=metadata_group.get(binary_filename),
+            json_path=metadata_path,
+        )
 
     metadata = _build_initial_metadata(kernel_signature, hash, target, options, env_vars)
 
@@ -254,7 +253,10 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if is_disable_multithreading:
             context.disable_multithreading()
 
-    return _make_compiled_kernel(use_compiled_kernel_v3_5_0, ast_src, metadata_group, hash)
+    return make_compiled_kernel(
+        cubin_path=metadata_group.get(binary_filename),
+        json_path=metadata_group.get(metadata_filename),
+    )
 
 
 def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context):

@@ -6,9 +6,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import torch
+import statistics
 import time
 import os
+from collections.abc import Callable
+
+import torch
 from triton_runner.testing import do_bench
 
 
@@ -56,3 +59,59 @@ def benchmark(name, unit_name="ms"):
         return wrapper
 
     return decorator
+
+
+def bench_host_us(fn: Callable[[], None], *, warmup: int, iters: int, repeats: int) -> float:
+    for _ in range(warmup):
+        fn()
+    torch.cuda.synchronize()
+
+    samples = []
+    for _ in range(repeats):
+        torch.cuda.synchronize()
+        start = time.perf_counter()
+        for _ in range(iters):
+            fn()
+        torch.cuda.synchronize()
+        samples.append((time.perf_counter() - start) * 1e6 / iters)
+    return statistics.median(samples)
+
+
+def make_compiled_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
+    grid_x = grid[0]
+    grid_y = grid[1] if len(grid) > 1 else 1
+    grid_z = grid[2] if len(grid) > 2 else 1
+    launcher = compiled_kernel[(grid_x, grid_y, grid_z)]
+
+    def launch() -> None:
+        launcher(*bound_args)
+
+    return launch
+
+
+def _has_tensor_descriptor(args: tuple) -> bool:
+    try:
+        from triton.tools.tensor_descriptor import TensorDescriptor
+        return any(isinstance(a, TensorDescriptor) for a in args)
+    except ImportError:
+        return False
+
+
+def make_direct_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
+    launcher = compiled_kernel._get_launcher()
+    grid_x = grid[0]
+    grid_y = grid[1] if len(grid) > 1 else 1
+    grid_z = grid[2] if len(grid) > 2 else 1
+
+    if _has_tensor_descriptor(bound_args):
+        # _launch_bound_args_for_tvm_ffi expects all args (runtime + constexpr) matching
+        # the full launcher signature — TensorDescriptor conversion happens in C++.
+        def launch() -> None:
+            launcher._launch_bound_args_for_tvm_ffi(grid_x, grid_y, grid_z, *bound_args)
+    else:
+        direct_args = tuple(arg for entry, arg in zip(launcher._signature, bound_args, strict=True) if not entry.is_constexpr)
+
+        def launch() -> None:
+            launcher._tvm_func(launcher._registry_handle, grid_x, grid_y, grid_z, *direct_args)
+
+    return launch

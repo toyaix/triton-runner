@@ -1,3 +1,7 @@
+#define PY_SSIZE_T_CLEAN
+
+#include <Python.h>
+
 #define TVM_FFI_CUBIN_LAUNCHER_USE_DRIVER_API 1
 
 #include <cuda.h>
@@ -11,6 +15,7 @@
 #include <tvm/ffi/extra/c_env_api.h>
 #include <tvm/ffi/extra/cuda/cubin_launcher.h>
 #include <tvm/ffi/function.h>
+#include <tvm/ffi/object.h>
 #include <tvm/ffi/string.h>
 
 #include <array>
@@ -19,6 +24,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -31,9 +37,377 @@ using tvm::ffi::Any;
 using tvm::ffi::AnyView;
 using tvm::ffi::Array;
 using tvm::ffi::Bytes;
+using tvm::ffi::Function;
+using tvm::ffi::ObjectRef;
 using tvm::ffi::PackedArgs;
 using tvm::ffi::String;
 using tvm::ffi::TensorView;
+
+namespace {
+
+constexpr const char* kDLPackExchangeApiCapsuleName = "dlpack_exchange_api";
+constexpr const char* kDLPackCapsuleName = "dltensor";
+constexpr const char* kUsedDLPackCapsuleName = "used_dltensor";
+constexpr const char* kDLPackVersionedCapsuleName = "dltensor_versioned";
+constexpr const char* kUsedDLPackVersionedCapsuleName = "used_dltensor_versioned";
+
+class PyObjectRef {
+ public:
+  explicit PyObjectRef(PyObject* obj = nullptr) : obj_(obj) {}
+  PyObjectRef(const PyObjectRef&) = delete;
+  PyObjectRef& operator=(const PyObjectRef&) = delete;
+  PyObjectRef(PyObjectRef&& other) noexcept : obj_(other.obj_) { other.obj_ = nullptr; }
+  PyObjectRef& operator=(PyObjectRef&& other) noexcept {
+    if (this != &other) {
+      if (obj_ != nullptr) {
+        Py_DECREF(obj_);
+      }
+      obj_ = other.obj_;
+      other.obj_ = nullptr;
+    }
+    return *this;
+  }
+  ~PyObjectRef() {
+    if (obj_ != nullptr) {
+      Py_DECREF(obj_);
+    }
+  }
+
+  PyObject* get() const { return obj_; }
+  explicit operator bool() const { return obj_ != nullptr; }
+
+ private:
+  PyObject* obj_ = nullptr;
+};
+
+class ScopedPyGIL {
+ public:
+  ScopedPyGIL() : state_(PyGILState_Ensure()) {}
+  ~ScopedPyGIL() { PyGILState_Release(state_); }
+
+ private:
+  PyGILState_STATE state_;
+};
+
+std::string ConsumePythonErrorString() {
+  if (!PyErr_Occurred()) {
+    return std::string();
+  }
+  PyObject *exc_type = nullptr, *exc_value = nullptr, *exc_tb = nullptr;
+  PyErr_Fetch(&exc_type, &exc_value, &exc_tb);
+  PyErr_NormalizeException(&exc_type, &exc_value, &exc_tb);
+  PyObjectRef type_ref(exc_type);
+  PyObjectRef value_ref(exc_value);
+  PyObjectRef tb_ref(exc_tb);
+  if (!value_ref) {
+    return "unknown Python error";
+  }
+  PyObjectRef text(PyObject_Str(value_ref.get()));
+  if (!text) {
+    PyErr_Clear();
+    return "unknown Python error";
+  }
+  const char* utf8 = PyUnicode_AsUTF8(text.get());
+  if (utf8 == nullptr) {
+    PyErr_Clear();
+    return "unknown Python error";
+  }
+  return std::string(utf8);
+}
+
+[[noreturn]] void ThrowPythonError(const char* context) {
+  std::string detail = ConsumePythonErrorString();
+  if (detail.empty()) {
+    TVM_FFI_THROW(RuntimeError) << context;
+  }
+  TVM_FFI_THROW(RuntimeError) << context << ": " << detail;
+}
+
+PyObject* GetRequiredAttr(PyObject* obj, const char* attr_name, const char* context) {
+  PyObject* attr = PyObject_GetAttrString(obj, attr_name);
+  if (attr == nullptr) {
+    ThrowPythonError(context);
+  }
+  return attr;
+}
+
+int64_t PyLongToInt64(PyObject* obj, const char* context) {
+  long long value = PyLong_AsLongLong(obj);
+  if (value == -1 && PyErr_Occurred()) {
+    ThrowPythonError(context);
+  }
+  return static_cast<int64_t>(value);
+}
+
+bool PaddingIsNan(PyObject* padding_obj) {
+  if (padding_obj == Py_None) {
+    return false;
+  }
+  if (!PyUnicode_Check(padding_obj)) {
+    return false;
+  }
+  int cmp = PyUnicode_CompareWithASCIIString(padding_obj, "nan");
+  if (cmp == -1 && PyErr_Occurred()) {
+    ThrowPythonError("Failed to inspect tensor descriptor padding");
+  }
+  return cmp == 0;
+}
+
+int ParseTensorDescRank(std::string_view type_name) {
+  size_t open = type_name.find('[');
+  size_t close = type_name.rfind(']');
+  TVM_FFI_CHECK(open != std::string_view::npos && close != std::string_view::npos && close > open, TypeError)
+      << "Unsupported tensordesc Triton signature: " << type_name;
+  std::string_view shape_sig = type_name.substr(open + 1, close - open - 1);
+  if (shape_sig.empty()) {
+    return 1;
+  }
+  int rank = 1;
+  for (char ch : shape_sig) {
+    if (ch == ',') {
+      ++rank;
+    }
+  }
+  return rank;
+}
+
+void DecrefOpaquePyObject(void* handle) {
+  if (handle == nullptr) {
+    return;
+  }
+  PyGILState_STATE gil_state = PyGILState_Ensure();
+  Py_DECREF(reinterpret_cast<PyObject*>(handle));
+  PyGILState_Release(gil_state);
+}
+
+ObjectRef ObjectRefFromOwnedHandle(TVMFFIObjectHandle handle) {
+  auto ptr = tvm::ffi::details::ObjectUnsafe::ObjectPtrFromOwned<tvm::ffi::Object>(
+      reinterpret_cast<TVMFFIObject*>(handle));
+  return tvm::ffi::details::ObjectUnsafe::ObjectRefFromObjectPtr<ObjectRef>(std::move(ptr));
+}
+
+ObjectRef MakeOpaquePyObjectRef(PyObject* py_obj) {
+  TVM_FFI_CHECK(py_obj != nullptr, ValueError) << "Opaque Python object must not be null.";
+  TVMFFIObjectHandle handle = nullptr;
+  Py_INCREF(py_obj);
+  if (TVMFFIObjectCreateOpaque(py_obj, kTVMFFIOpaquePyObject, DecrefOpaquePyObject, &handle) != 0) {
+    Py_DECREF(py_obj);
+    ThrowPythonError("Failed to create ffi.OpaquePyObject");
+  }
+  return ObjectRefFromOwnedHandle(handle);
+}
+
+PyObject* OpaquePyObjectBorrowedFromAny(AnyView arg, int64_t arg_index) {
+  ObjectRef obj = arg.cast<ObjectRef>();
+  TVM_FFI_CHECK(obj.type_index() == tvm::ffi::TypeIndex::kTVMFFIOpaquePyObject, TypeError)
+      << "Tensor descriptor argument #" << arg_index
+      << " must arrive as ffi.OpaquePyObject, got type_index=" << obj.type_index();
+  TVMFFIObject* handle = tvm::ffi::details::ObjectUnsafe::TVMFFIObjectPtrFromObjectRef(obj);
+  auto* cell = TVMFFIOpaqueObjectGetCellPtr(handle);
+  TVM_FFI_CHECK(cell != nullptr && cell->handle != nullptr, TypeError)
+      << "Tensor descriptor argument #" << arg_index << " does not hold a Python object.";
+  return reinterpret_cast<PyObject*>(cell->handle);
+}
+
+struct StreamContextInfo {
+  bool present = false;
+  int32_t device_type = -1;
+  int32_t device_id = -1;
+  TVMFFIStreamHandle stream = nullptr;
+};
+
+class ScopedEnvStream {
+ public:
+  explicit ScopedEnvStream(const StreamContextInfo& info) : info_(info) {
+    if (!info_.present) {
+      return;
+    }
+    if (TVMFFIEnvSetStream(info_.device_type, info_.device_id, info_.stream, &previous_stream_) != 0) {
+      ThrowPythonError("Failed to set TVM-FFI stream context");
+    }
+    active_ = true;
+  }
+
+  ~ScopedEnvStream() {
+    if (!active_) {
+      return;
+    }
+    if (previous_stream_ != info_.stream) {
+      (void)TVMFFIEnvSetStream(info_.device_type, info_.device_id, previous_stream_, nullptr);
+    }
+  }
+
+ private:
+  StreamContextInfo info_;
+  TVMFFIStreamHandle previous_stream_ = nullptr;
+  bool active_ = false;
+};
+
+void MaybeCaptureCurrentStream(const DLPackExchangeAPI* exchange_api,
+                               const DLDevice& device,
+                               StreamContextInfo* stream_ctx) {
+  if (stream_ctx == nullptr || exchange_api == nullptr || exchange_api->current_work_stream == nullptr ||
+      device.device_type == kDLCPU) {
+    return;
+  }
+  if (stream_ctx->present) {
+    TVM_FFI_CHECK(stream_ctx->device_type == device.device_type && stream_ctx->device_id == device.device_id,
+                  ValueError)
+        << "All tensor descriptor bases must live on the same device.";
+    return;
+  }
+  void* stream = nullptr;
+  if (exchange_api->current_work_stream(device.device_type, device.device_id, &stream) != 0) {
+    ThrowPythonError("Failed to query current producer stream from DLPack exchange API");
+  }
+  stream_ctx->present = true;
+  stream_ctx->device_type = device.device_type;
+  stream_ctx->device_id = device.device_id;
+  stream_ctx->stream = stream;
+}
+
+ObjectRef TensorObjectRefFromDLPackExchangeApi(PyObject* tensor_obj, StreamContextInfo* stream_ctx) {
+  PyObjectRef capsule(
+      PyObject_GetAttrString(reinterpret_cast<PyObject*>(Py_TYPE(tensor_obj)), "__dlpack_c_exchange_api__"));
+  if (!capsule) {
+    ThrowPythonError("Failed to load __dlpack_c_exchange_api__ from tensor type");
+  }
+  const auto* exchange_api = reinterpret_cast<const DLPackExchangeAPI*>(
+      PyCapsule_GetPointer(capsule.get(), kDLPackExchangeApiCapsuleName));
+  if (exchange_api == nullptr) {
+    ThrowPythonError("Failed to access dlpack_exchange_api capsule");
+  }
+
+  DLManagedTensorVersioned* managed_tensor = nullptr;
+  if (exchange_api->managed_tensor_from_py_object_no_sync == nullptr ||
+      exchange_api->managed_tensor_from_py_object_no_sync(tensor_obj, &managed_tensor) != 0) {
+    ThrowPythonError("Failed to convert tensor descriptor base via DLPack exchange API");
+  }
+  MaybeCaptureCurrentStream(exchange_api, managed_tensor->dl_tensor.device, stream_ctx);
+
+  TVMFFIObjectHandle handle = nullptr;
+  if (TVMFFITensorFromDLPackVersioned(managed_tensor, 0, 0, &handle) != 0) {
+    if (managed_tensor->deleter != nullptr) {
+      managed_tensor->deleter(managed_tensor);
+    }
+    ThrowPythonError("Failed to convert DLManagedTensorVersioned into ffi.Tensor");
+  }
+  return ObjectRefFromOwnedHandle(handle);
+}
+
+ObjectRef TensorObjectRefFromLegacyDLPack(PyObject* tensor_obj) {
+  PyObjectRef capsule(PyObject_CallMethod(tensor_obj, "__dlpack__", nullptr));
+  if (!capsule) {
+    ThrowPythonError("Failed to call tensor.__dlpack__()");
+  }
+
+  TVMFFIObjectHandle handle = nullptr;
+  if (PyCapsule_IsValid(capsule.get(), kDLPackVersionedCapsuleName)) {
+    auto* managed = reinterpret_cast<DLManagedTensorVersioned*>(
+        PyCapsule_GetPointer(capsule.get(), kDLPackVersionedCapsuleName));
+    if (managed == nullptr) {
+      ThrowPythonError("Failed to access dltensor_versioned capsule");
+    }
+    if (TVMFFITensorFromDLPackVersioned(managed, 0, 0, &handle) != 0) {
+      ThrowPythonError("Failed to convert dltensor_versioned capsule into ffi.Tensor");
+    }
+    if (PyCapsule_SetDestructor(capsule.get(), nullptr) != 0 ||
+        PyCapsule_SetName(capsule.get(), kUsedDLPackVersionedCapsuleName) != 0) {
+      ThrowPythonError("Failed to mark dltensor_versioned capsule as consumed");
+    }
+    return ObjectRefFromOwnedHandle(handle);
+  }
+
+  TVM_FFI_CHECK(PyCapsule_IsValid(capsule.get(), kDLPackCapsuleName), TypeError)
+      << "tensor.__dlpack__() must return a dltensor or dltensor_versioned capsule.";
+  auto* managed = reinterpret_cast<DLManagedTensor*>(PyCapsule_GetPointer(capsule.get(), kDLPackCapsuleName));
+  if (managed == nullptr) {
+    ThrowPythonError("Failed to access dltensor capsule");
+  }
+  if (TVMFFITensorFromDLPack(managed, 0, 0, &handle) != 0) {
+    ThrowPythonError("Failed to convert dltensor capsule into ffi.Tensor");
+  }
+  if (PyCapsule_SetDestructor(capsule.get(), nullptr) != 0 ||
+      PyCapsule_SetName(capsule.get(), kUsedDLPackCapsuleName) != 0) {
+    ThrowPythonError("Failed to mark dltensor capsule as consumed");
+  }
+  return ObjectRefFromOwnedHandle(handle);
+}
+
+ObjectRef TensorBaseToObjectRef(PyObject* base_obj, StreamContextInfo* stream_ctx) {
+  int has_exchange_api =
+      PyObject_HasAttrString(reinterpret_cast<PyObject*>(Py_TYPE(base_obj)), "__dlpack_c_exchange_api__");
+  if (has_exchange_api == -1) {
+    ThrowPythonError("Failed to inspect tensor type for __dlpack_c_exchange_api__");
+  }
+  if (has_exchange_api == 1) {
+    return TensorObjectRefFromDLPackExchangeApi(base_obj, stream_ctx);
+  }
+
+  int has_dlpack = PyObject_HasAttrString(base_obj, "__dlpack__");
+  if (has_dlpack == -1) {
+    ThrowPythonError("Failed to inspect tensor descriptor base for __dlpack__");
+  }
+  if (has_dlpack == 1) {
+    return TensorObjectRefFromLegacyDLPack(base_obj);
+  }
+  return MakeOpaquePyObjectRef(base_obj);
+}
+
+void AppendTensorDescExpandedArgs(PyObject* tensor_desc,
+                                  int rank,
+                                  int64_t arg_index,
+                                  std::vector<Any>* owned_args,
+                                  std::vector<AnyView>* launch_args,
+                                  StreamContextInfo* stream_ctx) {
+  PyObjectRef base(
+      GetRequiredAttr(tensor_desc, "base", "Tensor descriptor argument is missing required attribute 'base'"));
+  PyObjectRef shape(
+      GetRequiredAttr(tensor_desc, "shape", "Tensor descriptor argument is missing required attribute 'shape'"));
+  PyObjectRef strides(GetRequiredAttr(
+      tensor_desc, "strides", "Tensor descriptor argument is missing required attribute 'strides'"));
+  PyObject* padding_obj = PyObject_GetAttrString(tensor_desc, "padding");
+  if (padding_obj == nullptr && PyErr_ExceptionMatches(PyExc_AttributeError)) {
+    PyErr_Clear();
+    padding_obj = Py_None;
+    Py_INCREF(padding_obj);
+  } else if (padding_obj == nullptr) {
+    ThrowPythonError("Failed to read tensor descriptor padding");
+  }
+  PyObjectRef padding(padding_obj);
+
+  PyObjectRef shape_fast(PySequence_Fast(shape.get(), "tensor descriptor shape must be a sequence"));
+  if (!shape_fast) {
+    ThrowPythonError("Failed to iterate tensor descriptor shape");
+  }
+  PyObjectRef strides_fast(PySequence_Fast(strides.get(), "tensor descriptor strides must be a sequence"));
+  if (!strides_fast) {
+    ThrowPythonError("Failed to iterate tensor descriptor strides");
+  }
+  TVM_FFI_CHECK(PySequence_Fast_GET_SIZE(shape_fast.get()) == rank, ValueError)
+      << "Tensor descriptor argument #" << arg_index << " expected rank " << rank << ", got shape of length "
+      << PySequence_Fast_GET_SIZE(shape_fast.get()) << ".";
+  TVM_FFI_CHECK(PySequence_Fast_GET_SIZE(strides_fast.get()) == rank, ValueError)
+      << "Tensor descriptor argument #" << arg_index << " expected rank " << rank
+      << ", got strides of length " << PySequence_Fast_GET_SIZE(strides_fast.get()) << ".";
+
+  owned_args->emplace_back(TensorBaseToObjectRef(base.get(), stream_ctx));
+  launch_args->push_back(owned_args->back());
+  for (int i = 0; i < rank; ++i) {
+    owned_args->emplace_back(
+        PyLongToInt64(PySequence_Fast_GET_ITEM(shape_fast.get(), i), "Tensor descriptor shape entries must be ints"));
+    launch_args->push_back(owned_args->back());
+  }
+  for (int i = 0; i < rank; ++i) {
+    owned_args->emplace_back(PyLongToInt64(
+        PySequence_Fast_GET_ITEM(strides_fast.get(), i), "Tensor descriptor stride entries must be ints"));
+    launch_args->push_back(owned_args->back());
+  }
+  owned_args->emplace_back(PaddingIsNan(padding.get()));
+  launch_args->push_back(owned_args->back());
+}
+
+}  // namespace
 
 inline void CheckCudaRuntimeError(cudaError_t err) {
   if (err != cudaSuccess) {
@@ -261,6 +635,25 @@ struct RegisteredKernel {
   std::vector<RuntimeArgSpec> runtime_args;
 };
 
+enum class BoundArgActionKind {
+  kPassThrough,
+  kConstexpr,
+  kTensorDesc,
+};
+
+struct BoundArgAction {
+  BoundArgActionKind kind;
+  int rank = 0;
+};
+
+struct BoundArgsLauncherPlan {
+  Function tvm_func;
+  int64_t registry_handle = 0;
+  std::vector<BoundArgAction> actions;
+  int32_t runtime_arg_count = 0;
+  bool needs_python = false;
+};
+
 static std::mutex g_kernel_mu;
 static std::unordered_map<int64_t, std::unique_ptr<RegisteredKernel>> g_registered_kernels;
 
@@ -428,6 +821,81 @@ int64_t RegisterKernel(const String& kernel_name,
     g_registered_kernels[handle] = std::move(kernel);
   }
   return handle;
+}
+
+Function MakeBoundArgsLauncher(const Function& tvm_func,
+                               int64_t registry_handle,
+                               const Array<String>& signature_type_names) {
+  TVM_FFI_CHECK(tvm_func != nullptr, ValueError) << "tvm_func must not be null.";
+
+  auto plan = std::make_shared<BoundArgsLauncherPlan>();
+  plan->tvm_func = tvm_func;
+  plan->registry_handle = registry_handle;
+  plan->actions.reserve(signature_type_names.size());
+
+  for (const String& type_name : signature_type_names) {
+    std::string_view type_name_view(type_name.data(), type_name.size());
+    if (type_name_view == "constexpr") {
+      plan->actions.push_back({BoundArgActionKind::kConstexpr, 0});
+      continue;
+    }
+    if (type_name_view.rfind("tensordesc", 0) == 0) {
+      int rank = ParseTensorDescRank(type_name_view);
+      TVM_FFI_CHECK(rank > 0 && rank <= 5, ValueError)
+          << "Tensor descriptor signature has unsupported rank " << rank << ": " << type_name_view;
+      plan->actions.push_back({BoundArgActionKind::kTensorDesc, rank});
+      plan->runtime_arg_count += 2 * rank + 2;
+      plan->needs_python = true;
+      continue;
+    }
+    plan->actions.push_back({BoundArgActionKind::kPassThrough, 0});
+    ++plan->runtime_arg_count;
+  }
+
+  return Function::FromPacked([plan = std::move(plan)](PackedArgs args, Any* ret) {
+    TVM_FFI_CHECK(args.size() >= 3, ValueError)
+        << "Expected at least 3 launch arguments, got " << args.size();
+    TVM_FFI_CHECK(args.size() == static_cast<int32_t>(plan->actions.size() + 3), ValueError)
+        << "Expected " << plan->actions.size() << " bound arguments for TVM-FFI launch, got "
+        << (args.size() - 3) << ".";
+    std::optional<ScopedPyGIL> gil;
+    if (plan->needs_python) {
+      gil.emplace();
+    }
+
+    std::array<Any, 4> prefix = {
+        Any(plan->registry_handle),
+        Any(args[0].cast<int32_t>()),
+        Any(args[1].cast<int32_t>()),
+        Any(args[2].cast<int32_t>()),
+    };
+    std::vector<Any> owned_args;
+    owned_args.reserve(static_cast<size_t>(plan->runtime_arg_count) + prefix.size());
+    StreamContextInfo stream_ctx;
+    std::vector<AnyView> launch_args;
+    launch_args.reserve(static_cast<size_t>(plan->runtime_arg_count) + prefix.size());
+    for (const Any& value : prefix) {
+      launch_args.push_back(value);
+    }
+
+    for (size_t i = 0; i < plan->actions.size(); ++i) {
+      const BoundArgAction& action = plan->actions[i];
+      if (action.kind == BoundArgActionKind::kPassThrough) {
+        launch_args.push_back(args[static_cast<int32_t>(i + 3)]);
+        continue;
+      }
+      if (action.kind == BoundArgActionKind::kTensorDesc) {
+        PyObject* tensor_desc = OpaquePyObjectBorrowedFromAny(args[static_cast<int32_t>(i + 3)], i);
+        AppendTensorDescExpandedArgs(
+            tensor_desc, action.rank, static_cast<int64_t>(i), &owned_args, &launch_args, &stream_ctx);
+      }
+    }
+
+    ScopedEnvStream scoped_stream(stream_ctx);
+    plan->tvm_func.CallPacked(
+        PackedArgs(launch_args.data(), static_cast<int32_t>(launch_args.size())),
+        ret);
+  });
 }
 
 inline void StoreIntegerArg(ArgKind kind, const Any& arg, std::deque<KernelArgSlot>* slots, std::vector<void*>* out) {
@@ -697,6 +1165,7 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
 }  // namespace triton_runner_tvm_ffi
 
 TVM_FFI_DLL_EXPORT_TYPED_FUNC(register_kernel, triton_runner_tvm_ffi::RegisterKernel)
+TVM_FFI_DLL_EXPORT_TYPED_FUNC(make_bound_args_launcher, triton_runner_tvm_ffi::MakeBoundArgsLauncher)
 
 extern "C" TVM_FFI_DLL_EXPORT int __tvm_ffi_launch(void* self,
                                                    const TVMFFIAny* args,
