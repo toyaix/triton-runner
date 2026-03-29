@@ -1,8 +1,8 @@
-from ..jit import jit
 import triton.language as tl
 from triton._C.libtriton import ir
 from triton._utils import validate_block_shape
 from triton.language.core import builtin, _unwrap_shape
+
 
 @builtin
 def dump(val: tl.tensor, offset=0, dump_grid=None, _semantic=None):
