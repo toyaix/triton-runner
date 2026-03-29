@@ -17,7 +17,7 @@ for ver in versions:
 
     print(f"Running test on triton=={ver}...")
     proc = subprocess.Popen(
-        [sys.executable, "examples/test.py"],
+        [sys.executable, "test/test.py"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
     fail_cmds = []
