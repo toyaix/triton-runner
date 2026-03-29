@@ -1,21 +1,12 @@
 import os
 
-try:
-    import termcolor
-except ImportError:
-    termcolor = None
+import termcolor
 
 def blue_print(text):
-    if termcolor is None:
-        print(text, flush=True)
-    else:
-        print(termcolor.colored(text, "blue"), flush=True)
+    print(termcolor.colored(text, "blue"), flush=True)
 
 def yellow_print(text):
-    if termcolor is None:
-        print(text, flush=True)
-    else:
-        print(termcolor.colored(text, "yellow"), flush=True)
+    print(termcolor.colored(text, "yellow"), flush=True)
 
 
 def get_project_name():
@@ -24,9 +15,6 @@ def get_project_name():
 def warning_dump_mode_ssa_and_op(ssa, op, loc, size, encoding):
     encoding = f" with encoding={encoding[2:]}" if encoding != "" else ""
     blue_print(f"{get_project_name()} In dump mode, ssa={ssa}, op={op}, loc={loc}, size={size}{encoding}")
-
-def warning_size_not_supported(ssa, op, loc, size):
-    yellow_print(f"{get_project_name()} Warning: size={size}(>3D tensor) is not supported. And ssa={ssa}, op={op}, loc={loc}")
 
 def print_triton_cache_dir(metadata_path, cache_hit=False):
     if os.environ.get("RUNNER_PROD", "0") != "1":

@@ -1,9 +1,9 @@
-from ..jit import jit
 import triton.language as tl
 from triton._C.libtriton import ir
 from triton.language._utils import validate_block_shape
-from triton.language.core import builtin, _unwrap_shape, cast
+from triton.language.core import builtin, _unwrap_shape
 from triton.language.core import semantic as _semantic
+
 
 def scalar_constant(value, dtype: tl.dtype, _builder):
     # scalar
@@ -16,11 +16,13 @@ def scalar_constant(value, dtype: tl.dtype, _builder):
         value = get_value_fn(value)
     return tl.tensor(value, dtype)
 
+
 def make_scalar(value, dtype: tl.dtype, _builder):
     if isinstance(value, tl.tensor):
         assert value.numel.value == 1, "only accepts size-1 tensor"
         return value.to(dtype, _builder=_builder)
     return scalar_constant(value, dtype, _builder)
+
 
 @builtin
 def dump(val: tl.tensor, offset=0, dump_grid=None, _builder=None):

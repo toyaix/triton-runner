@@ -1,20 +1,23 @@
+import hashlib
+import json
+import os
+import re
+import shutil
+from pathlib import Path
+
 from triton.runtime import driver
 from triton.runtime.cache import get_cache_manager, get_dump_manager, get_override_manager
 from triton.backends.compiler import GPUTarget
 from triton.compiler.compiler import make_backend, parse, filter_traceback
 from triton.compiler.compiler import ASTSource, IRSource, CompiledKernel
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
-import triton
-import hashlib
-import os
-import json
-from pathlib import Path
 
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
+from .triton_compat import triton_key
 from . import __version__
-from .version_utils import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, is_disable_multithreading
-from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_4, is_triton_geq_v3_5
+from .version_utils import is_triton_v3_4, is_disable_multithreading
+from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_5
 from .version_utils import triton_version
 from . import TRITON_TVM_FFI
 
@@ -24,7 +27,65 @@ def _is_cuda_target(target):
 
 
 def _should_use_compiled_kernel_v3_5_0(target, metadata_json):
-    return is_triton_geq_v3_5 and TRITON_TVM_FFI  and _is_cuda_target(target)
+    return is_triton_geq_v3_5 and TRITON_TVM_FFI and _is_cuda_target(target)
+
+
+def _load_ir_source_module(src, context, backend):
+    """Read an IR file from disk, returning (src, module).
+
+    For plain text IR formats, src is replaced with an IRSource wrapper and
+    module is None. For binary formats (cubin/hsaco), module holds the raw bytes.
+    """
+    assert isinstance(src, str), "source must be either AST or a filepath"
+    module = None
+    if src.endswith("llir"):
+        llvm.init_targets()
+        module = Path(src).read_text()
+    elif src.endswith("cubin") or src.endswith("hsaco"):
+        module = Path(src).read_bytes()
+    elif src.endswith("amdgcn"):
+        llvm.init_targets()
+        module = Path(src).read_text()
+    else:
+        src = IRSource(src) if is_triton_leq_v3_2 else IRSource(src, context, backend)
+    return src, module
+
+
+def _build_initial_metadata(kernel_signature, hash, target, options, env_vars):
+    """Construct the initial metadata dict for a compilation run."""
+    metadata = {
+        "kernel_signature": str(kernel_signature),
+        "hash": hash,
+        "target": target,
+        **options.__dict__,
+        **env_vars,
+    }
+    metadata["triton_version"] = triton_version
+    metadata["triton_runner_version"] = __version__
+    return metadata
+
+
+def _merge_metadata_from_json(metadata, metadata_json):
+    """Copy kernel-specific fields from metadata_json into the compilation metadata dict."""
+    metadata["name"] = metadata_json["name"]
+    metadata["shared"] = metadata_json["shared"]
+    if not is_triton_leq_v3_2:
+        metadata["kernel_signature"] = metadata_json.get("kernel_signature", None)
+        metadata["cluster_dims"] = metadata_json.get("cluster_dims", (1, 1, 1))
+        metadata["tensordesc_meta"] = metadata_json.get("tensordesc_meta", None)
+        metadata["num_warps"] = metadata_json.get("num_warps", 4)
+        metadata["tmem_size"] = metadata_json.get("tmem_size", 0)
+        metadata["global_scratch_size"] = metadata_json.get("global_scratch_size", 0)
+        metadata["global_scratch_align"] = metadata_json.get("global_scratch_align", 1)
+        metadata["profile_scratch_size"] = metadata_json.get("profile_scratch_size", 0)
+        metadata["profile_scratch_align"] = metadata_json.get("profile_scratch_align", 1)
+
+
+def _make_compiled_kernel(use_v3_5_0, ast_src, metadata_group, hash):
+    if use_v3_5_0:
+        from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
+        return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
+    return CompiledKernel(ast_src, metadata_group, hash)
 
 
 def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
@@ -32,37 +93,23 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
     backend = make_backend(target)
+    use_compiled_kernel_v3_5_0 = _should_use_compiled_kernel_v3_5_0(target, metadata_json)
+
     ir_source = not isinstance(src, ASTSource)
-    # create backend
+    module = None
     if ir_source:
-        assert isinstance(src, str), "source must be either AST or a filepath"
         context = ir.context()
-        if src.endswith("llir"):
-            module = Path(src).read_text()
-            llvm.init_targets()
-        elif src.endswith("cubin") or src.endswith("hsaco"):
-            module = Path(src).read_bytes()
-        elif src.endswith("amdgcn"):
-            llvm.init_targets()
-            module = Path(src).read_text()
-        else:
-            if is_triton_leq_v3_2:
-                src = IRSource(src)
-            else:
-                src = IRSource(src, context, backend)
+        src, module = _load_ir_source_module(src, context, backend)
 
     ast_extra_options = ast_src.parse_options()
-
-    if isinstance(src, ASTSource) or isinstance(src, IRSource):
-        extra_options = src.parse_options()
-    else:
-        extra_options = {}
+    extra_options = src.parse_options() if isinstance(src, (ASTSource, IRSource)) else {}
     # merge dictionaries, with ast_extra_options(your python code) having higher priority
     extra_options = extra_options | ast_extra_options
     options = backend.parse_options(dict(options or dict(), **extra_options))
+
     # create cache manager
     env_vars = get_cache_invalidating_env_vars()
-    if isinstance(src, ASTSource) or isinstance(src, IRSource):
+    if isinstance(src, (ASTSource, IRSource)):
         src_hash = src.hash()
     elif src.endswith("cubin") or src.endswith("hsaco"):
         src_hash = hashlib.sha256(module).hexdigest()
@@ -99,22 +146,11 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             parse_mlir_to_folder(mlir_dump_path)
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
-        if _should_use_compiled_kernel_v3_5_0(target, metadata_json):
-            from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
-            return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
-        else:
-            return CompiledKernel(ast_src, metadata_group, hash)
-    # initialize metadata
-    metadata = {
-        "kernel_signature": str(kernel_signature),
-        "hash": hash,
-        "target": target,
-        **options.__dict__,
-        **env_vars,
-    }
-    metadata["triton_version"] = triton_version
-    metadata["triton_runner_version"] = __version__
-    # run compilation pipeline  and populate metadata
+        return _make_compiled_kernel(use_compiled_kernel_v3_5_0, ast_src, metadata_group, hash)
+
+    metadata = _build_initial_metadata(kernel_signature, hash, target, options, env_vars)
+
+    # run compilation pipeline and populate metadata
     stages = dict()
     if is_triton_geq_v3_5 or is_tlx or is_triton_v3_4:
         if not isinstance(src, str):
@@ -122,16 +158,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         else:
             from triton.backends.compiler import Language
             backend.add_stages(stages, options, Language.TRITON)
-    # elif is_triton_v3_4:
-    #     from .pass_stages import add_stages
-    #     if not isinstance(src, str):
-    #         add_stages(backend, stages, options, src.language)
-    #     else:
-    #         from triton.backends.compiler import Language
-    #         add_stages(backend, stages, options, Language.TRITON)
     else:
         backend.add_stages(stages, options)
-    if isinstance(src, ASTSource) or isinstance(src, IRSource):
+    if isinstance(src, (ASTSource, IRSource)):
         src_ext = src.ext
     else:
         src_ext = Path(src).suffix[1:]
@@ -173,7 +202,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if source_path and os.path.exists(source_path):
         with open(source_path, 'r') as source:
             filename = os.path.basename(source_path)
-            content =  f"# {source_path}\n\n{source.read()}"
+            content = f"# {source_path}\n\n{source.read()}"
             fn_cache_manager.put(content, filename)
 
     print_triton_cache_dir(metadata_group[ir_filename])
@@ -205,18 +234,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     parse_mlir_to_folder(mlir_dump_path)
 
     if metadata_json:
-        metadata["name"] = metadata_json["name"]
-        metadata["shared"] = metadata_json["shared"]
-        if not is_triton_leq_v3_2:
-            metadata["kernel_signature"] = metadata_json.get("kernel_signature", None)
-            metadata["cluster_dims"] = metadata_json.get("cluster_dims", (1,1,1))
-            metadata["tensordesc_meta"] = metadata_json.get("tensordesc_meta", None)
-            metadata["num_warps"] = metadata_json.get("num_warps", 4)
-            metadata["tmem_size"] = metadata_json.get("tmem_size", 0)
-            metadata["global_scratch_size"] = metadata_json.get("global_scratch_size", 0)
-            metadata["global_scratch_align"] = metadata_json.get("global_scratch_align", 1)
-            metadata["profile_scratch_size"] = metadata_json.get("profile_scratch_size", 0)
-            metadata["profile_scratch_align"] = metadata_json.get("profile_scratch_align", 1)
+        _merge_metadata_from_json(metadata, metadata_json)
 
     # write-back metadata
     metadata_group[metadata_filename] = fn_cache_manager.put(json.dumps(metadata, default=vars), metadata_filename,
@@ -235,12 +253,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if not os.environ.get("TRITON_ENABLE_ASAN", "0") == "1":
         if is_disable_multithreading:
             context.disable_multithreading()
-    # return handle to compiled kernel
 
-    if _should_use_compiled_kernel_v3_5_0(target, metadata_json):
-        from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
-        return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
-    return CompiledKernel(ast_src, metadata_group, hash)
+    return _make_compiled_kernel(use_compiled_kernel_v3_5_0, ast_src, metadata_group, hash)
+
 
 def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context):
     if is_triton_leq_v3_1:
@@ -249,6 +264,7 @@ def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns,
     if is_triton_geq_v3_5 or is_tlx:
         return src.make_ir(target, options, codegen_fns, module_map, context)
     return src.make_ir(options, codegen_fns, module_map, context)
+
 
 def get_source_ir(src, target=None, options=None):
     if target is None:
@@ -271,23 +287,20 @@ def get_source_ir(src, target=None, options=None):
         raise
     return module
 
-from .triton_compat import triton_key
 
 def get_cache_key(src_hash, backend, backend_options, env_vars):
     runner_key = f'{__version__}'
     key = f"{triton_key()}-{runner_key}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
     return key
 
+
 def parse_mlir_to_folder(mlir_path):
     if not os.path.exists(mlir_path) or os.environ.get("MLIR_ENABLE_DUMP", "0") == "0":
         return
     folder_path = os.path.join(os.path.dirname(mlir_path), "mlir")
-    import shutil
     shutil.rmtree(folder_path, ignore_errors=True)
     os.makedirs(folder_path, exist_ok=True)
     content = open(mlir_path).read()
-
-    import re
 
     pattern = re.compile(
         r'// -----// IR Dump Before (?P<pass_name>.*?) '
@@ -299,6 +312,7 @@ def parse_mlir_to_folder(mlir_path):
     item = 'source'
     title = 'Python ast_to_ttir'
     last_body = None
+    idx = -1
     for idx, match in enumerate(pattern.finditer(content)):
         pass_name = match.group("pass_name").strip()
         pass_key = match.group("pass_key").strip()
@@ -312,5 +326,6 @@ def parse_mlir_to_folder(mlir_path):
         title = f"{item} ({operation})\n// Current Run Pass --{pass_key}"
         last_body = body
 
-    fp = open(os.path.join(folder_path, f"{idx+2:02d}-{item}.mlir"), "w")
-    print(f"// IR Dump After {title}\n", file=fp)
+    if idx >= 0:
+        with open(os.path.join(folder_path, f"{idx+2:02d}-{item}.mlir"), "w") as fp:
+            print(f"// IR Dump After {title}\n", file=fp)
