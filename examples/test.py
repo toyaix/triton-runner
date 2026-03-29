@@ -1,3 +1,4 @@
+import sys
 import triton
 import torch
 import os
@@ -44,5 +45,6 @@ if match:
     else:
         triton_runner.color_print.yellow_print(f"❌ SOME TEST FAIL on triton v{triton_version}")
         print("\n".join(fail_cmd))
+        sys.exit(1)
 else:
     print(f"sm{capability} on triton v{triton.__version__} not found")

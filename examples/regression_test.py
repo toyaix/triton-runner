@@ -16,11 +16,24 @@ for ver in versions:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", f"triton=={ver}"], check=True)
 
     print(f"Running test on triton=={ver}...")
-    result = subprocess.run([sys.executable, "examples/test.py"])
-    if result.returncode == 0:
+    proc = subprocess.Popen(
+        [sys.executable, "examples/test.py"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    )
+    fail_cmds = []
+    collecting = False
+    for line in proc.stdout:
+        print(line, end="", flush=True)
+        if "❌ SOME TEST FAIL" in line:
+            collecting = True
+            continue
+        if collecting and line.strip():
+            fail_cmds.append(line.strip())
+    proc.wait()
+    if proc.returncode == 0:
         passed.append(ver)
     else:
-        failed.append(ver)
+        failed.append((ver, fail_cmds))
 
 print(f"\n==========================================")
 print(f"REGRESSION SUMMARY")
@@ -28,5 +41,8 @@ print(f"==========================================")
 if passed:
     print(f"✅ PASS: {' '.join(passed)}")
 if failed:
-    print(f"❌ FAIL: {' '.join(failed)}")
+    for ver, fail_cmds in failed:
+        print(f"❌ FAIL: triton=={ver}")
+        for cmd in fail_cmds:
+            print(f"  - {cmd}")
     sys.exit(1)
