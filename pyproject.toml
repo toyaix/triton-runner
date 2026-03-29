@@ -12,7 +12,7 @@ version = "0.3.4"
 authors = [
     { name = "Bob Huang", email = "x@bobhuang.xyz" },
 ]
-license = {text = "MIT"}
+license = "MIT"
 
 [project.urls]
 repository = "https://github.com/toyaix/triton-runner"
