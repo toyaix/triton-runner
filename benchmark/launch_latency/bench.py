@@ -9,6 +9,7 @@
 from triton.compiler import CompiledKernel
 from triton_runner.bench.launch_latency.kernels import get_trivial_add_kernel, nop_kernel, nop_with_args_kernel, runner_nop_kernel, runner_nop_with_args_kernel
 from triton_runner.bench.utils import benchmark
+from triton_runner.compiler.compiler import CompiledTVMFFIKernel
 from torch import zeros
 import triton
 
@@ -46,6 +47,8 @@ class Operator:
             ](*args)
             if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
                 args = args[:-5]  # remove tl.constexpr args
+        if isinstance(bin, CompiledTVMFFIKernel):
+            return lambda: bin.run(1, 1, 1, 0, None, None, *args)
         function = bin.function
         metadata = (bin.packed_metadata if hasattr(bin, "packed_metadata") else bin.metadata)
         if hasattr(CompiledKernel, "launch_metadata"):
@@ -76,6 +79,8 @@ class Operator:
             ](*args)
             if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
                 args = args[:-5]  # remove tl.constexpr args
+        if isinstance(bin, CompiledTVMFFIKernel):
+            return lambda: bin.run(1, 1, 1, 0, None, None, *args)
         function = bin.function
         metadata = (bin.packed_metadata if hasattr(bin, "packed_metadata") else bin.metadata)
         if hasattr(CompiledKernel, "launch_metadata"):

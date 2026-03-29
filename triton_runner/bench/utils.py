@@ -6,9 +6,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import torch
+import statistics
 import time
 import os
+from collections.abc import Callable
+
+import torch
 from triton_runner.testing import do_bench
 
 
@@ -56,3 +59,39 @@ def benchmark(name, unit_name="ms"):
         return wrapper
 
     return decorator
+
+
+def bench_host_us(fn: Callable[[], None], *, warmup: int, iters: int, repeats: int) -> float:
+    for _ in range(warmup):
+        fn()
+    torch.cuda.synchronize()
+
+    samples = []
+    for _ in range(repeats):
+        torch.cuda.synchronize()
+        start = time.perf_counter()
+        for _ in range(iters):
+            fn()
+        torch.cuda.synchronize()
+        samples.append((time.perf_counter() - start) * 1e6 / iters)
+    return statistics.median(samples)
+
+
+def make_compiled_launch(compiled_kernel, grid: tuple[int, int], bound_args: tuple[object, ...]) -> Callable[[], None]:
+    launcher = compiled_kernel[(grid[0], grid[1], 1)]
+
+    def launch() -> None:
+        launcher(*bound_args)
+
+    return launch
+
+
+def make_direct_launch(compiled_kernel, grid: tuple[int, int], bound_args: tuple[object, ...]) -> Callable[[], None]:
+    launcher = compiled_kernel._get_launcher()
+    direct_args = tuple(arg for entry, arg in zip(launcher._signature, bound_args, strict=True) if not entry.is_constexpr)
+    grid_x, grid_y = grid
+
+    def launch() -> None:
+        launcher._tvm_func(launcher._registry_handle, grid_x, grid_y, 1, *direct_args)
+
+    return launch
