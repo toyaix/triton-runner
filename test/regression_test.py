@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 
@@ -6,6 +7,12 @@ ALL_VERSIONS = ["3.6.0", "3.5.1", "3.4.0", "3.3.1", "3.2.0", "3.1.0", "3.0.0"]
 
 versions = sys.argv[1:] if len(sys.argv) > 1 else ALL_VERSIONS
 
+conda_prefix = os.environ.get("CONDA_PREFIX")
+if conda_prefix:
+    python_exe = os.path.join(conda_prefix, "bin", "python")
+else:
+    python_exe = sys.executable
+
 passed = []
 failed = []
 
@@ -13,11 +20,11 @@ for ver in versions:
     print(f"\n==========================================")
     print(f"Installing triton=={ver}")
     print(f"==========================================")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", f"triton=={ver}"], check=True)
+    subprocess.run([python_exe, "-m", "pip", "install", "-q", f"triton=={ver}"], check=True)
 
     print(f"Running test on triton=={ver}...")
     proc = subprocess.Popen(
-        [sys.executable, "test/test.py"],
+        [python_exe, "test/test.py"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
     fail_cmds = []
