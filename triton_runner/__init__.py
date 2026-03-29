@@ -31,14 +31,39 @@ if is_triton_geq_v3_4:
 from . import color_print
 from . import torch_utils
 
+_original_triton_jit = None
+
+
 def configure_jit_backend():
+    global _original_triton_jit
     import triton
+    if _original_triton_jit is None:
+        _original_triton_jit = triton.jit
     triton.jit = jit
 
 
-def configure_autotune_backend():
+def restore_jit_backend():
     import triton
+    if _original_triton_jit is not None:
+        triton.jit = _original_triton_jit
+
+
+_original_triton_autotune = None
+
+
+def configure_autotune_backend():
+    global _original_triton_autotune
+    import triton
+    if _original_triton_autotune is None:
+        _original_triton_autotune = triton.autotune
     triton.autotune = autotune
+
+
+def restore_autotune_backend():
+    import triton
+    if _original_triton_autotune is not None:
+        triton.autotune = _original_triton_autotune
+
 
 def get_file_dir(file):
     import os

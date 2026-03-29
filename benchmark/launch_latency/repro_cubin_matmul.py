@@ -4,6 +4,19 @@ Measured on 2026-03-30 with:
     python benchmark/launch_latency/repro_cubin_matmul.py
 
 Environment:
+    device: NVIDIA H20-3e (cc 9.0)
+    kernel: sm90 cubin matmul
+    problem: A=(1, 1) B=(1, 1) C=(1, 1) grid=(1, 1, 1)
+    measure: host launch latency, median over 7 repeats
+
+Results:
+    Triton: 14.265 us
+    TVM-Triton (CompiledTVMFFIKernel.__getitem__/run): 6.140 us
+    direct launch: 6.139 us
+    TVM-Triton - direct launch: 0.001 us
+    Triton - direct launch: 8.126 us
+
+Environment:
     device: Tesla T4 (cc 7.5)
     kernel: sm75 cubin matmul
     problem: A=(1, 1) B=(1, 1) C=(1, 1) grid=(1, 1, 1)
