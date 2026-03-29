@@ -21,15 +21,13 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
     def get_autotune_args_set(self):
         return {"autotune_cubin_dir"}
 
+    @property
+    def source_path(self):
+        return self.__dict__["__globals__"].get("__file__")
+
     def get_runner_cache_dir(self):
-        from .version_utils import is_triton_geq_v3_4
-        if is_triton_geq_v3_4:
-            from triton import knobs
-            cache_dir = knobs.cache.dir
-        else:
-            from triton.runtime.cache import default_cache_dir
-            cache_dir = os.getenv("TRITON_CACHE_DIR", "").strip() or default_cache_dir()
-        runner_cache_dir = os.path.join(cache_dir, "runner_cache")
+        from .triton_compat import get_triton_cache_dir
+        runner_cache_dir = os.path.join(get_triton_cache_dir(), "runner_cache")
         os.makedirs(runner_cache_dir, exist_ok=True)
         return runner_cache_dir
 
@@ -137,9 +135,8 @@ class RunnerJITFunction(JITFunction[KernelInterface[T]]):
 
         #     kernel = async_mode.submit(cache_key, async_compile, finalize_compile)
         # else:
-        source_path = self.__dict__["__globals__"]["__file__"]
         # [Triton Runner] change compile
-        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=source_path, kernel_signature=kernel_signature)
+        kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
         # kernel = self.compile(src, target=target, options=options.__dict__)
         kernel_cache[key] = kernel
         self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
@@ -489,7 +486,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             # [Triton Runner] dump after _call_hook
             src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, kernel_signature=kernel_signature)
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
             kernel_cache[key] = kernel
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                             warmup)
@@ -640,7 +637,7 @@ class RunnerJITFunctionV3_3_0(RunnerJITFunction[KernelInterface[T]]):
             # [Triton Runner] dump after _call_hook
             src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, kernel_signature=kernel_signature)
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
             kernel_cache[key] = kernel
             self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
 
@@ -749,7 +746,7 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
             else:
                 src = ast_src
 
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path)
             self.cache[device][key] = kernel
             self._call_hook(key, signature, device, constants, options, configs, warmup, before=False)
 
@@ -852,7 +849,7 @@ class RunnerJITFunctionV3_1_0(RunnerJITFunction[KernelInterface[T]]):
                     metadata_json = json.loads(open(json_path, "r").read())
             else:
                 src = ast_src
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__)
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path)
             self.cache[device][key] = kernel
 
         # Check that used global values have not changed.

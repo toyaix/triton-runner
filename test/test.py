@@ -1,3 +1,4 @@
+import sys
 import triton
 import torch
 import os
@@ -20,16 +21,22 @@ capability = capability[0] * 10 + capability[1]
 pattern = re.compile(rf"### sm{capability}.*?shell(.*?)```", re.DOTALL)
 runner_file_path = os.path.join("examples", "runner", f"v{uni_triton_version}", "README.md")
 match = pattern.search(get_content(runner_file_path))
-if match:
+_triton_ver_tuple = tuple(int(x) for x in triton_version.split("."))
+if match and not (capability == 120 and _triton_ver_tuple < (3, 3, 1)):
     lines = get_lines(match)
     pattern = re.compile(rf"shell(.*?)```", re.DOTALL)
     bench_file_path = os.path.join("doc", "benchmark.md")
-    lines.extend(get_lines(pattern.search(get_content(bench_file_path))))
     from triton_runner.version_utils import is_triton_geq_v3_3
+    bench_lines = get_lines(pattern.search(get_content(bench_file_path)))
+    bench_lines = [cmd for cmd in bench_lines if "matmul/mma" not in cmd or capability >= 80]
+    lines.extend(bench_lines)
     if is_triton_geq_v3_3:
         debug_file_path = os.path.join("doc", "dump.md")
+        dump_lines = []
         for i, m in enumerate(pattern.finditer((get_content(debug_file_path)), 1)):
-            lines.extend(get_lines(m))
+            dump_lines.extend(get_lines(m))
+        dump_lines = [cmd for cmd in dump_lines if "06-attention" not in cmd or capability >= 80]
+        lines.extend(dump_lines)
     triton_runner.color_print.yellow_print(f"TEST on triton v{triton_version}")
     fail_cmd = []
     for cmd in lines:
@@ -44,5 +51,6 @@ if match:
     else:
         triton_runner.color_print.yellow_print(f"❌ SOME TEST FAIL on triton v{triton_version}")
         print("\n".join(fail_cmd))
+        sys.exit(1)
 else:
     print(f"sm{capability} on triton v{triton.__version__} not found")

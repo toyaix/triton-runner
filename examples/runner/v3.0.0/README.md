@@ -44,5 +44,5 @@ python examples/runner/v3.1.0/llir/sm75/matmul.py
 
 python examples/runner/v3.2.0/ptx/sm75/matmul.py
 
-python examples/runner/v3.4.0/cubin/sm75/matmul.py
+python examples/runner/v3.2.0/cubin/sm75/matmul.py
 ```
