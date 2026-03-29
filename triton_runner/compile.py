@@ -16,7 +16,6 @@ from . import __version__
 from .version_utils import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, is_disable_multithreading
 from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_4, is_triton_geq_v3_5
 from .version_utils import triton_version
-from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
 from . import TRITON_TVM_FFI
 
 
@@ -101,6 +100,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
         if _should_use_compiled_kernel_v3_5_0(target, metadata_json):
+            from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
             return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
         else:
             return CompiledKernel(ast_src, metadata_group, hash)
@@ -238,6 +238,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # return handle to compiled kernel
 
     if _should_use_compiled_kernel_v3_5_0(target, metadata_json):
+        from triton_runner.compiler.compiler import CompiledKernel_v3_5_0
         return CompiledKernel_v3_5_0(ast_src, metadata_group, hash)
     return CompiledKernel(ast_src, metadata_group, hash)
 
