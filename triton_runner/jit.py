@@ -11,6 +11,17 @@ from .jit_metadata import MetadataMixin
 
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
 
+    def get_cache_key_with_runner_args(self, key, kwargs):
+        if "dump_tensor" in kwargs:
+            key += "|dump_tensor"
+        if "dump_value" in kwargs:
+            key += f"|dump_value={kwargs['dump_value']}"
+        if "dump_grid" in kwargs:
+            key += f"|dump_grid={kwargs['dump_grid']}"
+        if (runner_source_key_suffix := self.get_runner_source_key_suffix(kwargs)):
+            key += f"|runner_src={runner_source_key_suffix}"
+        return key
+
     def get_runner_args_set(self):
         return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "amdgcn_dir", "cubin_dir", "hsaco_dir", "ttir_src", "ttgir_src"}
 
