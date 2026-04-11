@@ -8,9 +8,9 @@ from triton.runtime.driver import driver
 class RunnerCompiledKernel(CompiledKernel):
 
     def _init_handles(self):
-        # create launcher – use TVM-FFI driver when enabled, otherwise CudaLauncher
+        # create launcher – use TVM-FFI driver when enabled and cubin is available (CUDA only)
         from triton_runner import TRITON_RUNNER_ENABLE_TVM_FFI
-        if TRITON_RUNNER_ENABLE_TVM_FFI:
+        if TRITON_RUNNER_ENABLE_TVM_FFI and self.metadata.target.backend == "cuda":
             if self.module is not None:
                 return
             from triton_runner.tvm_ffi.driver import TvmFfiLauncher
