@@ -12,15 +12,15 @@ class DumpMixin:
     def is_python_dump(self, kwargs, source_dir_type):
         return self.need_dump(kwargs) and source_dir_type not in ["ttir_dir", "ttgir_dir"]
 
-    def get_dump_key(self, key, kwargs):
+    def get_cache_key_with_runner_args(self, key, kwargs):
         if self.need_dump(kwargs):
             key += "|dump_tensor"
         if "dump_value" in kwargs:
             key += f"|dump_value={kwargs['dump_value']}"
         if "dump_grid" in kwargs:
             key += f"|dump_grid={kwargs['dump_grid']}"
-        if (runner_source_dir_str := self.get_runner_source_dir_str(kwargs)):
-            key += f"|runner_src={runner_source_dir_str}"
+        if (runner_source_key_suffix := self.get_runner_source_key_suffix(kwargs)):
+            key += f"|runner_src={runner_source_key_suffix}"
         return key
 
     def insert_dump_tensor_param(self, full_text):

@@ -45,7 +45,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         return self._check_source_dir_type(
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
-    def get_runner_source_dir_str(self, kwargs):
+    def get_runner_source_key_suffix(self, kwargs):
         runner_args_set = self.get_runner_args_set()
         for k in kwargs:
             if k in runner_args_set:
@@ -152,6 +152,7 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
             specialization.append(f'("custom_pipeline", {inspect_stages_hash})')
 
         key = compute_cache_key(kernel_key_cache, specialization, options)
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         if kernel is None:
@@ -203,7 +204,7 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
         key = compute_cache_key(kernel_key_cache, specialization, options)
         # [Triton Runner] dump key
-        key = self.get_dump_key(key, kwargs)
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         if kernel is None:
@@ -254,7 +255,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         key = str(specialization) + str(options)
         # [Triton Runner] dump key
-        key = self.get_dump_key(key, kwargs)
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         if kernel is None:
@@ -310,6 +311,7 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
         bound_args, specialization, options = binder(*args, **kwargs)
 
         key = compute_cache_key(kernel_key_cache, specialization, options)
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         if kernel is None:
@@ -356,7 +358,7 @@ class RunnerJITFunctionV3_3_0(RunnerJITFunction[KernelInterface[T]]):
 
         key = str(specialization) + str(options)
         # [Triton Runner] dump key
-        key = self.get_dump_key(key, kwargs)
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = kernel_cache.get(key, None)
 
         if kernel is None:
