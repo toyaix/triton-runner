@@ -32,6 +32,7 @@ tvm-ffi = [
 
 [tool.setuptools.package-data]
 "triton_runner" = ["README.md"]
+"triton_runner.tvm_ffi" = ["generic_launcher.cc"]
 
 [tool.setuptools.packages.find]
 include = ["triton_runner*"]
