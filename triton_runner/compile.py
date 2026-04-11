@@ -19,7 +19,7 @@ from . import __version__
 from .version_utils import is_triton_v3_4, is_disable_multithreading
 from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_5
 from .version_utils import triton_version
-from . import TRITON_TVM_FFI
+from . import TRITON_RUNNER_ENABLE_TVM_FFI
 
 
 def _is_cuda_target(target):
@@ -82,7 +82,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
     backend = make_backend(target)
-    use_tvm_ffi_compiled_kernel = TRITON_TVM_FFI and _is_cuda_target(target)
+    use_tvm_ffi_compiled_kernel = TRITON_RUNNER_ENABLE_TVM_FFI and _is_cuda_target(target)
     ir_source = not isinstance(src, ASTSource)
     module = None
     if ir_source:

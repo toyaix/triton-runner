@@ -36,7 +36,7 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
-os.environ.setdefault("TRITON_TVM_FFI", "1")
+os.environ.setdefault("TRITON_RUNNER_ENABLE_TVM_FFI", "1")
 
 import torch
 import triton

@@ -33,8 +33,8 @@ class CompiledKernel_v3_5_0(CompiledKernel):
         # self._run = driver.active.launcher_cls(self.src, self.metadata)
 
         # create launcher – use TVM-FFI driver when enabled, otherwise CudaLauncher
-        from triton_runner import TRITON_TVM_FFI
-        if TRITON_TVM_FFI:
+        from triton_runner import TRITON_RUNNER_ENABLE_TVM_FFI
+        if TRITON_RUNNER_ENABLE_TVM_FFI:
             from triton_runner.driver.tvm_ffi_driver import TvmFfiLauncher
             self._run = TvmFfiLauncher(self.src, self.metadata, self.asm)
             # TVM-FFI loads the cubin internally; set module to a sentinel to
