@@ -9,13 +9,14 @@ from triton.runtime import driver
 from triton.runtime.cache import get_cache_manager, get_dump_manager, get_override_manager
 from triton.backends.compiler import GPUTarget
 from triton.compiler.compiler import make_backend, parse, filter_traceback
-from triton.compiler.compiler import ASTSource, IRSource, CompiledKernel
+from triton.compiler.compiler import ASTSource, IRSource
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
 
 from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from .triton_compat import triton_key
 from . import __version__
+from .compiler.compiler import RunnerCompiledKernel
 from .version_utils import is_triton_v3_4, is_disable_multithreading
 from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_5
 from .version_utils import triton_version
@@ -131,7 +132,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if use_tvm_ffi_compiled_kernel:
             from triton_runner.compiler.compiler import CompiledTVMFFIKernel
             return CompiledTVMFFIKernel(cubin_path, json_path)
-        return CompiledKernel(ast_src, metadata_group, hash)
+        return RunnerCompiledKernel(ast_src, metadata_group, hash)
 
     always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
     mlir_dump_path = os.environ.get("MLIR_DUMP_PATH", None)
