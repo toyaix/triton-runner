@@ -89,6 +89,18 @@ def make_compiled_launch(compiled_kernel, grid: tuple, bound_args: tuple[object,
     return launch
 
 
+def make_subscript_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
+    grid_x = grid[0]
+    grid_y = grid[1] if len(grid) > 1 else 1
+    grid_z = grid[2] if len(grid) > 2 else 1
+    g = (grid_x, grid_y, grid_z)
+
+    def launch() -> None:
+        compiled_kernel[g](*bound_args)
+
+    return launch
+
+
 def _has_tensor_descriptor(args: tuple) -> bool:
     try:
         from triton.tools.tensor_descriptor import TensorDescriptor

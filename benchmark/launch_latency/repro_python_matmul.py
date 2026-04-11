@@ -14,7 +14,7 @@ from triton_runner.bench.matmul.arch import (
     resolve_arch_config, enable_tma_allocator, reference_matmul, validate_matmul_outputs,
 )
 from triton_runner.bench.matmul.kernels import _scalar_matmul_kernel, _dot_matmul_kernel, _tma_matmul_kernel
-from triton_runner.bench.utils import bench_host_us, make_compiled_launch, make_direct_launch
+from triton_runner.bench.utils import bench_host_us, make_compiled_launch, make_direct_launch, make_subscript_launch
 
 
 plain_scalar_matmul_kernel = triton.jit(_scalar_matmul_kernel)
@@ -163,16 +163,19 @@ def main() -> None:
     if hasattr(compiled_runner, "result"):
         compiled_runner = compiled_runner.result()
     compiled_launch = make_compiled_launch(compiled_runner, plan.grid, plan.compiled_bound_args)
+    subscript_launch = make_subscript_launch(compiled_runner, plan.grid, plan.compiled_bound_args)
     direct_launch = make_direct_launch(compiled_runner, plan.grid, plan.direct_bound_args)
 
     plan.plain_launch()
     compiled_launch()
+    subscript_launch()
     direct_launch()
     torch.cuda.synchronize()
     validate_matmul_outputs(reference_matmul(a, b, config), config.atol, c_plain, c_runner, c_direct)
 
     triton_us = bench_host_us(plan.plain_launch, warmup=args.warmup, iters=args.iters, repeats=args.repeats)
     tvm_triton_us = bench_host_us(compiled_launch, warmup=args.warmup, iters=args.iters, repeats=args.repeats)
+    tvm_subscript_us = bench_host_us(subscript_launch, warmup=args.warmup, iters=args.iters, repeats=args.repeats)
     direct_us = bench_host_us(direct_launch, warmup=args.warmup, iters=args.iters, repeats=args.repeats)
 
     grid_x, grid_y = plan.grid
@@ -182,6 +185,7 @@ def main() -> None:
     print(f"measure: host launch latency, median over {args.repeats} repeats")
     print(f"Triton: {triton_us:.3f} us")
     print(f"TVM-Triton (CompiledTVMFFIKernel.__getitem__/run): {tvm_triton_us:.3f} us")
+    print(f"TVM-Triton (kernel[grid]() each call): {tvm_subscript_us:.3f} us")
     print(f"direct launch: {direct_us:.3f} us")
     print(f"TVM-Triton - direct launch: {tvm_triton_us - direct_us:.3f} us")
     print(f"Triton - direct launch: {triton_us - direct_us:.3f} us")
