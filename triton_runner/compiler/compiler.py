@@ -35,7 +35,7 @@ class CompiledKernel_v3_5_0(CompiledKernel):
         # create launcher – use TVM-FFI driver when enabled, otherwise CudaLauncher
         from triton_runner import TRITON_RUNNER_ENABLE_TVM_FFI
         if TRITON_RUNNER_ENABLE_TVM_FFI:
-            from triton_runner.driver.tvm_ffi_driver import TvmFfiLauncher
+            from triton_runner.tvm_ffi.driver import TvmFfiLauncher
             self._run = TvmFfiLauncher(self.src, self.metadata, self.asm)
             # TVM-FFI loads the cubin internally; set module to a sentinel to
             # prevent re-initialisation on the next call.
@@ -75,7 +75,7 @@ class CompiledTVMFFIKernel:
 
     def _get_launcher(self):
         if self._run_launcher is None:
-            from triton_runner.driver.tvm_ffi_driver import TvmFfiLauncher
+            from triton_runner.tvm_ffi.driver import TvmFfiLauncher
             cubin_bytes = Path(self._cubin_path).read_bytes()
             metadata = json.loads(Path(self._json_path).read_text())
             self._run_launcher = TvmFfiLauncher(None, metadata, {"cubin": cubin_bytes})

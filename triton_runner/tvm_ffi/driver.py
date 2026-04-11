@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from ._cuda_build import build_module_from_src, cuda_include_dirs, library_dirs
+from ..driver._cuda_build import build_module_from_src, cuda_include_dirs, library_dirs
 
 _GENERIC_LAUNCHER_NAME = "triton_runner_tvm_ffi_generic_launcher"
 _generic_module_cache: dict[str, Any] = {}
@@ -36,11 +36,11 @@ _ARG_KIND_CODES = {
 
 
 def _get_generic_launcher_source_path() -> Path:
-    return Path(__file__).with_name("tvm_ffi_generic_launcher.cc")
+    return Path(__file__).with_name("generic_launcher.cc")
 
 
 def _build_generic_launcher_module(tvm_ffi_module: Any, module_name: str, build_dir: str | Path, source: str) -> Any:
-    from ..tvm_ffi import _shared_library_path
+    from . import _shared_library_path
 
     tvm_ffi_root = Path(tvm_ffi_module.__file__).resolve().parent
     include_dirs = [str(tvm_ffi_root / "include"), *cuda_include_dirs()]
@@ -90,7 +90,7 @@ def _registration_token_for_payload(payload: tuple[Any, ...]) -> str:
 
 
 def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
-    from ..tvm_ffi import _runtime_arg_registration_specs, _validate_launch_metadata
+    from . import _runtime_arg_registration_specs, _validate_launch_metadata
 
     metadata = artifact.metadata
     _validate_launch_metadata(metadata)
@@ -155,7 +155,7 @@ def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
 
 
 def _get_or_build_generic_launcher_module() -> tuple[str, Any]:
-    from ..tvm_ffi import (
+    from . import (
         _ensure_tvm_ffi_cache_dir,
         _maybe_load_cached_module,
         _require_tvm_ffi,
@@ -213,7 +213,7 @@ class TvmFfiLauncher:
     def __init__(self, src, metadata, asm):
         del src
 
-        from ..tvm_ffi import (
+        from . import (
             _CompiledArtifact,
             _make_bound_args_launcher,
             _normalize_metadata,

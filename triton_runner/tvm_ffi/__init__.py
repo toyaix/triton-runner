@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .version_utils import is_triton_geq_v3_5, triton_version
+from ..version_utils import is_triton_geq_v3_5, triton_version
 
 
 _FLOAT_SCALAR_KERNEL_TYPES = {
@@ -245,7 +245,7 @@ def _make_bound_args_launcher(
         tvm_mod: Any | None = None,
 ):
     if tvm_mod is None:
-        from .driver.tvm_ffi_driver import _get_or_build_generic_launcher_module
+        from .driver import _get_or_build_generic_launcher_module
 
         _, tvm_mod = _get_or_build_generic_launcher_module()
     builder = getattr(tvm_mod, "make_bound_args_launcher")
