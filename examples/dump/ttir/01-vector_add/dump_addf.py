@@ -2,9 +2,10 @@ import triton
 import triton.language as tl
 import torch
 import triton_runner
+
 triton_runner.configure_jit_backend()
 
-DEVICE = triton.runtime.driver.active.get_active_torch_device()
+DEVICE = triton_runner.torch_utils.get_active_torch_device()
 
 @triton.jit
 def add_kernel(x_ptr,  # *Pointer* to first input vector.
