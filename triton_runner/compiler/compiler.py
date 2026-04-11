@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from triton import knobs
 from triton.compiler.compiler import CompiledKernel, json
-from triton.runtime.driver import driver
 
 
 class RunnerCompiledKernel(CompiledKernel):
@@ -36,34 +34,17 @@ class CompiledTVMFFIKernel:
             self._run_launcher = TvmFfiLauncher(None, metadata, {"cubin": cubin_bytes})
         return self._run_launcher
 
-    def run(self, gridX, gridY, gridZ, stream, launch_enter_hook, launch_exit_hook, *args):
-        launcher = self._get_launcher()
-        launcher(
-            gridX,
-            gridY,
-            gridZ,
-            stream,
-            None,
-            None,
-            None,
-            launch_enter_hook,
-            launch_exit_hook,
-            *args,
-        )
+    def _launch(self, gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args):
+        self._get_launcher().launch(gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args)
+
+    def run(self, gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args):
+        self._launch(gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args)
 
     def __getitem__(self, grid):
+        from triton import knobs
+
         def runner(*args, stream=None):
-            if stream is None:
-                device = driver.active.get_current_device()
-                stream = driver.active.get_current_stream(device)
-            self.run(
-                grid[0],
-                grid[1],
-                grid[2],
-                stream,
-                knobs.runtime.launch_enter_hook,
-                knobs.runtime.launch_exit_hook,
-                *args,
-            )
+            self._launch(grid[0], grid[1], grid[2],
+                         knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *args)
 
         return runner

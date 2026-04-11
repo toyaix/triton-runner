@@ -120,7 +120,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
 
     def _launch_kernel(self, kernel, grid, grid_0, grid_1, grid_2, stream, arg_values, launch_enter_hook, launch_exit_hook):
         if isinstance(kernel, CompiledTVMFFIKernel):
-            kernel.run(grid_0, grid_1, grid_2, stream, launch_enter_hook, launch_exit_hook, *arg_values)
+            kernel.run(grid_0, grid_1, grid_2, launch_enter_hook, launch_exit_hook, *arg_values)
             return
         launch_metadata = kernel.launch_metadata(grid, stream, *arg_values)
         kernel.run(

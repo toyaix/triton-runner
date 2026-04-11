@@ -257,19 +257,15 @@ class TvmFfiLauncher:
             tvm_mod=self._tvm_mod,
         )
 
-    def __call__(self, gridX, gridY, gridZ, stream, function, *args):
-        del stream, function
+    def launch_metadata(self, grid, stream, *args):
+        return None
 
-        packed_metadata = args[0]
-        launch_metadata = args[1]
-        launch_enter_hook = args[2]
-        launch_exit_hook = args[3]
-        bound_args = args[4:]
-        del packed_metadata
+    def __call__(self, gridX, gridY, gridZ, stream, function, packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, *bound_args):
+        self.launch(gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *bound_args)
 
+    def launch(self, gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args):
         if launch_enter_hook is not None:
-            launch_enter_hook(launch_metadata)
-        self._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *bound_args)
-
+            launch_enter_hook(None)
+        self._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *args)
         if launch_exit_hook is not None:
-            launch_exit_hook(launch_metadata)
+            launch_exit_hook(None)
