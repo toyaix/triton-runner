@@ -112,18 +112,23 @@ def _build_with_ccflags(
         ccflags: list[str],
 ) -> Path:
     import sysconfig
-    cc = os.environ.get("CXX", os.environ.get("CC", "gcc"))
     suffix = sysconfig.get_config_var("EXT_SUFFIX") or ".so"
+    python_include = sysconfig.get_path("include")
+    is_cxx = source_path.suffix in (".cc", ".cpp", ".cxx")
+    cc = os.environ.get("CXX" if is_cxx else "CC", "g++" if is_cxx else "gcc")
     out_path = build_dir / f"{module_name}{suffix}"
+    all_include_dirs = list(include_dirs_list)
+    if python_include and python_include not in all_include_dirs:
+        all_include_dirs.append(python_include)
     cmd = [
         cc,
         str(source_path),
-        "-O3", "-shared", "-fPIC",
+        "-O3", "-shared", "-fPIC", "-Wno-psabi",
         *ccflags,
         "-o", str(out_path),
         *[f"-L{d}" for d in library_dirs_list],
         *[f"-l{lib}" for lib in libraries_list],
-        *[f"-I{d}" for d in include_dirs_list],
+        *[f"-I{d}" for d in all_include_dirs],
     ]
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     return out_path
