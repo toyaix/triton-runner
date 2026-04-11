@@ -101,6 +101,34 @@ def library_dirs(*extra_dirs: str | Path, include_stubs: bool = False) -> tuple[
     return _dedupe_paths(dirs)
 
 
+def _build_with_ccflags(
+        *,
+        module_name: str,
+        source_path: Path,
+        build_dir: Path,
+        library_dirs_list: list[str],
+        include_dirs_list: list[str],
+        libraries_list: list[str],
+        ccflags: list[str],
+) -> Path:
+    import sysconfig
+    cc = os.environ.get("CXX", os.environ.get("CC", "gcc"))
+    suffix = sysconfig.get_config_var("EXT_SUFFIX") or ".so"
+    out_path = build_dir / f"{module_name}{suffix}"
+    cmd = [
+        cc,
+        str(source_path),
+        "-O3", "-shared", "-fPIC",
+        *ccflags,
+        "-o", str(out_path),
+        *[f"-L{d}" for d in library_dirs_list],
+        *[f"-l{lib}" for lib in libraries_list],
+        *[f"-I{d}" for d in include_dirs_list],
+    ]
+    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    return out_path
+
+
 def build_module_from_src(
         *,
         module_name: str,
@@ -130,6 +158,16 @@ def build_module_from_src(
     build_params = inspect.signature(_build).parameters
     if "ccflags" in build_params:
         built_path = Path(_build(*build_args, list(ccflags)))
+    elif ccflags:
+        built_path = _build_with_ccflags(
+            module_name=module_name,
+            source_path=source_path,
+            build_dir=build_dir,
+            library_dirs_list=list(library_dirs),
+            include_dirs_list=list(include_dirs),
+            libraries_list=list(libraries),
+            ccflags=list(ccflags),
+        )
     else:
         built_path = Path(_build(*build_args))
     final_path = built_path if final_path is None else Path(final_path)
