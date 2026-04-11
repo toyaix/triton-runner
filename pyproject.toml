@@ -19,7 +19,7 @@ repository = "https://github.com/toyaix/triton-runner"
 homepage = "https://triton-runner.org"
 
 [build-system]
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -28,7 +28,6 @@ include-package-data = true
 [project.optional-dependencies]
 tvm-ffi = [
     "apache-tvm-ffi",
-    "ninja",
 ]
 
 [tool.setuptools.package-data]
