@@ -20,7 +20,7 @@ Compatibility summary:
 - Primary target: `v3.5.x`
 - Supported runner inputs: Python Triton, Gluon, TTIR, TTGIR, LLIR, PTX, cubin, AMDGCN, and hsaco
 - Dump support: Python, TTIR, and TTGIR
-- Optional CUDA bridge: TVM-FFI on Triton `v3.5+`
+- Optional CUDA bridge: TVM-FFI on Triton `v3.3+`
 - MLIR split output: set `MLIR_ENABLE_DUMP=1` to expand `all.mlir` into per-pass files in the cache directory
 
 ## ✨ Features
@@ -48,7 +48,7 @@ pip install -e .
 
 ### Optional: TVM-FFI
 
-Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) for Triton `v3.5+`.
+Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) for Triton `v3.3+`.
 
 ```shell
 pip install triton-runner[tvm-ffi]
@@ -282,6 +282,8 @@ python benchmark/launch_latency/bench.py
 python benchmark/matmul/mma/bench.py
 python benchmark/attn/flash_attention/bench.py
 ```
+
+`benchmark/launch_latency/bench.py` requires Triton `v3.3.0+`.
 
 ## IV. Solving Triton Issues
 

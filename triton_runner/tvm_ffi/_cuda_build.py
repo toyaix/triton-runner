@@ -1,13 +1,27 @@
 from __future__ import annotations
 
 import functools
+import importlib.util
+import inspect
 import os
 import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
 from triton import knobs
-from triton.runtime.build import _build, _load_module_from_path
+from triton.runtime.build import _build
+
+try:
+    from triton.runtime.build import _load_module_from_path
+except ImportError:
+
+    def _load_module_from_path(name: str, path: str) -> Any:
+        spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"Failed to load compiled module {name} from {path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
 
 
 def _dedupe_paths(paths: list[str]) -> tuple[str, ...]:
@@ -105,16 +119,19 @@ def build_module_from_src(
     source_path = build_dir / f"{module_name}{source_ext}"
     source_path.write_text(source)
 
-    built_path = Path(
-        _build(
-            module_name,
-            str(source_path),
-            str(build_dir),
-            list(library_dirs),
-            list(include_dirs),
-            list(libraries),
-            list(ccflags),
-        ))
+    build_args = (
+        module_name,
+        str(source_path),
+        str(build_dir),
+        list(library_dirs),
+        list(include_dirs),
+        list(libraries),
+    )
+    build_params = inspect.signature(_build).parameters
+    if "ccflags" in build_params:
+        built_path = Path(_build(*build_args, list(ccflags)))
+    else:
+        built_path = Path(_build(*build_args))
     final_path = built_path if final_path is None else Path(final_path)
     if built_path != final_path:
         final_path.unlink(missing_ok=True)

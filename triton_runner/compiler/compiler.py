@@ -4,8 +4,6 @@ from triton import knobs
 from triton.compiler.compiler import CompiledKernel, json
 from triton.runtime.driver import driver
 
-from ..version_utils import is_triton_geq_v3_5
-
 
 class RunnerCompiledKernel(CompiledKernel):
 
@@ -23,11 +21,6 @@ class RunnerCompiledKernel(CompiledKernel):
             self.function = None
             return
         super()._init_handles()
-
-
-if not is_triton_geq_v3_5:
-    RunnerCompiledKernel = CompiledKernel
-
 
 class CompiledTVMFFIKernel:
     def __init__(self, cubin_path, json_path):

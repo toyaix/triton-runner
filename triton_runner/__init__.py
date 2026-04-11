@@ -1,6 +1,6 @@
 __version__ = '0.3.6'
 
-from .version_utils import is_support_version, triton_version
+from .version_utils import is_support_version, is_triton_geq_v3_3, triton_version
 if not is_support_version:
     raise RuntimeError(f"Triton Runner doesn't support Triton v{triton_version}")
 
@@ -16,6 +16,10 @@ def _env_flag(name, default=True):
 def _init_tvm_ffi_flag():
     enabled = _env_flag("TRITON_RUNNER_ENABLE_TVM_FFI", default=False)
     if enabled:
+        if not is_triton_geq_v3_3:
+            raise RuntimeError(
+                "TRITON_RUNNER_ENABLE_TVM_FFI requires Triton v3.3.0+ for RunnerCompiledKernel."
+            )
         from .tvm_ffi import _require_tvm_ffi
         _require_tvm_ffi()
     return enabled

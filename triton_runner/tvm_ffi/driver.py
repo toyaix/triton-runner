@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from ..driver._cuda_build import build_module_from_src, cuda_include_dirs, library_dirs
+from ._cuda_build import build_module_from_src, cuda_include_dirs, library_dirs
 
 _GENERIC_LAUNCHER_NAME = "triton_runner_tvm_ffi_generic_launcher"
 _generic_module_cache: dict[str, Any] = {}
