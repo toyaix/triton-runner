@@ -34,17 +34,16 @@ class CompiledTVMFFIKernel:
             self._run_launcher = TvmFfiLauncher(None, metadata, {"cubin": cubin_bytes})
         return self._run_launcher
 
-    def _launch(self, gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args):
-        self._get_launcher().launch(gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args)
+    def _launch(self, gridX, gridY, gridZ, *args):
+        self._get_launcher().launch(gridX, gridY, gridZ, *args)
 
     def run(self, gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args):
-        self._launch(gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args)
+        self._launch(gridX, gridY, gridZ, *args)
 
     def __getitem__(self, grid):
-        from triton import knobs
+        launcher = self._get_launcher()
 
         def runner(*args, stream=None):
-            self._launch(grid[0], grid[1], grid[2],
-                         knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *args)
+            launcher.launch(grid[0], grid[1], grid[2], *args)
 
         return runner

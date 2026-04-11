@@ -10,7 +10,10 @@ import os
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
 
     def get_cache_key_with_runner_args(self, key, kwargs):
-        if "dump_tensor" in kwargs:
+        from triton_runner import TRITON_RUNNER_ENABLE_TVM_FFI
+        if TRITON_RUNNER_ENABLE_TVM_FFI:
+            return key
+        if kwargs.get("dump_tensor") is not None:
             key += "|dump_tensor"
         if "dump_value" in kwargs:
             key += f"|dump_value={kwargs['dump_value']}"
@@ -120,7 +123,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
 
     def _launch_kernel(self, kernel, grid, grid_0, grid_1, grid_2, stream, arg_values, launch_enter_hook, launch_exit_hook):
         if isinstance(kernel, CompiledTVMFFIKernel):
-            kernel.run(grid_0, grid_1, grid_2, launch_enter_hook, launch_exit_hook, *arg_values)
+            kernel.run(grid_0, grid_1, grid_2, None, None, *arg_values)
             return
         launch_metadata = kernel.launch_metadata(grid, stream, *arg_values)
         kernel.run(
