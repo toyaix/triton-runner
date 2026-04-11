@@ -294,6 +294,13 @@ Current documented cases include:
 - [Triton 3.3 performance regression on small GEMMs](./doc/solving_triton_issues/performance-7096)
 - [Higher shared memory usage in Triton 3.3](./doc/solving_triton_issues/high_usage-7268)
 
+## ⚙️ Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `TRITON_RUNNER_ENABLE_TVM_FFI` | `0` | Enable TVM-FFI CUDA bridge (requires `triton-runner[tvm-ffi]` and Triton v3.3+) |
+| `TRITON_RUNNER_QUIET` | `0` | Suppress verbose kernel cache path output |
+
 ## 📄 License
 
 This project is licensed under the **MIT License**. See [LICENSE](./LICENSE) for details.
