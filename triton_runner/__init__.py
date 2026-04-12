@@ -1,6 +1,6 @@
 __version__ = '0.3.6'
 
-from .version_utils import is_support_version, is_triton_geq_v3_3, triton_version
+from .version_utils import is_support_version, is_triton_geq_v3_3, is_triton_v3_4, triton_version
 if not is_support_version:
     raise RuntimeError(f"Triton Runner doesn't support Triton v{triton_version}")
 
@@ -31,11 +31,14 @@ if TRITON_RUNNER_PRODUCTION:
     from .color_print import blue_print
     blue_print("[Triton Runner] Production mode enabled")
 
-
-from .jit import jit
 from .version_utils import is_triton_geq_v3_4
 if is_triton_geq_v3_4:
     from .autotune import autotune
+
+if TRITON_RUNNER_PRODUCTION and is_triton_v3_4:
+    from .jit_prod import jit
+else:
+    from .jit import jit
 from . import color_print
 from . import torch_utils
 
