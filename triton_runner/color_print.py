@@ -9,7 +9,6 @@ def blue_print(text):
 def yellow_print(text):
     print(termcolor.colored(text, "yellow"), flush=True)
 
-
 def get_project_name():
     return "[Triton Runner]"
 

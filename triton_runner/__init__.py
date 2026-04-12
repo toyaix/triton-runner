@@ -28,7 +28,8 @@ def _init_tvm_ffi_flag():
 TRITON_RUNNER_ENABLE_TVM_FFI = _init_tvm_ffi_flag()
 TRITON_RUNNER_PRODUCTION = _env_flag("TRITON_RUNNER_PRODUCTION", default=False)
 if TRITON_RUNNER_PRODUCTION:
-    print("[Triton Runner] Production mode enabled", flush=True)
+    from .color_print import blue_print
+    blue_print("[Triton Runner] Production mode enabled")
 
 
 from .jit import jit
