@@ -122,7 +122,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
 class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
-        self._maybe_handle_autotune(kwargs)
+        self.handle_autotune(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
@@ -170,7 +170,7 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
-        self._maybe_handle_autotune(kwargs)
+        self.handle_autotune(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
