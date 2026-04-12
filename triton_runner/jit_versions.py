@@ -270,28 +270,35 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
         kernel_cache, target, backend, binder = self.device_caches[device]
         bound_args, specialization, options = binder(*args, **kwargs)
 
-        key = str(specialization) + str(options)
-        # [Triton Runner] dump key
-        key = self.get_cache_key_with_runner_args(key, kwargs)
-        kernel = kernel_cache.get(key, None)
-
-        if kernel is None:
-            options, signature, constexprs, attrs, source_dir_type = self._pack_args(
-                backend, kwargs, bound_args, specialization, options)
-
-            # [Triton Runner] dump before _call_hook
-            src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
-            if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
-                return None
-            ast_src = self.ASTSource(self, signature, constexprs, attrs)
-            # [Triton Runner] dump after _call_hook
-            src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
-            kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
-            kernel_cache[key] = kernel
-            self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs], warmup)
-
         if production_mode:
+            from triton._utils import find_paths_if, get_iterable_path
+
+            key = str(specialization) + str(options)
+            kernel = kernel_cache.get(key, None)
+
+            if kernel is None:
+                options = backend.parse_options(kwargs)
+                sigkeys = [x.name for x in self.params]
+                sigvals = [x[0] for x in specialization]
+                signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
+                assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
+                assert "device" not in kwargs, "device option is deprecated; current device will be used"
+                assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
+                for k in kwargs:
+                    if k not in options.__dict__ and k not in sigkeys:
+                        raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+                constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
+                constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
+                attrvals = [x[1] for x in specialization]
+                attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
+                attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
+                if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
+                    return None
+                src = self.ASTSource(self, signature, constexprs, attrs)
+                kernel = self.compile(src, target=target, options=options.__dict__)
+                kernel_cache[key] = kernel
+                self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs], warmup)
+
             if not warmup:
                 assert grid is not None
                 if callable(grid):
@@ -314,6 +321,27 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
                     *bound_args.values(),
                 )
             return kernel
+
+        key = str(specialization) + str(options)
+        # [Triton Runner] dump key
+        key = self.get_cache_key_with_runner_args(key, kwargs)
+        kernel = kernel_cache.get(key, None)
+
+        if kernel is None:
+            options, signature, constexprs, attrs, source_dir_type = self._pack_args(
+                backend, kwargs, bound_args, specialization, options)
+
+            # [Triton Runner] dump before _call_hook
+            src = self.get_src_and_save_dump_file(kwargs, source_dir_type, signature, constexprs, attrs, target, options, bound_args)
+            if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
+                return None
+            ast_src = self.ASTSource(self, signature, constexprs, attrs)
+            # [Triton Runner] dump after _call_hook
+            src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
+            kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
+            kernel_cache[key] = kernel
+            self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs], warmup)
 
         self._check_globals()
 
