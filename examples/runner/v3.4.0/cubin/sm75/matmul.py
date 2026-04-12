@@ -5,10 +5,8 @@ import triton_runner
 triton_runner.configure_jit_backend()
 import time
 
-if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
-    DEVICE = torch.cuda.current_device()
-else:
-    DEVICE = triton.runtime.driver.active.get_active_torch_device()
+
+DEVICE = triton_runner.torch_utils.get_active_torch_device()
 
 
 @triton.jit

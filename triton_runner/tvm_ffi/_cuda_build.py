@@ -1,13 +1,27 @@
 from __future__ import annotations
 
 import functools
+import importlib.util
+import inspect
 import os
 import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
 from triton import knobs
-from triton.runtime.build import _build, _load_module_from_path
+from triton.runtime.build import _build
+
+try:
+    from triton.runtime.build import _load_module_from_path
+except ImportError:
+
+    def _load_module_from_path(name: str, path: str) -> Any:
+        spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"Failed to load compiled module {name} from {path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
 
 
 def _dedupe_paths(paths: list[str]) -> tuple[str, ...]:
@@ -87,6 +101,39 @@ def library_dirs(*extra_dirs: str | Path, include_stubs: bool = False) -> tuple[
     return _dedupe_paths(dirs)
 
 
+def _build_with_ccflags(
+        *,
+        module_name: str,
+        source_path: Path,
+        build_dir: Path,
+        library_dirs_list: list[str],
+        include_dirs_list: list[str],
+        libraries_list: list[str],
+        ccflags: list[str],
+) -> Path:
+    import sysconfig
+    suffix = sysconfig.get_config_var("EXT_SUFFIX") or ".so"
+    python_include = sysconfig.get_path("include")
+    is_cxx = source_path.suffix in (".cc", ".cpp", ".cxx")
+    cc = os.environ.get("CXX" if is_cxx else "CC", "g++" if is_cxx else "gcc")
+    out_path = build_dir / f"{module_name}{suffix}"
+    all_include_dirs = list(include_dirs_list)
+    if python_include and python_include not in all_include_dirs:
+        all_include_dirs.append(python_include)
+    cmd = [
+        cc,
+        str(source_path),
+        "-O3", "-shared", "-fPIC", "-Wno-psabi",
+        *ccflags,
+        "-o", str(out_path),
+        *[f"-L{d}" for d in library_dirs_list],
+        *[f"-l{lib}" for lib in libraries_list],
+        *[f"-I{d}" for d in all_include_dirs],
+    ]
+    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    return out_path
+
+
 def build_module_from_src(
         *,
         module_name: str,
@@ -105,16 +152,29 @@ def build_module_from_src(
     source_path = build_dir / f"{module_name}{source_ext}"
     source_path.write_text(source)
 
-    built_path = Path(
-        _build(
-            module_name,
-            str(source_path),
-            str(build_dir),
-            list(library_dirs),
-            list(include_dirs),
-            list(libraries),
-            list(ccflags),
-        ))
+    build_args = (
+        module_name,
+        str(source_path),
+        str(build_dir),
+        list(library_dirs),
+        list(include_dirs),
+        list(libraries),
+    )
+    build_params = inspect.signature(_build).parameters
+    if "ccflags" in build_params:
+        built_path = Path(_build(*build_args, list(ccflags)))
+    elif ccflags:
+        built_path = _build_with_ccflags(
+            module_name=module_name,
+            source_path=source_path,
+            build_dir=build_dir,
+            library_dirs_list=list(library_dirs),
+            include_dirs_list=list(include_dirs),
+            libraries_list=list(libraries),
+            ccflags=list(ccflags),
+        )
+    else:
+        built_path = Path(_build(*build_args))
     final_path = built_path if final_path is None else Path(final_path)
     if built_path != final_path:
         final_path.unlink(missing_ok=True)

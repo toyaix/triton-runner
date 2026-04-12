@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 readme = "README.md"
-version = "0.3.5"
+version = "0.3.6"
 authors = [
     { name = "Bob Huang", email = "x@bobhuang.xyz" },
 ]
@@ -19,7 +19,7 @@ repository = "https://github.com/toyaix/triton-runner"
 homepage = "https://triton-runner.org"
 
 [build-system]
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -28,11 +28,11 @@ include-package-data = true
 [project.optional-dependencies]
 tvm-ffi = [
     "apache-tvm-ffi",
-    "ninja",
 ]
 
 [tool.setuptools.package-data]
 "triton_runner" = ["README.md"]
+"triton_runner.tvm_ffi" = ["generic_launcher.cc"]
 
 [tool.setuptools.packages.find]
 include = ["triton_runner*"]

@@ -7,9 +7,10 @@ import triton.language.extra.tlx as tlx
 from triton._internal_testing import is_cuda
 from triton.tools.tensor_descriptor import TensorDescriptor
 import triton_runner
+
 triton_runner.configure_jit_backend()
 
-DEVICE = triton.runtime.driver.active.get_active_torch_device()
+DEVICE = triton_runner.torch_utils.get_active_torch_device()
 
 
 def _host_descriptor_pre_hook(nargs):

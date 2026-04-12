@@ -2,10 +2,11 @@ import triton
 import triton.language as tl
 import torch
 
-DEVICE = triton.runtime.driver.active.get_active_torch_device()
-
-
 import triton_runner
+
+DEVICE = triton_runner.torch_utils.get_active_torch_device()
+
+
 triton_runner.configure_jit_backend()
 
 

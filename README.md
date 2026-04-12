@@ -20,7 +20,7 @@ Compatibility summary:
 - Primary target: `v3.5.x`
 - Supported runner inputs: Python Triton, Gluon, TTIR, TTGIR, LLIR, PTX, cubin, AMDGCN, and hsaco
 - Dump support: Python, TTIR, and TTGIR
-- Optional CUDA bridge: TVM-FFI on Triton `v3.5+`
+- Optional CUDA bridge: TVM-FFI on Triton `v3.3+`
 - MLIR split output: set `MLIR_ENABLE_DUMP=1` to expand `all.mlir` into per-pass files in the cache directory
 
 ## ✨ Features
@@ -48,13 +48,13 @@ pip install -e .
 
 ### Optional: TVM-FFI
 
-Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) for Triton `v3.5+`.
+Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) for Triton `v3.3+`.
 
 ```shell
 pip install triton-runner[tvm-ffi]
 
 pip install -e .[tvm-ffi]
-export TRITON_TVM_FFI=1
+export TRITON_RUNNER_ENABLE_TVM_FFI=1
 ```
 
 ## 🚀 Quick Start
@@ -283,6 +283,8 @@ python benchmark/matmul/mma/bench.py
 python benchmark/attn/flash_attention/bench.py
 ```
 
+`benchmark/launch_latency/bench.py` requires Triton `v3.3.0+`.
+
 ## IV. Solving Triton Issues
 
 The case studies in [doc/solving_triton_issues/README.md](./doc/solving_triton_issues/README.md) show how to reproduce and work around Triton regressions with Triton Runner, especially by reusing cubin artifacts.
@@ -291,6 +293,13 @@ Current documented cases include:
 
 - [Triton 3.3 performance regression on small GEMMs](./doc/solving_triton_issues/performance-7096)
 - [Higher shared memory usage in Triton 3.3](./doc/solving_triton_issues/high_usage-7268)
+
+## ⚙️ Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `TRITON_RUNNER_ENABLE_TVM_FFI` | `0` | Enable TVM-FFI CUDA bridge (requires `triton-runner[tvm-ffi]` and Triton v3.3+) |
+| `TRITON_RUNNER_QUIET` | `0` | Suppress verbose kernel cache path output |
 
 ## 📄 License
 

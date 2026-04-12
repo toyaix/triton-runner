@@ -2,13 +2,11 @@ import triton
 import triton.language as tl
 import torch
 
-if triton.__version__ in ["3.2.0", "3.1.0", "3.0.0"]:
-    DEVICE = torch.cuda.current_device()
-else:
-    DEVICE = triton.runtime.driver.active.get_active_torch_device()
-
-
 import triton_runner
+
+DEVICE = triton_runner.torch_utils.get_active_torch_device()
+
+
 triton_runner.configure_jit_backend()
 
 @triton.jit

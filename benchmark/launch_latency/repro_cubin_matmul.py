@@ -36,7 +36,7 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
-os.environ.setdefault("TRITON_TVM_FFI", "1")
+os.environ.setdefault("TRITON_RUNNER_ENABLE_TVM_FFI", "1")
 
 import torch
 import triton
@@ -46,7 +46,7 @@ from triton_runner.bench.matmul.arch import (
     resolve_arch_config, enable_tma_allocator, reference_matmul, validate_matmul_outputs,
 )
 from triton_runner.bench.matmul.kernels import _scalar_matmul_kernel, _dot_matmul_kernel, _tma_matmul_kernel
-from triton_runner.bench.utils import bench_host_us, make_compiled_launch, make_direct_launch
+from triton_runner.bench.utils import bench_host_us, make_compiled_launch, make_direct_launch, make_subscript_launch
 from triton_runner.compiler.compiler import CompiledTVMFFIKernel
 
 scalar_matmul_kernel = triton.jit(_scalar_matmul_kernel)
@@ -192,16 +192,19 @@ def main() -> None:
     compiled_kernel = _make_tvm_ffi_kernel(cubin_dir)
     plan = _make_launch_plan(config, a, b, c_triton, c_tvm, c_direct, args.m, args.n, args.k)
     tvm_launch = make_compiled_launch(compiled_kernel, plan.grid, plan.compiled_bound_args)
+    tvm_subscript_launch = make_subscript_launch(compiled_kernel, plan.grid, plan.compiled_bound_args)
     direct_launch = make_direct_launch(compiled_kernel, plan.grid, plan.direct_bound_args)
 
     plan.triton_launch()
     tvm_launch()
+    tvm_subscript_launch()
     direct_launch()
     torch.cuda.synchronize()
     validate_matmul_outputs(reference_matmul(a, b, config), config.atol, c_triton, c_tvm, c_direct)
 
     triton_us = bench_host_us(plan.triton_launch, warmup=args.warmup, iters=args.iters, repeats=args.repeats)
     tvm_triton_us = bench_host_us(tvm_launch, warmup=args.warmup, iters=args.iters, repeats=args.repeats)
+    tvm_subscript_us = bench_host_us(tvm_subscript_launch, warmup=args.warmup, iters=args.iters, repeats=args.repeats)
     direct_us = bench_host_us(direct_launch, warmup=args.warmup, iters=args.iters, repeats=args.repeats)
 
     grid_x, grid_y = plan.grid
@@ -211,6 +214,7 @@ def main() -> None:
     print(f"measure: host launch latency, median over {args.repeats} repeats")
     print(f"Triton: {triton_us:.3f} us")
     print(f"TVM-Triton (CompiledTVMFFIKernel.__getitem__/run): {tvm_triton_us:.3f} us")
+    print(f"TVM-Triton (kernel[grid]() each call): {tvm_subscript_us:.3f} us")
     print(f"direct launch: {direct_us:.3f} us")
     print(f"TVM-Triton - direct launch: {tvm_triton_us - direct_us:.3f} us")
     print(f"Triton - direct launch: {triton_us - direct_us:.3f} us")

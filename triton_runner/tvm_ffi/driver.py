@@ -36,11 +36,11 @@ _ARG_KIND_CODES = {
 
 
 def _get_generic_launcher_source_path() -> Path:
-    return Path(__file__).with_name("tvm_ffi_generic_launcher.cc")
+    return Path(__file__).with_name("generic_launcher.cc")
 
 
 def _build_generic_launcher_module(tvm_ffi_module: Any, module_name: str, build_dir: str | Path, source: str) -> Any:
-    from ..tvm_ffi import _shared_library_path
+    from . import _shared_library_path
 
     tvm_ffi_root = Path(tvm_ffi_module.__file__).resolve().parent
     include_dirs = [str(tvm_ffi_root / "include"), *cuda_include_dirs()]
@@ -90,7 +90,7 @@ def _registration_token_for_payload(payload: tuple[Any, ...]) -> str:
 
 
 def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
-    from ..tvm_ffi import _runtime_arg_registration_specs, _validate_launch_metadata
+    from . import _runtime_arg_registration_specs, _validate_launch_metadata
 
     metadata = artifact.metadata
     _validate_launch_metadata(metadata)
@@ -155,7 +155,7 @@ def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
 
 
 def _get_or_build_generic_launcher_module() -> tuple[str, Any]:
-    from ..tvm_ffi import (
+    from . import (
         _ensure_tvm_ffi_cache_dir,
         _maybe_load_cached_module,
         _require_tvm_ffi,
@@ -213,7 +213,7 @@ class TvmFfiLauncher:
     def __init__(self, src, metadata, asm):
         del src
 
-        from ..tvm_ffi import (
+        from . import (
             _CompiledArtifact,
             _make_bound_args_launcher,
             _normalize_metadata,
@@ -257,19 +257,11 @@ class TvmFfiLauncher:
             tvm_mod=self._tvm_mod,
         )
 
-    def __call__(self, gridX, gridY, gridZ, stream, function, *args):
-        del stream, function
+    def launch_metadata(self, grid, stream, *args):
+        return None
 
-        packed_metadata = args[0]
-        launch_metadata = args[1]
-        launch_enter_hook = args[2]
-        launch_exit_hook = args[3]
-        bound_args = args[4:]
-        del packed_metadata
+    def __call__(self, gridX, gridY, gridZ, stream, function, packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, *bound_args):
+        self.launch(gridX, gridY, gridZ, *bound_args)
 
-        if launch_enter_hook is not None:
-            launch_enter_hook(launch_metadata)
-        self._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *bound_args)
-
-        if launch_exit_hook is not None:
-            launch_exit_hook(launch_metadata)
+    def launch(self, gridX, gridY, gridZ, *args):
+        self._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *args)

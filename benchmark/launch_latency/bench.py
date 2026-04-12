@@ -6,12 +6,32 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import sys
+
+from triton_runner.version_utils import is_triton_geq_v3_3, triton_version
+
+
+if __name__ == "__main__" and not is_triton_geq_v3_3:
+    print(
+        f"Skipping benchmark/launch_latency/bench.py on Triton {triton_version}: "
+        "this benchmark requires Triton v3.3.0+."
+    )
+    sys.exit(0)
+
+
+import triton
+from torch import zeros
 from triton.compiler import CompiledKernel
-from triton_runner.bench.launch_latency.kernels import get_trivial_add_kernel, nop_kernel, nop_with_args_kernel, runner_nop_kernel, runner_nop_with_args_kernel
+
+from triton_runner.bench.launch_latency.kernels import (
+    get_trivial_add_kernel,
+    nop_kernel,
+    nop_with_args_kernel,
+    runner_nop_kernel,
+    runner_nop_with_args_kernel,
+)
 from triton_runner.bench.utils import benchmark
 from triton_runner.compiler.compiler import CompiledTVMFFIKernel
-from torch import zeros
-import triton
 
 
 class Operator:

@@ -1,3 +1,14 @@
+import sys
+
+from triton_runner.version_utils import is_triton_geq_v3_3, triton_version
+
+if __name__ == "__main__" and not is_triton_geq_v3_3:
+    print(
+        f"Skipping benchmark/matmul/mma/bench.py on Triton {triton_version}: "
+        "this benchmark requires Triton v3.3.0+."
+    )
+    sys.exit(0)
+
 from triton_runner.bench.matmul.kernels import matmul_kernel, runner_matmul_kernel
 from triton_runner.bench.utils import benchmark
 import torch

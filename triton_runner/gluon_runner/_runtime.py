@@ -1,4 +1,5 @@
-from ..jit import RunnerJITFunctionV3_6_0, RunnerJITFunctionV3_5_0, RunnerJITFunctionV3_4_0, RunnerJITFunction, JITFunction
+from ..jit import RunnerJITFunctionV3_6_0, RunnerJITFunctionV3_5_0, RunnerJITFunctionV3_4_0, RunnerJITFunction
+from triton.runtime.jit import JITFunction
 from triton.experimental.gluon._runtime import GluonASTSource, T
 from typing import Optional, Callable, Iterable, Union
 

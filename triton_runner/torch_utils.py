@@ -3,6 +3,13 @@ import math
 import triton
 
 
+def get_active_torch_device():
+    active_driver = getattr(getattr(triton.runtime, "driver", None), "active", None)
+    if active_driver is not None and hasattr(active_driver, "get_active_torch_device"):
+        return active_driver.get_active_torch_device()
+    return torch.cuda.current_device()
+
+
 def pad_2d_to_block_shape(tensor, block_shape):
     M, K = tensor.shape
     BLOCK_M, BLOCK_K = block_shape

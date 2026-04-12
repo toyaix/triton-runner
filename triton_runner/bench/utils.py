@@ -38,7 +38,7 @@ def benchmark(name, unit_name="ms"):
 
         def wrapper(self, *args, **kwargs):
             if kwargs.pop("enable_benchmark", True) is not False:
-                os.environ["RUNNER_PROD"] = "1"
+                os.environ["TRITON_RUNNER_QUIET"] = "1"
                 input_iter = list(self.get_input_iter())
                 # sum_time = 0
                 input_len = len(input_iter)
@@ -52,7 +52,7 @@ def benchmark(name, unit_name="ms"):
                         print(f"[{name:<50}|] time: {elapsed_time_str}")
                     # sum_time += elapsed_time
                 # print(f"[{name + " average":<30}|] time: {sum_time/input_len:.6f} ms")
-                os.environ.pop("RUNNER_PROD", None)
+                os.environ.pop("TRITON_RUNNER_QUIET", None)
             else:
                 return method(self, *args[0])
 
@@ -85,6 +85,18 @@ def make_compiled_launch(compiled_kernel, grid: tuple, bound_args: tuple[object,
 
     def launch() -> None:
         launcher(*bound_args)
+
+    return launch
+
+
+def make_subscript_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
+    grid_x = grid[0]
+    grid_y = grid[1] if len(grid) > 1 else 1
+    grid_z = grid[2] if len(grid) > 2 else 1
+    g = (grid_x, grid_y, grid_z)
+
+    def launch() -> None:
+        compiled_kernel[g](*bound_args)
 
     return launch
 
