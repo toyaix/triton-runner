@@ -233,6 +233,9 @@ class TvmFfiLauncher:
         kernel_signature = metadata_dict.get("kernel_signature")
         signature = _parse_kernel_signature(kernel_signature)
         self._signature = signature
+        self._runtime_arg_indices = tuple(i for i, entry in enumerate(signature) if not entry.is_constexpr)
+        runtime_signature = tuple(entry for entry in signature if not entry.is_constexpr)
+        self._runtime_signature = runtime_signature
 
         artifact = _CompiledArtifact(
             kernel_name=str(metadata_dict["name"]),
@@ -250,12 +253,16 @@ class TvmFfiLauncher:
             registration_args,
         )
         self._tvm_func = _lookup_module_function(self._tvm_mod, "launch")
-        self._launch_bound_args_for_tvm_ffi = _make_bound_args_launcher(
-            self._tvm_func,
-            self._registry_handle,
-            signature,
-            tvm_mod=self._tvm_mod,
-        )
+        self._has_tensordesc_args = any(entry.type_name.startswith("tensordesc") for entry in runtime_signature)
+        if self._has_tensordesc_args:
+            self._launch_bound_args_for_tvm_ffi = _make_bound_args_launcher(
+                self._tvm_func,
+                self._registry_handle,
+                runtime_signature,
+                tvm_mod=self._tvm_mod,
+            )
+        else:
+            self._launch_bound_args_for_tvm_ffi = None
 
     def launch_metadata(self, grid, stream, *args):
         return None
@@ -263,5 +270,18 @@ class TvmFfiLauncher:
     def __call__(self, gridX, gridY, gridZ, stream, function, packed_metadata, launch_metadata, launch_enter_hook, launch_exit_hook, *bound_args):
         self.launch(gridX, gridY, gridZ, *bound_args)
 
+    def _runtime_args(self, args):
+        if len(args) == len(self._runtime_signature):
+            return args
+        if len(args) == len(self._signature):
+            return tuple(args[i] for i in self._runtime_arg_indices)
+        raise ValueError(
+            f"Expected either {len(self._runtime_signature)} runtime args or {len(self._signature)} bound args, got {len(args)}."
+        )
+
     def launch(self, gridX, gridY, gridZ, *args):
+        args = self._runtime_args(args)
+        if self._launch_bound_args_for_tvm_ffi is None:
+            self._tvm_func(self._registry_handle, gridX, gridY, gridZ, *args)
+            return
         self._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *args)

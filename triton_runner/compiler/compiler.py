@@ -35,15 +35,47 @@ class CompiledTVMFFIKernel:
         return self._run_launcher
 
     def _launch(self, gridX, gridY, gridZ, *args):
-        self._get_launcher().launch(gridX, gridY, gridZ, *args)
+        launcher = self._get_launcher()
+        runtime_args = launcher._runtime_args(args)
+        if launcher._launch_bound_args_for_tvm_ffi is None:
+            launcher._tvm_func(launcher._registry_handle, gridX, gridY, gridZ, *runtime_args)
+            return
+        launcher._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *runtime_args)
 
     def run(self, gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args):
         self._launch(gridX, gridY, gridZ, *args)
 
     def __getitem__(self, grid):
         launcher = self._get_launcher()
+        grid_x = grid[0]
+        grid_y = grid[1]
+        grid_z = grid[2]
+
+        if launcher._launch_bound_args_for_tvm_ffi is None:
+            runtime_arg_count = len(launcher._runtime_signature)
+            signature_arg_count = len(launcher._signature)
+            registry_handle = launcher._registry_handle
+            tvm_func = launcher._tvm_func
+            runtime_arg_indices = launcher._runtime_arg_indices
+
+            if runtime_arg_count == signature_arg_count:
+                def runner(*args, stream=None):
+                    tvm_func(registry_handle, grid_x, grid_y, grid_z, *args)
+            else:
+                def runner(*args, stream=None):
+                    if len(args) == runtime_arg_count:
+                        tvm_func(registry_handle, grid_x, grid_y, grid_z, *args)
+                        return
+                    if len(args) == signature_arg_count:
+                        runtime_args = tuple(args[i] for i in runtime_arg_indices)
+                        tvm_func(registry_handle, grid_x, grid_y, grid_z, *runtime_args)
+                        return
+                    raise ValueError(
+                        f"Expected either {runtime_arg_count} runtime args or {signature_arg_count} bound args, got {len(args)}."
+                    )
+            return runner
 
         def runner(*args, stream=None):
-            launcher.launch(grid[0], grid[1], grid[2], *args)
+            launcher.launch(grid_x, grid_y, grid_z, *args)
 
         return runner
