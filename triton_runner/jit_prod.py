@@ -86,7 +86,7 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
         return {}, target, backend, binder
 
     def run(self, *args, grid, warmup, **kwargs):
-        blue_print(f"prod kernel {self.__name__} run")
+        # blue_print(f"prod kernel {self.__name__} run")
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
 
         # parse options
@@ -143,8 +143,8 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
         _kernel_cache_dirs[self.__name__].add(cache_dir)
         if len(_kernel_cache_dirs[self.__name__]) > 1:
             red_print(f"[ProdJIT] {self.__name__} has multiple cache dirs: {_kernel_cache_dirs[self.__name__]}")
-        else:
-            blue_print(f"[ProdJIT] {self.__name__} compiled → {cache_dir}")
+        # else:
+        #     blue_print(f"[ProdJIT] {self.__name__} compiled → {cache_dir}")
 
         # Check that used global values have not changed.
         not_present = object()
