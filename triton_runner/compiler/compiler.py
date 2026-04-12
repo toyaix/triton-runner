@@ -25,6 +25,7 @@ class CompiledTVMFFIKernel:
         self._cubin_path = cubin_path
         self._json_path = json_path
         self._run_launcher = None
+        self._grid_runner_cache = {}
 
     def _get_launcher(self):
         if self._run_launcher is None:
@@ -47,35 +48,11 @@ class CompiledTVMFFIKernel:
 
     def __getitem__(self, grid):
         launcher = self._get_launcher()
-        grid_x = grid[0]
-        grid_y = grid[1]
-        grid_z = grid[2]
-
-        if launcher._launch_bound_args_for_tvm_ffi is None:
-            runtime_arg_count = len(launcher._runtime_signature)
-            signature_arg_count = len(launcher._signature)
-            registry_handle = launcher._registry_handle
-            tvm_func = launcher._tvm_func
-            runtime_arg_indices = launcher._runtime_arg_indices
-
-            if runtime_arg_count == signature_arg_count:
-                def runner(*args, stream=None):
-                    tvm_func(registry_handle, grid_x, grid_y, grid_z, *args)
-            else:
-                def runner(*args, stream=None):
-                    if len(args) == runtime_arg_count:
-                        tvm_func(registry_handle, grid_x, grid_y, grid_z, *args)
-                        return
-                    if len(args) == signature_arg_count:
-                        runtime_args = tuple(args[i] for i in runtime_arg_indices)
-                        tvm_func(registry_handle, grid_x, grid_y, grid_z, *runtime_args)
-                        return
-                    raise ValueError(
-                        f"Expected either {runtime_arg_count} runtime args or {signature_arg_count} bound args, got {len(args)}."
-                    )
-            return runner
-
-        def runner(*args, stream=None):
-            launcher.launch(grid_x, grid_y, grid_z, *args)
-
+        is_plain_int_grid = isinstance(grid, tuple) and len(grid) == 3 and all(type(v) is int for v in grid)
+        key = grid if is_plain_int_grid else (int(grid[0]), int(grid[1]), int(grid[2]))
+        cached = self._grid_runner_cache.get(key)
+        if cached is not None:
+            return cached
+        runner = launcher.get_grid_launcher(*key)
+        self._grid_runner_cache[key] = runner
         return runner

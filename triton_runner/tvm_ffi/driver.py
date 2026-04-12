@@ -233,6 +233,7 @@ class TvmFfiLauncher:
         kernel_signature = metadata_dict.get("kernel_signature")
         signature = _parse_kernel_signature(kernel_signature)
         self._signature = signature
+        self._signature_type_names = [entry.type_name for entry in signature]
         self._runtime_arg_indices = tuple(i for i, entry in enumerate(signature) if not entry.is_constexpr)
         runtime_signature = tuple(entry for entry in signature if not entry.is_constexpr)
         self._runtime_signature = runtime_signature
@@ -253,6 +254,8 @@ class TvmFfiLauncher:
             registration_args,
         )
         self._tvm_func = _lookup_module_function(self._tvm_mod, "launch")
+        self._make_grid_launcher_for_tvm_ffi = _lookup_module_function(self._tvm_mod, "make_grid_launcher")
+        self._grid_launcher_cache: dict[tuple[int, int, int], Any] = {}
         self._has_tensordesc_args = any(entry.type_name.startswith("tensordesc") for entry in runtime_signature)
         if self._has_tensordesc_args:
             self._launch_bound_args_for_tvm_ffi = _make_bound_args_launcher(
@@ -278,6 +281,21 @@ class TvmFfiLauncher:
         raise ValueError(
             f"Expected either {len(self._runtime_signature)} runtime args or {len(self._signature)} bound args, got {len(args)}."
         )
+
+    def get_grid_launcher(self, gridX, gridY, gridZ):
+        key = (int(gridX), int(gridY), int(gridZ))
+        cached = self._grid_launcher_cache.get(key)
+        if cached is not None:
+            return cached
+        launcher = self._make_grid_launcher_for_tvm_ffi(
+            self._registry_handle,
+            key[0],
+            key[1],
+            key[2],
+            self._signature_type_names,
+        )
+        self._grid_launcher_cache[key] = launcher
+        return launcher
 
     def launch(self, gridX, gridY, gridZ, *args):
         args = self._runtime_args(args)

@@ -699,6 +699,9 @@ inline LaunchWorkspace& GetLaunchWorkspace() {
   return workspace;
 }
 
+
+inline void LaunchPacked(PackedArgs args, Any* ret);
+
 inline ArgKind ArgKindFromCode(int64_t code) {
   switch (code) {
     case 0:
@@ -935,6 +938,88 @@ Function MakeBoundArgsLauncher(const Function& tvm_func,
     plan->tvm_func.CallPacked(
         PackedArgs(workspace.launch_args.data(), static_cast<int32_t>(workspace.launch_args.size())),
         ret);
+  });
+}
+
+Function MakeGridLauncher(int64_t registry_handle,
+                          int64_t grid_x,
+                          int64_t grid_y,
+                          int64_t grid_z,
+                          const Array<String>& signature_type_names) {
+  auto plan = std::make_shared<BoundArgsLauncherPlan>();
+  plan->registry_handle = registry_handle;
+  plan->actions.reserve(signature_type_names.size());
+
+  for (const String& type_name : signature_type_names) {
+    std::string_view type_name_view(type_name.data(), type_name.size());
+    if (type_name_view == "constexpr") {
+      plan->actions.push_back({BoundArgActionKind::kConstexpr, 0});
+      continue;
+    }
+    if (type_name_view.rfind("tensordesc", 0) == 0) {
+      int rank = ParseTensorDescRank(type_name_view);
+      TVM_FFI_CHECK(rank > 0 && rank <= 5, ValueError)
+          << "Tensor descriptor signature has unsupported rank " << rank << ": " << type_name_view;
+      plan->actions.push_back({BoundArgActionKind::kTensorDesc, rank});
+      plan->runtime_arg_count += 2 * rank + 2;
+      plan->needs_python = true;
+      continue;
+    }
+    plan->actions.push_back({BoundArgActionKind::kPassThrough, 0});
+    ++plan->runtime_arg_count;
+  }
+
+  return Function::FromPacked([plan = std::move(plan), grid_x, grid_y, grid_z](PackedArgs args, Any* ret) {
+    TVM_FFI_CHECK(args.size() == static_cast<int32_t>(plan->actions.size()), ValueError)
+        << "Expected " << plan->actions.size() << " bound arguments for TVM-FFI grid launcher, got "
+        << args.size() << ".";
+    std::optional<ScopedPyGIL> gil;
+    if (plan->needs_python) {
+      gil.emplace();
+    }
+
+    BoundArgsWorkspace& workspace = GetBoundArgsWorkspace();
+    workspace.owned_args.clear();
+    workspace.launch_args.clear();
+    size_t required_arg_count = static_cast<size_t>(plan->runtime_arg_count) + 4;
+    if (workspace.owned_args.capacity() < required_arg_count) {
+      workspace.owned_args.reserve(required_arg_count);
+    }
+    if (workspace.launch_args.capacity() < required_arg_count) {
+      workspace.launch_args.reserve(required_arg_count);
+    }
+
+    std::array<Any, 4> prefix = {
+        Any(plan->registry_handle),
+        Any(static_cast<int32_t>(grid_x)),
+        Any(static_cast<int32_t>(grid_y)),
+        Any(static_cast<int32_t>(grid_z)),
+    };
+    for (const Any& value : prefix) {
+      workspace.launch_args.push_back(value);
+    }
+
+    StreamContextInfo stream_ctx;
+    for (size_t i = 0; i < plan->actions.size(); ++i) {
+      const BoundArgAction& action = plan->actions[i];
+      if (action.kind == BoundArgActionKind::kPassThrough) {
+        workspace.launch_args.push_back(args[static_cast<int32_t>(i)]);
+        continue;
+      }
+      if (action.kind == BoundArgActionKind::kTensorDesc) {
+        PyObject* tensor_desc = OpaquePyObjectBorrowedFromAny(args[static_cast<int32_t>(i)], i);
+        AppendTensorDescExpandedArgs(
+            tensor_desc,
+            action.rank,
+            static_cast<int64_t>(i),
+            &workspace.owned_args,
+            &workspace.launch_args,
+            &stream_ctx);
+      }
+    }
+
+    ScopedEnvStream scoped_stream(stream_ctx);
+    LaunchPacked(PackedArgs(workspace.launch_args.data(), static_cast<int32_t>(workspace.launch_args.size())), ret);
   });
 }
 
@@ -1210,6 +1295,7 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
 
 TVM_FFI_DLL_EXPORT_TYPED_FUNC(register_kernel, triton_runner_tvm_ffi::RegisterKernel)
 TVM_FFI_DLL_EXPORT_TYPED_FUNC(make_bound_args_launcher, triton_runner_tvm_ffi::MakeBoundArgsLauncher)
+TVM_FFI_DLL_EXPORT_TYPED_FUNC(make_grid_launcher, triton_runner_tvm_ffi::MakeGridLauncher)
 
 extern "C" TVM_FFI_DLL_EXPORT int __tvm_ffi_launch(void* self,
                                                    const TVMFFIAny* args,
