@@ -1,5 +1,6 @@
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
+from . import TRITON_RUNNER_ENABLE_TVM_FFI, TRITON_RUNNER_PRODUCTION
 from .compile import native_compile
 from .compiler.compiler import CompiledTVMFFIKernel
 from .jit_dump import DumpMixin
@@ -9,9 +10,11 @@ import os
 
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
 
+    def _is_production_mode(self):
+        return TRITON_RUNNER_PRODUCTION
+
     def get_cache_key_with_runner_args(self, key, kwargs):
-        from triton_runner import TRITON_RUNNER_ENABLE_TVM_FFI
-        if TRITON_RUNNER_ENABLE_TVM_FFI:
+        if TRITON_RUNNER_PRODUCTION or TRITON_RUNNER_ENABLE_TVM_FFI:
             return key
         if kwargs.get("dump_tensor") is not None:
             key += "|dump_tensor"
@@ -123,7 +126,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
 
     def _launch_kernel(self, kernel, grid, grid_0, grid_1, grid_2, stream, arg_values, launch_enter_hook, launch_exit_hook):
         if isinstance(kernel, CompiledTVMFFIKernel):
-            kernel.run(grid_0, grid_1, grid_2, None, None, *arg_values)
+            kernel.run(grid_0, grid_1, grid_2, stream, None, None, None, launch_enter_hook, launch_exit_hook, *arg_values)
             return
         launch_metadata = kernel.launch_metadata(grid, stream, *arg_values)
         kernel.run(
@@ -143,7 +146,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
 class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
-        self.handle_autotune(kwargs)
+        self._maybe_handle_autotune(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
@@ -199,7 +202,7 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
 class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
-        self.handle_autotune(kwargs)
+        self._maybe_handle_autotune(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
@@ -251,8 +254,10 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
-        self.handle_autotune(kwargs)
         from triton import knobs
+        production_mode = self._is_production_mode()
+        if not production_mode:
+            self.handle_autotune(kwargs)
 
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
 
@@ -285,6 +290,30 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
             kernel_cache[key] = kernel
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs], warmup)
+
+        if production_mode:
+            if not warmup:
+                assert grid is not None
+                if callable(grid):
+                    grid = grid(bound_args)
+                grid_size = len(grid)
+                grid_0 = grid[0]
+                grid_1 = grid[1] if grid_size > 1 else 1
+                grid_2 = grid[2] if grid_size > 2 else 1
+                launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+                kernel.run(
+                    grid_0,
+                    grid_1,
+                    grid_2,
+                    stream,
+                    kernel.function,
+                    kernel.packed_metadata,
+                    launch_metadata,
+                    knobs.runtime.launch_enter_hook,
+                    knobs.runtime.launch_exit_hook,
+                    *bound_args.values(),
+                )
+            return kernel
 
         self._check_globals()
 
