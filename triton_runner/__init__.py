@@ -22,14 +22,14 @@ def _init_is_cuda():
 
 IS_CUDA = _init_is_cuda()
 
-TRITON_RUNNER_PRODUCTION = _env_flag("TRITON_RUNNER_PRODUCTION", default=False)
+TRITON_RUNNER_PROD = _env_flag("TRITON_RUNNER_PROD", default=False)
 
 
 from .version_utils import is_triton_geq_v3_4
 if is_triton_geq_v3_4:
     from .autotune import autotune
 
-if TRITON_RUNNER_PRODUCTION and IS_CUDA and is_triton_v3_4:
+if TRITON_RUNNER_PROD and IS_CUDA and is_triton_v3_4:
     from .tvm_ffi import _require_tvm_ffi
     _require_tvm_ffi()
     from .jit_prod import jit

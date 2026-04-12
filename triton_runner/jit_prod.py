@@ -9,7 +9,11 @@ import inspect
 import re
 import textwrap
 
-class ProdJITFunction(KernelInterface[T]):
+from .color_print import blue_print, red_print
+
+_kernel_cache_dirs: Dict[str, set] = defaultdict(set)
+
+class ProdJITFunction(JITFunction[KernelInterface[T]]):
 
     def is_gluon(self):
         return False
@@ -82,6 +86,7 @@ class ProdJITFunction(KernelInterface[T]):
         return {}, target, backend, binder
 
     def run(self, *args, grid, warmup, **kwargs):
+        blue_print(f"prod kernel {self.__name__} run")
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
 
         # parse options
@@ -132,6 +137,14 @@ class ProdJITFunction(KernelInterface[T]):
             kernel_cache[key] = kernel
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                             warmup)
+
+        from triton.runtime.cache import get_cache_manager
+        cache_dir = get_cache_manager(kernel.hash).cache_dir
+        _kernel_cache_dirs[self.__name__].add(cache_dir)
+        if len(_kernel_cache_dirs[self.__name__]) > 1:
+            red_print(f"[ProdJIT] {self.__name__} has multiple cache dirs: {_kernel_cache_dirs[self.__name__]}")
+        else:
+            blue_print(f"[ProdJIT] {self.__name__} compiled → {cache_dir}")
 
         # Check that used global values have not changed.
         not_present = object()
@@ -299,7 +312,7 @@ class ProdJITFunction(KernelInterface[T]):
         Bypasses the __setattr__ restriction by calling super().__setattr__ directly.
         """
         self.hash = None
-        super().__setattr__('src', new_src)
+        object.__setattr__(self, 'src', new_src)
 
     def __repr__(self):
         return f"JITFunction({self.module}:{self.fn.__qualname__})"
@@ -324,7 +337,7 @@ def jit(
     do_not_specialize_on_alignment: Optional[Iterable[int | str]] = None,
     debug: Optional[bool] = None,
     noinline: Optional[bool] = None,
-) -> Callable[[T], JITFunction[T]]:
+) -> Callable[[T], ProdJITFunction[T]]:
     ...
 
 
@@ -338,7 +351,7 @@ def jit(
     do_not_specialize_on_alignment: Optional[Iterable[int | str]] = None,
     debug: Optional[bool] = None,
     noinline: Optional[bool] = None,
-) -> Union[JITFunction[T], Callable[[T], JITFunction[T]]]:
+) -> Union[ProdJITFunction[T], Callable[[T], ProdJITFunction[T]]]:
     """
     Decorator for JIT-compiling a function using the Triton compiler.
 
@@ -357,7 +370,7 @@ def jit(
     :type fn: Callable
     """
 
-    def decorator(fn: T) -> JITFunction[T]:
+    def decorator(fn: T) -> ProdJITFunction[T]:
         assert callable(fn)
         if knobs.runtime.interpret:
             from .interpreter import InterpretedFunction
