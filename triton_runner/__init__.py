@@ -24,19 +24,28 @@ def _init_tvm_ffi_flag():
         _require_tvm_ffi()
     return enabled
 
+def _init_is_cuda():
+    from triton.runtime import driver
+    from triton.backends.compiler import GPUTarget
+    target = driver.active.get_current_target()
+    return isinstance(target, GPUTarget) and target.backend == "cuda"
+
+
+IS_CUDA = _init_is_cuda()
+
 
 TRITON_RUNNER_ENABLE_TVM_FFI = _init_tvm_ffi_flag()
 TRITON_RUNNER_PRODUCTION = _env_flag("TRITON_RUNNER_PRODUCTION", default=False)
-if TRITON_RUNNER_PRODUCTION:
-    from .color_print import blue_print
-    blue_print("[Triton Runner] Production mode enabled")
+
 
 from .version_utils import is_triton_geq_v3_4
 if is_triton_geq_v3_4:
     from .autotune import autotune
 
-if TRITON_RUNNER_PRODUCTION and is_triton_v3_4:
+if TRITON_RUNNER_PRODUCTION and IS_CUDA and is_triton_v3_4:
     from .jit_prod import jit
+    from .color_print import blue_print
+    blue_print("[Triton Runner] Production mode enabled")
 else:
     from .jit import jit
 from . import color_print

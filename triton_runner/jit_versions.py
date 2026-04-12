@@ -1,6 +1,5 @@
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
-from . import TRITON_RUNNER_ENABLE_TVM_FFI, TRITON_RUNNER_PRODUCTION
 from .compile import native_compile
 from .compiler.compiler import CompiledTVMFFIKernel
 from .jit_dump import DumpMixin
@@ -10,12 +9,7 @@ import os
 
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
 
-    def _is_production_mode(self):
-        return TRITON_RUNNER_PRODUCTION
-
     def get_cache_key_with_runner_args(self, key, kwargs):
-        if TRITON_RUNNER_PRODUCTION or TRITON_RUNNER_ENABLE_TVM_FFI:
-            return key
         if kwargs.get("dump_tensor") is not None:
             key += "|dump_tensor"
         if "dump_value" in kwargs:
@@ -255,9 +249,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
-        production_mode = self._is_production_mode()
-        if not production_mode:
-            self.handle_autotune(kwargs)
+        self.handle_autotune(kwargs)
 
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
 
@@ -269,58 +261,6 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
         kernel_cache, target, backend, binder = self.device_caches[device]
         bound_args, specialization, options = binder(*args, **kwargs)
-
-        if production_mode:
-            from triton._utils import find_paths_if, get_iterable_path
-
-            key = str(specialization) + str(options)
-            kernel = kernel_cache.get(key, None)
-
-            if kernel is None:
-                options = backend.parse_options(kwargs)
-                sigkeys = [x.name for x in self.params]
-                sigvals = [x[0] for x in specialization]
-                signature = {k: v for (k, v) in zip(sigkeys, sigvals)}
-                assert "device_type" not in kwargs, "device_type option is deprecated; current target will be used"
-                assert "device" not in kwargs, "device option is deprecated; current device will be used"
-                assert "stream" not in kwargs, "stream option is deprecated; current stream will be used"
-                for k in kwargs:
-                    if k not in options.__dict__ and k not in sigkeys:
-                        raise KeyError("Keyword argument %s was specified but unrecognised" % k)
-                constexprs = find_paths_if(sigvals, lambda _, val: val == "constexpr")
-                constexprs = {path: get_iterable_path(list(bound_args.values()), path) for path in constexprs}
-                attrvals = [x[1] for x in specialization]
-                attrs = find_paths_if(attrvals, lambda _, x: isinstance(x, str))
-                attrs = {k: backend.parse_attr(get_iterable_path(attrvals, k)) for k in attrs}
-                if self._call_hook(knobs.runtime.jit_cache_hook, key, signature, device, constexprs, options, [attrs], warmup):
-                    return None
-                src = self.ASTSource(self, signature, constexprs, attrs)
-                kernel = self.compile(src, target=target, options=options.__dict__)
-                kernel_cache[key] = kernel
-                self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs], warmup)
-
-            if not warmup:
-                assert grid is not None
-                if callable(grid):
-                    grid = grid(bound_args)
-                grid_size = len(grid)
-                grid_0 = grid[0]
-                grid_1 = grid[1] if grid_size > 1 else 1
-                grid_2 = grid[2] if grid_size > 2 else 1
-                launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
-                kernel.run(
-                    grid_0,
-                    grid_1,
-                    grid_2,
-                    stream,
-                    kernel.function,
-                    kernel.packed_metadata,
-                    launch_metadata,
-                    knobs.runtime.launch_enter_hook,
-                    knobs.runtime.launch_exit_hook,
-                    *bound_args.values(),
-                )
-            return kernel
 
         key = str(specialization) + str(options)
         # [Triton Runner] dump key

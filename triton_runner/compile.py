@@ -16,15 +16,11 @@ from .check_utils import runner_check_triton
 from .color_print import print_triton_cache_dir
 from .triton_compat import triton_key
 from . import __version__
-from .compiler.compiler import RunnerCompiledKernel
+from triton.compiler.compiler import CompiledKernel
 from .version_utils import is_triton_v3_4, is_disable_multithreading
 from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_5
 from .version_utils import triton_version
-from . import TRITON_RUNNER_ENABLE_TVM_FFI
 
-
-def _is_cuda_target(target):
-    return isinstance(target, GPUTarget) and target.backend == "cuda"
 
 
 def _load_ir_source_module(src, context, backend):
@@ -83,7 +79,6 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
     backend = make_backend(target)
-    use_tvm_ffi_compiled_kernel = TRITON_RUNNER_ENABLE_TVM_FFI and _is_cuda_target(target)
     ir_source = not isinstance(src, ASTSource)
     module = None
     if ir_source:
@@ -126,13 +121,6 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     metadata_filename = f"{file_name}.json"
     metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
     metadata_path = metadata_group.get(metadata_filename)
-    binary_filename = f"{file_name}.cubin"
-
-    def make_compiled_kernel(cubin_path=None, json_path=None):
-        if use_tvm_ffi_compiled_kernel:
-            from triton_runner.compiler.compiler import CompiledTVMFFIKernel
-            return CompiledTVMFFIKernel(cubin_path, json_path)
-        return RunnerCompiledKernel(ast_src, metadata_group, hash)
 
     always_compile = os.environ.get("TRITON_ALWAYS_COMPILE", "0") == "1"
     mlir_dump_path = os.environ.get("MLIR_DUMP_PATH", None)
@@ -143,10 +131,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             parse_mlir_to_folder(mlir_dump_path)
         print_triton_cache_dir(metadata_path, cache_hit=True)
         # cache hit!
-        return make_compiled_kernel(
-            cubin_path=metadata_group.get(binary_filename),
-            json_path=metadata_path,
-        )
+        return CompiledKernel(ast_src, metadata_group, hash)
 
     metadata = _build_initial_metadata(kernel_signature, hash, target, options, env_vars)
 
@@ -254,10 +239,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if is_disable_multithreading:
             context.disable_multithreading()
 
-    return make_compiled_kernel(
-        cubin_path=metadata_group.get(binary_filename),
-        json_path=metadata_group.get(metadata_filename),
-    )
+    return CompiledKernel(ast_src, metadata_group, hash)
 
 
 def get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context):
