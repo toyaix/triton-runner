@@ -8,10 +8,45 @@ import ast
 import inspect
 import re
 import textwrap
-
-from .color_print import blue_print, red_print
+from . import TRITON_RUNNER_PROD_TEST
 
 _kernel_cache_dirs: Dict[str, set] = defaultdict(set)
+
+
+def track_kernel_cache_dir(kernel, name):
+    from .color_print import blue_print, red_print
+    from triton.runtime.cache import get_cache_manager
+    cache_dir = get_cache_manager(kernel.hash).cache_dir
+    old_num = len(_kernel_cache_dirs[name])
+    _kernel_cache_dirs[name].add(cache_dir)
+    if old_num > 0 and old_num != len(_kernel_cache_dirs[name]):
+        red_print(f"[ProdJIT] {name} has multiple cache dirs: {_kernel_cache_dirs[name]}")
+    # else:
+    #     blue_print(f"[ProdJIT] {name} compiled → {cache_dir}")
+
+
+def update_kernel_metadata(kernel, bound_args, specialization):
+    import glob
+    import json
+    import os
+    from triton.runtime.cache import get_cache_manager
+    from .version_utils import triton_version
+    from . import __version__
+    kernel_signature = tuple((k, arg_type, spec) for k, (arg_type, spec) in zip(bound_args.keys(), specialization))
+    kernel_cache_dir = get_cache_manager(kernel.hash).cache_dir
+    json_files = glob.glob(os.path.join(kernel_cache_dir, "*.json"))
+    if json_files:
+        json_path = json_files[0]
+        with open(json_path, 'r') as f:
+            meta = json.load(f)
+        meta = {
+            "kernel_signature": str(kernel_signature),
+            "triton_version": triton_version,
+            "triton_runner_version": __version__,
+            **meta,
+        }
+        with open(json_path, 'w') as f:
+            json.dump(meta, f)
 
 class ProdJITFunction(JITFunction[KernelInterface[T]]):
 
@@ -86,8 +121,6 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
         return {}, target, backend, binder
 
     def run(self, *args, grid, warmup, **kwargs):
-        # blue_print(f"prod kernel {self.__name__} run")
-        kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
 
         # parse options
         device = driver.active.get_current_device()
@@ -137,14 +170,10 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
             kernel_cache[key] = kernel
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                             warmup)
+            update_kernel_metadata(kernel, bound_args, specialization)
 
-        from triton.runtime.cache import get_cache_manager
-        cache_dir = get_cache_manager(kernel.hash).cache_dir
-        _kernel_cache_dirs[self.__name__].add(cache_dir)
-        if len(_kernel_cache_dirs[self.__name__]) > 1:
-            red_print(f"[ProdJIT] {self.__name__} has multiple cache dirs: {_kernel_cache_dirs[self.__name__]}")
-        # else:
-        #     blue_print(f"[ProdJIT] {self.__name__} compiled → {cache_dir}")
+        if TRITON_RUNNER_PROD_TEST:
+            track_kernel_cache_dir(kernel, self.__name__)
 
         # Check that used global values have not changed.
         not_present = object()

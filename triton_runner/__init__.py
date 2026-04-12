@@ -22,7 +22,8 @@ def _init_is_cuda():
 
 IS_CUDA = _init_is_cuda()
 
-TRITON_RUNNER_PROD = _env_flag("TRITON_RUNNER_PROD", default=False)
+TRITON_RUNNER_PROD_TEST = _env_flag("TRITON_RUNNER_PROD_TEST", default=False)
+TRITON_RUNNER_PROD = _env_flag("TRITON_RUNNER_PROD", default=False) or TRITON_RUNNER_PROD_TEST
 
 
 from .version_utils import is_triton_geq_v3_4
