@@ -632,8 +632,6 @@ struct RegisteredKernel {
   size_t global_scratch_align = 1;
   size_t profile_scratch_size = 0;
   size_t profile_scratch_align = 1;
-  size_t kernel_arg_slot_count = 0;
-  size_t launch_arg_capacity = 2;
   std::vector<RuntimeArgSpec> runtime_args;
 };
 
@@ -654,11 +652,6 @@ struct BoundArgsLauncherPlan {
   std::vector<BoundArgAction> actions;
   int32_t runtime_arg_count = 0;
   bool needs_python = false;
-};
-
-struct BoundArgsWorkspace {
-  std::vector<Any> owned_args;
-  std::vector<AnyView> launch_args;
 };
 
 static std::mutex g_kernel_mu;
@@ -683,24 +676,6 @@ struct alignas(128) KernelArgSlot {
     CUtensorMap tensor_map;
   };
 };
-
-struct LaunchWorkspace {
-  std::vector<KernelArgSlot> slots;
-  std::vector<void*> launch_args;
-};
-
-inline BoundArgsWorkspace& GetBoundArgsWorkspace() {
-  thread_local BoundArgsWorkspace workspace;
-  return workspace;
-}
-
-inline LaunchWorkspace& GetLaunchWorkspace() {
-  thread_local LaunchWorkspace workspace;
-  return workspace;
-}
-
-
-inline void LaunchPacked(PackedArgs args, Any* ret);
 
 inline ArgKind ArgKindFromCode(int64_t code) {
   switch (code) {
@@ -833,13 +808,6 @@ int64_t RegisterKernel(const String& kernel_name,
       TVM_FFI_CHECK(block_end == block_offset, ValueError)
           << "Non-tensor runtime arg " << spec.name << " must not carry block_size values";
     }
-    size_t arg_slot_count = 1;
-    if (spec.kind == ArgKind::kTensorDesc) {
-      arg_slot_count = spec.tensordesc_meta.present ? static_cast<size_t>(1 + 2 * spec.rank)
-                                                    : static_cast<size_t>(2 + 4 * spec.rank);
-    }
-    kernel->kernel_arg_slot_count += arg_slot_count;
-    kernel->launch_arg_capacity += arg_slot_count;
     kernel->runtime_args.push_back(std::move(spec));
   }
 
@@ -901,129 +869,36 @@ Function MakeBoundArgsLauncher(const Function& tvm_func,
         Any(args[1].cast<int32_t>()),
         Any(args[2].cast<int32_t>()),
     };
-    BoundArgsWorkspace& workspace = GetBoundArgsWorkspace();
-    workspace.owned_args.clear();
-    workspace.launch_args.clear();
-    size_t required_arg_count = static_cast<size_t>(plan->runtime_arg_count) + prefix.size();
-    if (workspace.owned_args.capacity() < required_arg_count) {
-      workspace.owned_args.reserve(required_arg_count);
-    }
-    if (workspace.launch_args.capacity() < required_arg_count) {
-      workspace.launch_args.reserve(required_arg_count);
-    }
+    std::vector<Any> owned_args;
+    owned_args.reserve(static_cast<size_t>(plan->runtime_arg_count) + prefix.size());
     StreamContextInfo stream_ctx;
+    std::vector<AnyView> launch_args;
+    launch_args.reserve(static_cast<size_t>(plan->runtime_arg_count) + prefix.size());
     for (const Any& value : prefix) {
-      workspace.launch_args.push_back(value);
+      launch_args.push_back(value);
     }
 
     for (size_t i = 0; i < plan->actions.size(); ++i) {
       const BoundArgAction& action = plan->actions[i];
       if (action.kind == BoundArgActionKind::kPassThrough) {
-        workspace.launch_args.push_back(args[static_cast<int32_t>(i + 3)]);
+        launch_args.push_back(args[static_cast<int32_t>(i + 3)]);
         continue;
       }
       if (action.kind == BoundArgActionKind::kTensorDesc) {
         PyObject* tensor_desc = OpaquePyObjectBorrowedFromAny(args[static_cast<int32_t>(i + 3)], i);
         AppendTensorDescExpandedArgs(
-            tensor_desc,
-            action.rank,
-            static_cast<int64_t>(i),
-            &workspace.owned_args,
-            &workspace.launch_args,
-            &stream_ctx);
+            tensor_desc, action.rank, static_cast<int64_t>(i), &owned_args, &launch_args, &stream_ctx);
       }
     }
 
     ScopedEnvStream scoped_stream(stream_ctx);
     plan->tvm_func.CallPacked(
-        PackedArgs(workspace.launch_args.data(), static_cast<int32_t>(workspace.launch_args.size())),
+        PackedArgs(launch_args.data(), static_cast<int32_t>(launch_args.size())),
         ret);
   });
 }
 
-Function MakeGridLauncher(int64_t registry_handle,
-                          int64_t grid_x,
-                          int64_t grid_y,
-                          int64_t grid_z,
-                          const Array<String>& signature_type_names) {
-  auto plan = std::make_shared<BoundArgsLauncherPlan>();
-  plan->registry_handle = registry_handle;
-  plan->actions.reserve(signature_type_names.size());
-
-  for (const String& type_name : signature_type_names) {
-    std::string_view type_name_view(type_name.data(), type_name.size());
-    if (type_name_view == "constexpr") {
-      plan->actions.push_back({BoundArgActionKind::kConstexpr, 0});
-      continue;
-    }
-    if (type_name_view.rfind("tensordesc", 0) == 0) {
-      int rank = ParseTensorDescRank(type_name_view);
-      TVM_FFI_CHECK(rank > 0 && rank <= 5, ValueError)
-          << "Tensor descriptor signature has unsupported rank " << rank << ": " << type_name_view;
-      plan->actions.push_back({BoundArgActionKind::kTensorDesc, rank});
-      plan->runtime_arg_count += 2 * rank + 2;
-      plan->needs_python = true;
-      continue;
-    }
-    plan->actions.push_back({BoundArgActionKind::kPassThrough, 0});
-    ++plan->runtime_arg_count;
-  }
-
-  return Function::FromPacked([plan = std::move(plan), grid_x, grid_y, grid_z](PackedArgs args, Any* ret) {
-    TVM_FFI_CHECK(args.size() == static_cast<int32_t>(plan->actions.size()), ValueError)
-        << "Expected " << plan->actions.size() << " bound arguments for TVM-FFI grid launcher, got "
-        << args.size() << ".";
-    std::optional<ScopedPyGIL> gil;
-    if (plan->needs_python) {
-      gil.emplace();
-    }
-
-    BoundArgsWorkspace& workspace = GetBoundArgsWorkspace();
-    workspace.owned_args.clear();
-    workspace.launch_args.clear();
-    size_t required_arg_count = static_cast<size_t>(plan->runtime_arg_count) + 4;
-    if (workspace.owned_args.capacity() < required_arg_count) {
-      workspace.owned_args.reserve(required_arg_count);
-    }
-    if (workspace.launch_args.capacity() < required_arg_count) {
-      workspace.launch_args.reserve(required_arg_count);
-    }
-
-    std::array<Any, 4> prefix = {
-        Any(plan->registry_handle),
-        Any(static_cast<int32_t>(grid_x)),
-        Any(static_cast<int32_t>(grid_y)),
-        Any(static_cast<int32_t>(grid_z)),
-    };
-    for (const Any& value : prefix) {
-      workspace.launch_args.push_back(value);
-    }
-
-    StreamContextInfo stream_ctx;
-    for (size_t i = 0; i < plan->actions.size(); ++i) {
-      const BoundArgAction& action = plan->actions[i];
-      if (action.kind == BoundArgActionKind::kPassThrough) {
-        workspace.launch_args.push_back(args[static_cast<int32_t>(i)]);
-        continue;
-      }
-      if (action.kind == BoundArgActionKind::kTensorDesc) {
-        PyObject* tensor_desc = OpaquePyObjectBorrowedFromAny(args[static_cast<int32_t>(i)], i);
-        AppendTensorDescExpandedArgs(
-            tensor_desc,
-            action.rank,
-            static_cast<int64_t>(i),
-            &workspace.owned_args,
-            &workspace.launch_args,
-            &stream_ctx);
-      }
-    }
-
-    ScopedEnvStream scoped_stream(stream_ctx);
-    LaunchPacked(PackedArgs(workspace.launch_args.data(), static_cast<int32_t>(workspace.launch_args.size())), ret);
-  });
-}
-
-inline void StoreIntegerArg(ArgKind kind, const Any& arg, std::vector<KernelArgSlot>* slots, std::vector<void*>* out) {
+inline void StoreIntegerArg(ArgKind kind, const Any& arg, std::deque<KernelArgSlot>* slots, std::vector<void*>* out) {
   slots->emplace_back();
   KernelArgSlot& slot = slots->back();
   switch (kind) {
@@ -1072,7 +947,7 @@ inline void StoreIntegerArg(ArgKind kind, const Any& arg, std::vector<KernelArgS
   }
 }
 
-inline void StoreFloatArg(ArgKind kind, const Any& arg, std::vector<KernelArgSlot>* slots, std::vector<void*>* out) {
+inline void StoreFloatArg(ArgKind kind, const Any& arg, std::deque<KernelArgSlot>* slots, std::vector<void*>* out) {
   double value = arg.cast<double>();
   slots->emplace_back();
   KernelArgSlot& slot = slots->back();
@@ -1121,15 +996,9 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
         << "All tensor arguments must live on the same CUDA device.";
   };
 
-  LaunchWorkspace& workspace = GetLaunchWorkspace();
-  workspace.slots.clear();
-  workspace.launch_args.clear();
-  if (workspace.slots.capacity() < kernel->kernel_arg_slot_count) {
-    workspace.slots.reserve(kernel->kernel_arg_slot_count);
-  }
-  if (workspace.launch_args.capacity() < kernel->launch_arg_capacity) {
-    workspace.launch_args.reserve(kernel->launch_arg_capacity);
-  }
+  std::deque<KernelArgSlot> slots;
+  std::vector<void*> launch_args;
+  launch_args.reserve(kernel->runtime_args.size() * 4 + 2);
   size_t arg_index = 4;
 
   for (const RuntimeArgSpec& spec : kernel->runtime_args) {
@@ -1139,9 +1008,9 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
             << "Missing runtime argument for " << spec.name;
         TensorView tensor = args[static_cast<int64_t>(arg_index++)].cast<TensorView>();
         bind_device(tensor.device(), spec.name.c_str());
-        workspace.slots.emplace_back();
-        workspace.slots.back().ptr = tensor.data_ptr();
-        workspace.launch_args.push_back(&workspace.slots.back().ptr);
+        slots.emplace_back();
+        slots.back().ptr = tensor.data_ptr();
+        launch_args.push_back(&slots.back().ptr);
         break;
       }
       case ArgKind::kI1:
@@ -1156,8 +1025,7 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
       case ArgKind::kU64: {
         TVM_FFI_CHECK(arg_index < static_cast<size_t>(args.size()), ValueError)
             << "Missing runtime argument for " << spec.name;
-        StoreIntegerArg(
-            spec.kind, args[static_cast<int64_t>(arg_index++)], &workspace.slots, &workspace.launch_args);
+        StoreIntegerArg(spec.kind, args[static_cast<int64_t>(arg_index++)], &slots, &launch_args);
         break;
       }
       case ArgKind::kFp16:
@@ -1166,7 +1034,7 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
       case ArgKind::kFp64: {
         TVM_FFI_CHECK(arg_index < static_cast<size_t>(args.size()), ValueError)
             << "Missing runtime argument for " << spec.name;
-        StoreFloatArg(spec.kind, args[static_cast<int64_t>(arg_index++)], &workspace.slots, &workspace.launch_args);
+        StoreFloatArg(spec.kind, args[static_cast<int64_t>(arg_index++)], &slots, &launch_args);
         break;
       }
       case ArgKind::kTensorDesc: {
@@ -1189,8 +1057,8 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
         bool padding_nan = args[static_cast<int64_t>(arg_index++)].cast<bool>();
 
         if (spec.tensordesc_meta.present) {
-          workspace.slots.emplace_back();
-          FillTmaDescriptor(&workspace.slots.back().tensor_map,
+          slots.emplace_back();
+          FillTmaDescriptor(&slots.back().tensor_map,
                             base.data_ptr(),
                             spec.tensordesc_meta.swizzle,
                             spec.tensordesc_meta.elem_size,
@@ -1202,43 +1070,43 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
                             padding_nan,
                             spec.tensordesc_meta.fp4_padded,
                             spec.name.c_str());
-          workspace.launch_args.push_back(&workspace.slots.back().tensor_map);
+          launch_args.push_back(&slots.back().tensor_map);
           for (int i = 0; i < spec.rank; ++i) {
-            workspace.slots.emplace_back();
-            workspace.slots.back().i32 = static_cast<int32_t>(shape[static_cast<size_t>(i)]);
-            workspace.launch_args.push_back(&workspace.slots.back().i32);
+            slots.emplace_back();
+            slots.back().i32 = static_cast<int32_t>(shape[static_cast<size_t>(i)]);
+            launch_args.push_back(&slots.back().i32);
           }
           for (int i = 0; i < spec.rank; ++i) {
-            workspace.slots.emplace_back();
-            workspace.slots.back().i64 = stride[static_cast<size_t>(i)];
-            workspace.launch_args.push_back(&workspace.slots.back().i64);
+            slots.emplace_back();
+            slots.back().i64 = stride[static_cast<size_t>(i)];
+            launch_args.push_back(&slots.back().i64);
           }
         } else {
-          workspace.slots.emplace_back();
-          workspace.slots.back().ptr = base.data_ptr();
-          workspace.launch_args.push_back(&workspace.slots.back().ptr);
+          slots.emplace_back();
+          slots.back().ptr = base.data_ptr();
+          launch_args.push_back(&slots.back().ptr);
           for (int i = 0; i < spec.rank; ++i) {
-            workspace.slots.emplace_back();
-            workspace.slots.back().i64 = shape[static_cast<size_t>(i)];
-            workspace.launch_args.push_back(&workspace.slots.back().i64);
+            slots.emplace_back();
+            slots.back().i64 = shape[static_cast<size_t>(i)];
+            launch_args.push_back(&slots.back().i64);
           }
           for (int i = 0; i < spec.rank; ++i) {
-            workspace.slots.emplace_back();
-            workspace.slots.back().i64 = stride[static_cast<size_t>(i)];
-            workspace.launch_args.push_back(&workspace.slots.back().i64);
+            slots.emplace_back();
+            slots.back().i64 = stride[static_cast<size_t>(i)];
+            launch_args.push_back(&slots.back().i64);
           }
-          workspace.slots.emplace_back();
-          workspace.slots.back().b = padding_nan;
-          workspace.launch_args.push_back(&workspace.slots.back().b);
+          slots.emplace_back();
+          slots.back().b = padding_nan;
+          launch_args.push_back(&slots.back().b);
           for (int i = 0; i < spec.rank; ++i) {
-            workspace.slots.emplace_back();
-            workspace.slots.back().i32 = static_cast<int32_t>(shape[static_cast<size_t>(i)]);
-            workspace.launch_args.push_back(&workspace.slots.back().i32);
+            slots.emplace_back();
+            slots.back().i32 = static_cast<int32_t>(shape[static_cast<size_t>(i)]);
+            launch_args.push_back(&slots.back().i32);
           }
           for (int i = 0; i < spec.rank; ++i) {
-            workspace.slots.emplace_back();
-            workspace.slots.back().i64 = stride[static_cast<size_t>(i)];
-            workspace.launch_args.push_back(&workspace.slots.back().i64);
+            slots.emplace_back();
+            slots.back().i64 = stride[static_cast<size_t>(i)];
+            launch_args.push_back(&slots.back().i64);
           }
         }
         break;
@@ -1249,13 +1117,17 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
   TVM_FFI_CHECK(arg_index == static_cast<size_t>(args.size()), ValueError)
       << "Unexpected extra launch arguments: got " << args.size() << ", consumed " << arg_index;
 
-  int current_device = 0;
-  TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&current_device));
   if (!device_initialized) {
+    int current_device = 0;
+    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&current_device));
     device.device_type = kDLCUDA;
     device.device_id = current_device;
+    device_initialized = true;
   }
-  if (current_device != device.device_id) {
+
+  int previous_device = -1;
+  TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaGetDevice(&previous_device));
+  if (previous_device != device.device_id) {
     TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(device.device_id));
   }
 
@@ -1276,17 +1148,16 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
           kernel->profile_scratch_size,
       kernel->profile_scratch_align);
 
-  workspace.launch_args.push_back(&global_scratch);
-  workspace.launch_args.push_back(&profile_scratch);
+  launch_args.push_back(&global_scratch);
+  launch_args.push_back(&profile_scratch);
 
   if (grid_x > 0 && grid_y > 0 && grid_z > 0) {
-    auto result =
-        kernel->kernel->Launch(workspace.launch_args.data(), grid, block, stream, kernel->shared_memory);
+    auto result = kernel->kernel->Launch(launch_args.data(), grid, block, stream, kernel->shared_memory);
     TVM_FFI_CHECK_CUBIN_LAUNCHER_CUDA_ERROR(result);
   }
 
-  if (current_device != device.device_id) {
-    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(current_device));
+  if (previous_device != device.device_id) {
+    TVM_FFI_CHECK_TRITON_RUNNER_CUDA_RUNTIME_ERROR(cudaSetDevice(previous_device));
   }
   *ret = nullptr;
 }
@@ -1295,7 +1166,6 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
 
 TVM_FFI_DLL_EXPORT_TYPED_FUNC(register_kernel, triton_runner_tvm_ffi::RegisterKernel)
 TVM_FFI_DLL_EXPORT_TYPED_FUNC(make_bound_args_launcher, triton_runner_tvm_ffi::MakeBoundArgsLauncher)
-TVM_FFI_DLL_EXPORT_TYPED_FUNC(make_grid_launcher, triton_runner_tvm_ffi::MakeGridLauncher)
 
 extern "C" TVM_FFI_DLL_EXPORT int __tvm_ffi_launch(void* self,
                                                    const TVMFFIAny* args,

@@ -25,7 +25,6 @@ class CompiledTVMFFIKernel:
         self._cubin_path = cubin_path
         self._json_path = json_path
         self._run_launcher = None
-        self._grid_runner_cache = {}
 
     def _get_launcher(self):
         if self._run_launcher is None:
@@ -36,23 +35,15 @@ class CompiledTVMFFIKernel:
         return self._run_launcher
 
     def _launch(self, gridX, gridY, gridZ, *args):
-        launcher = self._get_launcher()
-        runtime_args = launcher._runtime_args(args)
-        if launcher._launch_bound_args_for_tvm_ffi is None:
-            launcher._tvm_func(launcher._registry_handle, gridX, gridY, gridZ, *runtime_args)
-            return
-        launcher._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *runtime_args)
+        self._get_launcher().launch(gridX, gridY, gridZ, *args)
 
     def run(self, gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args):
         self._launch(gridX, gridY, gridZ, *args)
 
     def __getitem__(self, grid):
         launcher = self._get_launcher()
-        is_plain_int_grid = isinstance(grid, tuple) and len(grid) == 3 and all(type(v) is int for v in grid)
-        key = grid if is_plain_int_grid else (int(grid[0]), int(grid[1]), int(grid[2]))
-        cached = self._grid_runner_cache.get(key)
-        if cached is not None:
-            return cached
-        runner = launcher.get_grid_launcher(*key)
-        self._grid_runner_cache[key] = runner
+
+        def runner(*args, stream=None):
+            launcher.launch(grid[0], grid[1], grid[2], *args)
+
         return runner
