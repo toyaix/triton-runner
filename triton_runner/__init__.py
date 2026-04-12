@@ -1,6 +1,6 @@
 __version__ = '0.3.6'
 
-from .version_utils import is_support_version, is_triton_geq_v3_3, is_triton_v3_4, triton_version
+from .version_utils import is_support_version, is_triton_v3_4, triton_version
 if not is_support_version:
     raise RuntimeError(f"Triton Runner doesn't support Triton v{triton_version}")
 
