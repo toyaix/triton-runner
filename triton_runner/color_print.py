@@ -18,7 +18,7 @@ def warning_dump_mode_ssa_and_op(ssa, op, loc, size, encoding):
 
 def print_triton_cache_dir(metadata_path, cache_hit=False):
     if os.environ.get("TRITON_RUNNER_QUIET", "0") != "1":
-        always_compile_text = " cache hint and" if cache_hit else ""
+        always_compile_text = " cache hit and" if cache_hit else ""
         blue_print(f"{get_project_name()} Triton kernel{always_compile_text} saved at {os.path.dirname(metadata_path)}")
 
 def check_dump_tensor_dtype(dump_tensor):
