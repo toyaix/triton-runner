@@ -144,6 +144,7 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
         if kernel is None:
             # options
             options = backend.parse_options(kwargs)
+            object.__setattr__(options, "tvm", True)
             # signature
             sigkeys = [x.name for x in self.params]
             sigvals = [x[0] for x in specialization]
@@ -180,8 +181,8 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
             _grp_json = _glob.glob(_os.path.join(_cubin_dir, "__grp__*.json"))[0]
             _child_paths = json.load(open(_grp_json))["child_paths"]
             kernel_cache[key + "_tvm"] = CompiledTVMFFIKernel(
-                _child_paths[kernel.name + ".cubin"],
-                _child_paths[kernel.name + ".json"],
+                _child_paths[self._fn_name + ".cubin"],
+                _child_paths[self._fn_name + ".json"],
             )
 
         if TRITON_RUNNER_PROD_TEST:
