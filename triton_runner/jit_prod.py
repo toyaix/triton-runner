@@ -9,6 +9,7 @@ import inspect
 import re
 import textwrap
 from . import TRITON_RUNNER_PROD_TEST
+from .compiler import CompiledTVMFFIKernel
 
 _kernel_cache_dirs: Dict[str, set] = defaultdict(set)
 
@@ -124,7 +125,7 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
 
         # parse options
         device = driver.active.get_current_device()
-        stream = driver.active.get_current_stream(device)
+        # stream = driver.active.get_current_stream(device)
 
         # Execute pre run hooks with args and kwargs
         for hook in self.pre_run_hooks:
@@ -171,16 +172,27 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                             warmup)
             update_kernel_metadata(kernel, bound_args, specialization)
+            import glob as _glob
+            import os as _os
+            import json
+            from triton.runtime.cache import get_cache_manager
+            _cubin_dir = get_cache_manager(kernel.hash).cache_dir
+            _grp_json = _glob.glob(_os.path.join(_cubin_dir, "__grp__*.json"))[0]
+            _child_paths = json.load(open(_grp_json))["child_paths"]
+            kernel_cache[key + "_tvm"] = CompiledTVMFFIKernel(
+                _child_paths[kernel.name + ".cubin"],
+                _child_paths[kernel.name + ".json"],
+            )
 
         if TRITON_RUNNER_PROD_TEST:
             track_kernel_cache_dir(kernel, self.__name__)
 
-        # Check that used global values have not changed.
-        not_present = object()
-        for (name, _), (val, globals_dict) in self.used_global_vals.items():
-            if (newVal := globals_dict.get(name, not_present)) != val:
-                raise RuntimeError(
-                    f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
+            # Check that used global values have not changed.
+            not_present = object()
+            for (name, _), (val, globals_dict) in self.used_global_vals.items():
+                if (newVal := globals_dict.get(name, not_present)) != val:
+                    raise RuntimeError(
+                        f"Global variable {name} has changed since we compiled this kernel, from {val} to {newVal}")
 
         if not warmup:
             # canonicalize grid
@@ -191,10 +203,11 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
             grid_0 = grid[0]
             grid_1 = grid[1] if grid_size > 1 else 1
             grid_2 = grid[2] if grid_size > 2 else 1
-            # launch kernel
-            launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
-            kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata, launch_metadata,
-                       knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook, *bound_args.values())
+            # launch kernel via TVM-FFI
+            tvm_kernel = kernel_cache[key + "_tvm"]
+            tvm_kernel.run(grid_0, grid_1, grid_2,
+                           knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook,
+                           *bound_args.values())
         return kernel
 
     def repr(self, _):
