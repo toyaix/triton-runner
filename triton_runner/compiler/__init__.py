@@ -1,3 +1,3 @@
-from .compiler import CompiledTVMFFIKernel, RunnerCompiledKernel
+from .compiler import CompiledTVMFFIKernel
 
-__all__ = ["CompiledTVMFFIKernel", "RunnerCompiledKernel"]
+__all__ = ["CompiledTVMFFIKernel"]
