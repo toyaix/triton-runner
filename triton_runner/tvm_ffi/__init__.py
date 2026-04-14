@@ -67,7 +67,6 @@ class _SignatureEntry:
 @dataclass(frozen=True)
 class _CompiledArtifact:
     kernel_name: str
-    cubin_bytes: bytes
     metadata: dict[str, Any]
     signature: tuple[_SignatureEntry, ...]
     function_handle: int = 0

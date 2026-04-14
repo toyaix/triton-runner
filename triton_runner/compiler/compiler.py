@@ -7,14 +7,11 @@ class CompiledTVMFFIKernel:
     def _get_launcher(self):
         if self._run_launcher is None:
             from triton_runner.tvm_ffi.driver import TvmFfiLauncher
-            self._run_launcher = TvmFfiLauncher(self._metadata, {"function": self._function})
+            self._run_launcher = TvmFfiLauncher(self._metadata, self._function)
         return self._run_launcher
 
-    def _launch(self, gridX, gridY, gridZ, *args):
-        self._get_launcher().launch(gridX, gridY, gridZ, *args)
-
     def run(self, gridX, gridY, gridZ, launch_enter_hook, launch_exit_hook, *args):
-        self._launch(gridX, gridY, gridZ, *args)
+        self._get_launcher().launch(gridX, gridY, gridZ, *args)
 
     def __getitem__(self, grid):
         launcher = self._get_launcher()

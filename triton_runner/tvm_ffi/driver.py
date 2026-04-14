@@ -131,71 +131,6 @@ def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
         runtime_arg_block_size_offsets.append(len(runtime_arg_block_size_values))
 
     payload = (
-        artifact.kernel_name,
-        artifact.cubin_bytes,
-        32 * int(metadata["num_warps"]),
-        int(metadata.get("shared", 0)),
-        int(metadata.get("global_scratch_size", 0)),
-        int(metadata.get("global_scratch_align", 1)),
-        int(metadata.get("profile_scratch_size", 0)),
-        int(metadata.get("profile_scratch_align", 1)),
-        runtime_arg_names,
-        runtime_arg_kind_codes,
-        runtime_arg_ranks,
-        runtime_arg_meta_present,
-        runtime_arg_swizzles,
-        runtime_arg_elem_sizes,
-        runtime_arg_elem_types,
-        runtime_arg_fp4_padded,
-        runtime_arg_block_size_offsets,
-        runtime_arg_block_size_values,
-    )
-    token = _registration_token_for_payload(payload)
-    return payload, token
-
-
-def _build_function_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
-    from . import _runtime_arg_registration_specs, _validate_launch_metadata
-
-    metadata = artifact.metadata
-    _validate_launch_metadata(metadata)
-    runtime_entries = tuple(entry for entry in artifact.signature if not entry.is_constexpr)
-    runtime_args = _runtime_arg_registration_specs(runtime_entries, metadata)
-
-    runtime_arg_names: list[str] = []
-    runtime_arg_kind_codes: list[int] = []
-    runtime_arg_ranks: list[int] = []
-    runtime_arg_meta_present: list[int] = []
-    runtime_arg_swizzles: list[int] = []
-    runtime_arg_elem_sizes: list[int] = []
-    runtime_arg_elem_types: list[int] = []
-    runtime_arg_fp4_padded: list[int] = []
-    runtime_arg_block_size_offsets: list[int] = [0]
-    runtime_arg_block_size_values: list[int] = []
-
-    for runtime_arg in runtime_args:
-        runtime_arg_names.append(str(runtime_arg["name"]))
-        kind = str(runtime_arg["kind"])
-        runtime_arg_kind_codes.append(_ARG_KIND_CODES[kind])
-        runtime_arg_ranks.append(int(runtime_arg.get("rank", 0)))
-
-        metadata_item = runtime_arg.get("metadata")
-        if metadata_item is None:
-            runtime_arg_meta_present.append(0)
-            runtime_arg_swizzles.append(0)
-            runtime_arg_elem_sizes.append(0)
-            runtime_arg_elem_types.append(0)
-            runtime_arg_fp4_padded.append(0)
-        else:
-            runtime_arg_meta_present.append(1)
-            runtime_arg_swizzles.append(int(metadata_item["swizzle"]))
-            runtime_arg_elem_sizes.append(int(metadata_item["elem_size"]))
-            runtime_arg_elem_types.append(int(metadata_item["elem_type"]))
-            runtime_arg_fp4_padded.append(1 if metadata_item.get("fp4_padded") else 0)
-            runtime_arg_block_size_values.extend(int(value) for value in metadata_item["block_size"])
-        runtime_arg_block_size_offsets.append(len(runtime_arg_block_size_values))
-
-    payload = (
         artifact.function_handle,
         32 * int(metadata["num_warps"]),
         int(metadata.get("shared", 0)),
@@ -257,22 +192,6 @@ def _register_kernel_if_needed(
         cached = _registered_kernel_cache.get(cache_token)
         if cached is not None:
             return cached
-        handle = int(module.register_kernel(*registration_args))
-        _registered_kernel_cache[cache_token] = handle
-        return handle
-
-
-def _register_kernel_from_function_if_needed(
-        launcher_cache_key: str,
-        module: Any,
-        registration_token: str,
-        registration_args: tuple[Any, ...],
-) -> int:
-    cache_token = (launcher_cache_key, registration_token)
-    with _cache_lock:
-        cached = _registered_kernel_cache.get(cache_token)
-        if cached is not None:
-            return cached
         handle = int(module.register_kernel_from_function(*registration_args))
         _registered_kernel_cache[cache_token] = handle
         return handle
@@ -290,7 +209,7 @@ def _lookup_module_function(module: Any, name: str) -> Any:
 class TvmFfiLauncher:
     """TVM-FFI kernel launcher with the same call convention as ``CudaLauncher``."""
 
-    def __init__(self, metadata, asm):
+    def __init__(self, metadata, function_handle):
         from . import (
             _CompiledArtifact,
             _make_bound_args_launcher,
@@ -298,17 +217,8 @@ class TvmFfiLauncher:
         )
 
         metadata_dict = metadata._asdict() if hasattr(metadata, "_asdict") else dict(metadata)
-
-        cubin_bytes = asm.get("cubin") if isinstance(asm, dict) else getattr(asm, "get", lambda k: None)("cubin")
-        function_handle = asm.get("function") if isinstance(asm, dict) else getattr(asm, "get", lambda k: None)("function")
-
-        if cubin_bytes is not None:
-            if isinstance(cubin_bytes, memoryview):
-                cubin_bytes = cubin_bytes.tobytes()
-            elif isinstance(cubin_bytes, bytearray):
-                cubin_bytes = bytes(cubin_bytes)
-        elif function_handle is None:
-            raise ValueError("TVM-FFI launcher requires asm['cubin'] or asm['function'].")
+        if function_handle is None:
+            raise ValueError("TVM-FFI launcher requires a function handle.")
 
         kernel_signature = metadata_dict.get("kernel_signature")
         signature = _parse_kernel_signature(kernel_signature)
@@ -316,35 +226,19 @@ class TvmFfiLauncher:
 
         launcher_cache_key, self._tvm_mod = _get_or_build_generic_launcher_module()
 
-        if cubin_bytes is not None:
-            artifact = _CompiledArtifact(
-                kernel_name=str(metadata_dict["name"]),
-                cubin_bytes=cubin_bytes,
-                metadata=metadata_dict,
-                signature=signature,
-            )
-            registration_args, registration_token = _build_registration_payload(artifact)
-            self._registry_handle = _register_kernel_if_needed(
-                launcher_cache_key,
-                self._tvm_mod,
-                registration_token,
-                registration_args,
-            )
-        else:
-            artifact = _CompiledArtifact(
-                kernel_name=str(metadata_dict["name"]),
-                cubin_bytes=b"",
-                metadata=metadata_dict,
-                signature=signature,
-                function_handle=int(function_handle),
-            )
-            registration_args, registration_token = _build_function_registration_payload(artifact)
-            self._registry_handle = _register_kernel_from_function_if_needed(
-                launcher_cache_key,
-                self._tvm_mod,
-                registration_token,
-                registration_args,
-            )
+        artifact = _CompiledArtifact(
+            kernel_name=str(metadata_dict["name"]),
+            metadata=metadata_dict,
+            signature=signature,
+            function_handle=int(function_handle),
+        )
+        registration_args, registration_token = _build_registration_payload(artifact)
+        self._registry_handle = _register_kernel_if_needed(
+            launcher_cache_key,
+            self._tvm_mod,
+            registration_token,
+            registration_args,
+        )
 
         self._tvm_func = _lookup_module_function(self._tvm_mod, "launch")
         self._launch_bound_args_for_tvm_ffi = _make_bound_args_launcher(

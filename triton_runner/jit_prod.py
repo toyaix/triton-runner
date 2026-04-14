@@ -175,7 +175,9 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
                             warmup)
             kernel._init_handles()
             runner_metadata = update_kernel_metadata(kernel, bound_args, specialization)
-            kernel_cache[key + "_tvm"] = CompiledTVMFFIKernel(kernel.function, runner_metadata)
+            tvm_kernel = CompiledTVMFFIKernel(kernel.function, runner_metadata)
+            tvm_kernel._get_launcher()
+            kernel_cache[key + "_tvm"] = tvm_kernel
 
         if TRITON_RUNNER_PROD_TEST:
             track_kernel_cache_dir(kernel, self.__name__)
