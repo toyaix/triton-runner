@@ -238,7 +238,7 @@ class TvmFfiLauncher:
             original_runtime_entries, metadata_dict
         )
 
-        self._tma_desc_cache: dict[int, dict[tuple[tuple[int, ...], tuple[int, ...]], Any]] = {}
+        self._tma_desc_cache: dict[int, dict[tuple[int, tuple[int, ...], tuple[int, ...]], Any]] = {}
         self._tma_cache_lock = threading.Lock()
 
         launcher_cache_key, self._tvm_mod = _get_or_build_generic_launcher_module()
@@ -270,7 +270,8 @@ class TvmFfiLauncher:
         from triton.backends.nvidia.driver import TMA_DTYPE_DEVICE_TO_HOST
         shape_tuple = tuple(arg.shape)
         stride_tuple = tuple(arg.strides)
-        cache_key = (shape_tuple, stride_tuple)
+        base_ptr = arg.base.data_ptr() if hasattr(arg, "base") and arg.base is not None else arg.data_ptr()
+        cache_key = (base_ptr, shape_tuple, stride_tuple)
         with self._tma_cache_lock:
             slot_cache = self._tma_desc_cache.get(runtime_idx)
             if slot_cache is None:
