@@ -70,6 +70,7 @@ class _CompiledArtifact:
     cubin_bytes: bytes
     metadata: dict[str, Any]
     signature: tuple[_SignatureEntry, ...]
+    function_handle: int = 0
 
 
 @dataclass(frozen=True)

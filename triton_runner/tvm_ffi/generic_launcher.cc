@@ -626,6 +626,7 @@ struct RuntimeArgSpec {
 struct RegisteredKernel {
   std::unique_ptr<tvm::ffi::CubinModule> module;
   std::unique_ptr<tvm::ffi::CubinKernel> kernel;
+  CUfunction function = nullptr;
   uint32_t block_x = 0;
   uint32_t shared_memory = 0;
   size_t global_scratch_size = 0;
@@ -724,25 +725,19 @@ inline RegisteredKernel* GetRegisteredKernel(int64_t handle) {
   return kernel;
 }
 
-int64_t RegisterKernel(const String& kernel_name,
-                       const Bytes& cubin,
-                       int64_t block_x,
-                       int64_t shared_memory,
-                       int64_t global_scratch_size,
-                       int64_t global_scratch_align,
-                       int64_t profile_scratch_size,
-                       int64_t profile_scratch_align,
-                       const Array<String>& runtime_arg_names,
-                       const Array<int64_t>& runtime_arg_kind_codes,
-                       const Array<int64_t>& runtime_arg_ranks,
-                       const Array<int64_t>& runtime_arg_meta_present,
-                       const Array<int64_t>& runtime_arg_swizzles,
-                       const Array<int64_t>& runtime_arg_elem_sizes,
-                       const Array<int64_t>& runtime_arg_elem_types,
-                       const Array<int64_t>& runtime_arg_fp4_padded,
-                       const Array<int64_t>& runtime_arg_block_size_offsets,
-                       const Array<int64_t>& runtime_arg_block_size_values) {
-  int64_t runtime_arg_count = runtime_arg_names.size();
+inline void FillRegisteredKernelRuntimeArgs(
+    RegisteredKernel* kernel,
+    int64_t runtime_arg_count,
+    const Array<String>& runtime_arg_names,
+    const Array<int64_t>& runtime_arg_kind_codes,
+    const Array<int64_t>& runtime_arg_ranks,
+    const Array<int64_t>& runtime_arg_meta_present,
+    const Array<int64_t>& runtime_arg_swizzles,
+    const Array<int64_t>& runtime_arg_elem_sizes,
+    const Array<int64_t>& runtime_arg_elem_types,
+    const Array<int64_t>& runtime_arg_fp4_padded,
+    const Array<int64_t>& runtime_arg_block_size_offsets,
+    const Array<int64_t>& runtime_arg_block_size_values) {
   TVM_FFI_CHECK(runtime_arg_kind_codes.size() == runtime_arg_count, ValueError)
       << "runtime_arg_kind_codes size mismatch";
   TVM_FFI_CHECK(runtime_arg_ranks.size() == runtime_arg_count, ValueError)
@@ -760,15 +755,7 @@ int64_t RegisterKernel(const String& kernel_name,
   TVM_FFI_CHECK(runtime_arg_block_size_offsets.size() == runtime_arg_count + 1, ValueError)
       << "runtime_arg_block_size_offsets size mismatch";
 
-  auto kernel = std::make_unique<RegisteredKernel>();
-  kernel->block_x = static_cast<uint32_t>(block_x);
-  kernel->shared_memory = static_cast<uint32_t>(shared_memory);
-  kernel->global_scratch_size = static_cast<size_t>(global_scratch_size);
-  kernel->global_scratch_align = static_cast<size_t>(global_scratch_align);
-  kernel->profile_scratch_size = static_cast<size_t>(profile_scratch_size);
-  kernel->profile_scratch_align = static_cast<size_t>(profile_scratch_align);
   kernel->runtime_args.reserve(static_cast<size_t>(runtime_arg_count));
-
   for (int64_t i = 0; i < runtime_arg_count; ++i) {
     RuntimeArgSpec spec;
     spec.name = runtime_arg_names[i];
@@ -810,10 +797,97 @@ int64_t RegisterKernel(const String& kernel_name,
     }
     kernel->runtime_args.push_back(std::move(spec));
   }
+}
+
+int64_t RegisterKernel(const String& kernel_name,
+                       const Bytes& cubin,
+                       int64_t block_x,
+                       int64_t shared_memory,
+                       int64_t global_scratch_size,
+                       int64_t global_scratch_align,
+                       int64_t profile_scratch_size,
+                       int64_t profile_scratch_align,
+                       const Array<String>& runtime_arg_names,
+                       const Array<int64_t>& runtime_arg_kind_codes,
+                       const Array<int64_t>& runtime_arg_ranks,
+                       const Array<int64_t>& runtime_arg_meta_present,
+                       const Array<int64_t>& runtime_arg_swizzles,
+                       const Array<int64_t>& runtime_arg_elem_sizes,
+                       const Array<int64_t>& runtime_arg_elem_types,
+                       const Array<int64_t>& runtime_arg_fp4_padded,
+                       const Array<int64_t>& runtime_arg_block_size_offsets,
+                       const Array<int64_t>& runtime_arg_block_size_values) {
+  auto kernel = std::make_unique<RegisteredKernel>();
+  kernel->block_x = static_cast<uint32_t>(block_x);
+  kernel->shared_memory = static_cast<uint32_t>(shared_memory);
+  kernel->global_scratch_size = static_cast<size_t>(global_scratch_size);
+  kernel->global_scratch_align = static_cast<size_t>(global_scratch_align);
+  kernel->profile_scratch_size = static_cast<size_t>(profile_scratch_size);
+  kernel->profile_scratch_align = static_cast<size_t>(profile_scratch_align);
+  FillRegisteredKernelRuntimeArgs(
+      kernel.get(),
+      runtime_arg_names.size(),
+      runtime_arg_names,
+      runtime_arg_kind_codes,
+      runtime_arg_ranks,
+      runtime_arg_meta_present,
+      runtime_arg_swizzles,
+      runtime_arg_elem_sizes,
+      runtime_arg_elem_types,
+      runtime_arg_fp4_padded,
+      runtime_arg_block_size_offsets,
+      runtime_arg_block_size_values);
 
   kernel->module = std::make_unique<tvm::ffi::CubinModule>(cubin);
   kernel->kernel = std::make_unique<tvm::ffi::CubinKernel>(
       kernel->module->GetKernelWithMaxDynamicSharedMemory(kernel_name.c_str(), kernel->shared_memory));
+
+  int64_t handle = static_cast<int64_t>(reinterpret_cast<uintptr_t>(kernel.get()));
+  {
+    std::lock_guard<std::mutex> guard(g_kernel_mu);
+    g_registered_kernels[handle] = std::move(kernel);
+  }
+  return handle;
+}
+
+int64_t RegisterKernelFromFunction(int64_t function_handle,
+                                   int64_t block_x,
+                                   int64_t shared_memory,
+                                   int64_t global_scratch_size,
+                                   int64_t global_scratch_align,
+                                   int64_t profile_scratch_size,
+                                   int64_t profile_scratch_align,
+                                   const Array<String>& runtime_arg_names,
+                                   const Array<int64_t>& runtime_arg_kind_codes,
+                                   const Array<int64_t>& runtime_arg_ranks,
+                                   const Array<int64_t>& runtime_arg_meta_present,
+                                   const Array<int64_t>& runtime_arg_swizzles,
+                                   const Array<int64_t>& runtime_arg_elem_sizes,
+                                   const Array<int64_t>& runtime_arg_elem_types,
+                                   const Array<int64_t>& runtime_arg_fp4_padded,
+                                   const Array<int64_t>& runtime_arg_block_size_offsets,
+                                   const Array<int64_t>& runtime_arg_block_size_values) {
+  auto kernel = std::make_unique<RegisteredKernel>();
+  kernel->function = reinterpret_cast<CUfunction>(static_cast<uintptr_t>(function_handle));
+  kernel->block_x = static_cast<uint32_t>(block_x);
+  kernel->shared_memory = static_cast<uint32_t>(shared_memory);
+  kernel->global_scratch_size = static_cast<size_t>(global_scratch_size);
+  kernel->global_scratch_align = static_cast<size_t>(global_scratch_align);
+  kernel->profile_scratch_size = static_cast<size_t>(profile_scratch_size);
+  kernel->profile_scratch_align = static_cast<size_t>(profile_scratch_align);
+  FillRegisteredKernelRuntimeArgs(
+      kernel.get(),
+      runtime_arg_names.size(),
+      runtime_arg_names,
+      runtime_arg_kind_codes,
+      runtime_arg_ranks,
+      runtime_arg_meta_present,
+      runtime_arg_swizzles,
+      runtime_arg_elem_sizes,
+      runtime_arg_elem_types,
+      runtime_arg_fp4_padded,
+      runtime_arg_block_size_offsets,
+      runtime_arg_block_size_values);
 
   int64_t handle = static_cast<int64_t>(reinterpret_cast<uintptr_t>(kernel.get()));
   {
@@ -1152,8 +1226,19 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
   launch_args.push_back(&profile_scratch);
 
   if (grid_x > 0 && grid_y > 0 && grid_z > 0) {
-    auto result = kernel->kernel->Launch(launch_args.data(), grid, block, stream, kernel->shared_memory);
-    TVM_FFI_CHECK_CUBIN_LAUNCHER_CUDA_ERROR(result);
+    if (kernel->function != nullptr) {
+      CUresult result = cuLaunchKernel(kernel->function,
+                                       grid.x, grid.y, grid.z,
+                                       block.x, block.y, block.z,
+                                       kernel->shared_memory,
+                                       stream,
+                                       launch_args.data(),
+                                       nullptr);
+      TVM_FFI_CHECK_CUBIN_LAUNCHER_CUDA_ERROR(result);
+    } else {
+      auto result = kernel->kernel->Launch(launch_args.data(), grid, block, stream, kernel->shared_memory);
+      TVM_FFI_CHECK_CUBIN_LAUNCHER_CUDA_ERROR(result);
+    }
   }
 
   if (previous_device != device.device_id) {
@@ -1165,6 +1250,7 @@ inline void LaunchPacked(PackedArgs args, Any* ret) {
 }  // namespace triton_runner_tvm_ffi
 
 TVM_FFI_DLL_EXPORT_TYPED_FUNC(register_kernel, triton_runner_tvm_ffi::RegisterKernel)
+TVM_FFI_DLL_EXPORT_TYPED_FUNC(register_kernel_from_function, triton_runner_tvm_ffi::RegisterKernelFromFunction)
 TVM_FFI_DLL_EXPORT_TYPED_FUNC(make_bound_args_launcher, triton_runner_tvm_ffi::MakeBoundArgsLauncher)
 
 extern "C" TVM_FFI_DLL_EXPORT int __tvm_ffi_launch(void* self,

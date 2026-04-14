@@ -1,13 +1,13 @@
 class CompiledTVMFFIKernel:
-    def __init__(self, cubin_bytes, metadata):
-        self._cubin_bytes = cubin_bytes
+    def __init__(self, function, metadata):
+        self._function = function
         self._metadata = metadata
         self._run_launcher = None
 
     def _get_launcher(self):
         if self._run_launcher is None:
             from triton_runner.tvm_ffi.driver import TvmFfiLauncher
-            self._run_launcher = TvmFfiLauncher(None, self._metadata, {"cubin": self._cubin_bytes})
+            self._run_launcher = TvmFfiLauncher(self._metadata, {"function": self._function})
         return self._run_launcher
 
     def _launch(self, gridX, gridY, gridZ, *args):

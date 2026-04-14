@@ -35,7 +35,7 @@ def update_kernel_metadata(kernel, bound_args, specialization):
     from . import __version__
     kernel_signature = tuple((k, arg_type, spec) for k, (arg_type, spec) in zip(bound_args.keys(), specialization))
     kernel_cache_dir = get_cache_manager(kernel.hash).cache_dir
-    json_files = glob.glob(os.path.join(kernel_cache_dir, "*.json"))
+    json_files = [f for f in glob.glob(os.path.join(kernel_cache_dir, "*.json")) if not os.path.basename(f).startswith("__grp__")]
     if json_files:
         json_path = json_files[0]
         with open(json_path, 'r') as f:
@@ -173,8 +173,9 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
             kernel_cache[key] = kernel
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                             warmup)
+            kernel._init_handles()
             runner_metadata = update_kernel_metadata(kernel, bound_args, specialization)
-            kernel_cache[key + "_tvm"] = CompiledTVMFFIKernel(kernel.kernel, runner_metadata)
+            kernel_cache[key + "_tvm"] = CompiledTVMFFIKernel(kernel.function, runner_metadata)
 
         if TRITON_RUNNER_PROD_TEST:
             track_kernel_cache_dir(kernel, self.__name__)

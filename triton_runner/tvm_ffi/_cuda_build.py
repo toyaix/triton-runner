@@ -73,9 +73,13 @@ def cuda_home() -> Path:
 @functools.lru_cache()
 def cuda_include_dirs() -> tuple[str, ...]:
     include_dir = cuda_home() / "include"
-    if not include_dir.is_dir():
-        return ()
-    return (str(include_dir),)
+    triton_cuda_include = Path(__file__).resolve().parents[3] / "backends" / "nvidia" / "include"
+    dirs: list[str] = []
+    if include_dir.is_dir():
+        dirs.append(str(include_dir))
+    if triton_cuda_include.is_dir():
+        dirs.append(str(triton_cuda_include))
+    return tuple(dirs)
 
 
 @functools.lru_cache()
