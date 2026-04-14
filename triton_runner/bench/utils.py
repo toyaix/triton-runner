@@ -8,7 +8,6 @@
 
 import statistics
 import time
-import os
 from collections.abc import Callable
 
 import torch
@@ -38,7 +37,6 @@ def benchmark(name, unit_name="ms"):
 
         def wrapper(self, *args, **kwargs):
             if kwargs.pop("enable_benchmark", True) is not False:
-                os.environ["TRITON_RUNNER_QUIET"] = "1"
                 input_iter = list(self.get_input_iter())
                 # sum_time = 0
                 input_len = len(input_iter)
@@ -52,7 +50,6 @@ def benchmark(name, unit_name="ms"):
                         print(f"[{name:<50}|] time: {elapsed_time_str}")
                     # sum_time += elapsed_time
                 # print(f"[{name + " average":<30}|] time: {sum_time/input_len:.6f} ms")
-                os.environ.pop("TRITON_RUNNER_QUIET", None)
             else:
                 return method(self, *args[0])
 
@@ -110,6 +107,9 @@ def _has_tensor_descriptor(args: tuple) -> bool:
 
 
 def make_direct_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
+    if not hasattr(compiled_kernel, "_get_launcher"):
+        return make_compiled_launch(compiled_kernel, grid, bound_args)
+
     launcher = compiled_kernel._get_launcher()
     grid_x = grid[0]
     grid_y = grid[1] if len(grid) > 1 else 1

@@ -32,6 +32,7 @@ _ARG_KIND_CODES = {
     "f32": 13,
     "fp64": 14,
     "tensordesc": 15,
+    "nvTmaDesc": 16,
 }
 
 
@@ -90,12 +91,17 @@ def _registration_token_for_payload(payload: tuple[Any, ...]) -> str:
 
 
 def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
-    from . import _runtime_arg_registration_specs, _validate_launch_metadata
+    from . import (
+        _expand_tensordesc_registration_specs,
+        _runtime_arg_registration_specs,
+        _validate_launch_metadata,
+    )
 
     metadata = artifact.metadata
     _validate_launch_metadata(metadata)
     runtime_entries = tuple(entry for entry in artifact.signature if not entry.is_constexpr)
     runtime_args = _runtime_arg_registration_specs(runtime_entries, metadata)
+    runtime_args = _expand_tensordesc_registration_specs(runtime_args)
 
     runtime_arg_names: list[str] = []
     runtime_arg_kind_codes: list[int] = []
@@ -131,8 +137,7 @@ def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
         runtime_arg_block_size_offsets.append(len(runtime_arg_block_size_values))
 
     payload = (
-        artifact.kernel_name,
-        artifact.cubin_bytes,
+        artifact.function_handle,
         32 * int(metadata["num_warps"]),
         int(metadata.get("shared", 0)),
         int(metadata.get("global_scratch_size", 0)),
@@ -193,7 +198,7 @@ def _register_kernel_if_needed(
         cached = _registered_kernel_cache.get(cache_token)
         if cached is not None:
             return cached
-        handle = int(module.register_kernel(*registration_args))
+        handle = int(module.register_kernel_from_function(*registration_args))
         _registered_kernel_cache[cache_token] = handle
         return handle
 
@@ -210,52 +215,119 @@ def _lookup_module_function(module: Any, name: str) -> Any:
 class TvmFfiLauncher:
     """TVM-FFI kernel launcher with the same call convention as ``CudaLauncher``."""
 
-    def __init__(self, src, metadata, asm):
-        del src
-
+    def __init__(self, metadata, function_handle):
         from . import (
             _CompiledArtifact,
+            _expand_tensordesc_signature,
+            _get_tensordesc_python_expansion_info,
             _make_bound_args_launcher,
-            _normalize_metadata,
             _parse_kernel_signature,
         )
 
-        metadata_dict = _normalize_metadata(metadata)
-
-        cubin_bytes = asm.get("cubin") if isinstance(asm, dict) else getattr(asm, "get", lambda k: None)("cubin")
-        if cubin_bytes is None:
-            raise ValueError("TVM-FFI launcher requires asm['cubin'].")
-        if isinstance(cubin_bytes, memoryview):
-            cubin_bytes = cubin_bytes.tobytes()
-        elif isinstance(cubin_bytes, bytearray):
-            cubin_bytes = bytes(cubin_bytes)
+        metadata_dict = metadata._asdict() if hasattr(metadata, "_asdict") else dict(metadata)
+        if function_handle is None:
+            raise ValueError("TVM-FFI launcher requires a function handle.")
 
         kernel_signature = metadata_dict.get("kernel_signature")
-        signature = _parse_kernel_signature(kernel_signature)
-        self._signature = signature
+        original_signature = _parse_kernel_signature(kernel_signature)
+        expanded_signature = _expand_tensordesc_signature(original_signature, metadata_dict)
+        self._signature = expanded_signature
+
+        original_runtime_entries = tuple(entry for entry in original_signature if not entry.is_constexpr)
+        self._tensordesc_expansion_info = _get_tensordesc_python_expansion_info(
+            original_runtime_entries, metadata_dict
+        )
+
+        self._tma_desc_cache: dict[int, dict[tuple[tuple[int, ...], tuple[int, ...]], Any]] = {}
+        self._tma_cache_lock = threading.Lock()
+
+        launcher_cache_key, self._tvm_mod = _get_or_build_generic_launcher_module()
 
         artifact = _CompiledArtifact(
             kernel_name=str(metadata_dict["name"]),
-            cubin_bytes=cubin_bytes,
             metadata=metadata_dict,
-            signature=signature,
+            signature=original_signature,
+            function_handle=int(function_handle),
         )
         registration_args, registration_token = _build_registration_payload(artifact)
-
-        launcher_cache_key, self._tvm_mod = _get_or_build_generic_launcher_module()
         self._registry_handle = _register_kernel_if_needed(
             launcher_cache_key,
             self._tvm_mod,
             registration_token,
             registration_args,
         )
+
         self._tvm_func = _lookup_module_function(self._tvm_mod, "launch")
         self._launch_bound_args_for_tvm_ffi = _make_bound_args_launcher(
             self._tvm_func,
             self._registry_handle,
-            signature,
+            expanded_signature,
             tvm_mod=self._tvm_mod,
         )
+
+    def _get_tma_desc(self, runtime_idx: int, arg: Any, meta: dict[str, Any]) -> Any:
+        import torch
+        from triton.backends.nvidia.driver import TMA_DTYPE_DEVICE_TO_HOST
+        shape_tuple = tuple(arg.shape)
+        stride_tuple = tuple(arg.strides)
+        cache_key = (shape_tuple, stride_tuple)
+        with self._tma_cache_lock:
+            slot_cache = self._tma_desc_cache.get(runtime_idx)
+            if slot_cache is None:
+                slot_cache = {}
+                self._tma_desc_cache[runtime_idx] = slot_cache
+            desc = slot_cache.get(cache_key)
+            if desc is not None:
+                return desc
+        desc = torch.empty(128, dtype=torch.uint8, device="cpu")
+        shape = list(arg.shape)
+        if meta.get("fp4_padded"):
+            shape[-1] *= 2
+        triton.runtime.driver.active.utils.fill_tma_descriptor(
+            desc.data_ptr(),
+            arg.base.data_ptr(),
+            meta["swizzle"],
+            meta["elem_size"],
+            TMA_DTYPE_DEVICE_TO_HOST[meta["elem_type"]],
+            meta["block_size"],
+            shape,
+            list(arg.strides),
+        )
+        with self._tma_cache_lock:
+            slot_cache[cache_key] = desc
+        return desc
+
+    def _expand_tensordesc_args(self, args: tuple[Any, ...]) -> tuple[tuple[Any, ...], list[Any]]:
+        expansion_info = self._tensordesc_expansion_info
+        if not expansion_info:
+            return args, []
+        args_list = list(args)
+        keepalive: list[Any] = []
+        for runtime_idx, rank, meta in reversed(expansion_info):
+            arg = args_list[runtime_idx]
+            if meta is not None:
+                desc = self._get_tma_desc(runtime_idx, arg, meta)
+                expanded = [desc.data_ptr(), *list(arg.shape), *list(arg.strides)]
+                keepalive.append(desc)
+            else:
+                base = arg.base
+                shape = list(arg.shape)
+                stride = list(arg.strides)
+                padding_nan = False
+                if hasattr(arg, "padding"):
+                    padding = arg.padding
+                    if padding == "nan":
+                        padding_nan = True
+                expanded = [
+                    base,
+                    *shape,
+                    *stride,
+                    padding_nan,
+                    *shape,
+                    *stride,
+                ]
+            args_list[runtime_idx:runtime_idx + 1] = expanded
+        return tuple(args_list), keepalive
 
     def launch_metadata(self, grid, stream, *args):
         return None
@@ -264,4 +336,6 @@ class TvmFfiLauncher:
         self.launch(gridX, gridY, gridZ, *bound_args)
 
     def launch(self, gridX, gridY, gridZ, *args):
+        if self._tensordesc_expansion_info:
+            args, _keepalive = self._expand_tensordesc_args(args)
         self._launch_bound_args_for_tvm_ffi(gridX, gridY, gridZ, *args)

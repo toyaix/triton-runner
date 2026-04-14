@@ -1,6 +1,7 @@
 import os
 
 import termcolor
+from . import TRITON_RUNNER_PROD
 
 def blue_print(text):
     print(termcolor.colored(text, "blue"), flush=True)
@@ -8,6 +9,8 @@ def blue_print(text):
 def yellow_print(text):
     print(termcolor.colored(text, "yellow"), flush=True)
 
+def red_print(text):
+    print(termcolor.colored(text, "red"), flush=True)
 
 def get_project_name():
     return "[Triton Runner]"
@@ -17,8 +20,8 @@ def warning_dump_mode_ssa_and_op(ssa, op, loc, size, encoding):
     blue_print(f"{get_project_name()} In dump mode, ssa={ssa}, op={op}, loc={loc}, size={size}{encoding}")
 
 def print_triton_cache_dir(metadata_path, cache_hit=False):
-    if os.environ.get("TRITON_RUNNER_QUIET", "0") != "1":
-        always_compile_text = " cache hint and" if cache_hit else ""
+    if not TRITON_RUNNER_PROD:
+        always_compile_text = " cache hit and" if cache_hit else ""
         blue_print(f"{get_project_name()} Triton kernel{always_compile_text} saved at {os.path.dirname(metadata_path)}")
 
 def check_dump_tensor_dtype(dump_tensor):

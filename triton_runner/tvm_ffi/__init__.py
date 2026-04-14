@@ -67,9 +67,9 @@ class _SignatureEntry:
 @dataclass(frozen=True)
 class _CompiledArtifact:
     kernel_name: str
-    cubin_bytes: bytes
     metadata: dict[str, Any]
     signature: tuple[_SignatureEntry, ...]
+    function_handle: int = 0
 
 
 @dataclass(frozen=True)
@@ -111,17 +111,6 @@ def _require_tvm_ffi():
             "Install it with `pip install triton-runner[tvm-ffi]` or `pip install apache-tvm-ffi`."
         ) from exc
     return tvm_ffi, cpp
-
-
-def _normalize_metadata(metadata: Any) -> dict[str, Any]:
-    if isinstance(metadata, dict):
-        return dict(metadata)
-    if hasattr(metadata, "_asdict"):
-        return dict(metadata._asdict())
-    fields = getattr(metadata, "_fields", None)
-    if fields is not None:
-        return {field: getattr(metadata, field) for field in fields}
-    raise TypeError(f"Unsupported metadata object: {type(metadata)!r}")
 
 
 def _parse_kernel_signature(kernel_signature: str | None) -> tuple[_SignatureEntry, ...]:
@@ -288,6 +277,91 @@ def _runtime_arg_registration_specs(
     return runtime_args
 
 
+def _expand_tensordesc_registration_specs(
+        runtime_args: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    expanded: list[dict[str, Any]] = []
+    for spec in runtime_args:
+        if spec.get("kind") != "tensordesc":
+            expanded.append(spec)
+            continue
+        rank = spec["rank"]
+        name = spec["name"]
+        if spec.get("metadata") is None:
+            expanded.append({"name": f"{name}_base", "kind": "pointer"})
+            for i in range(rank):
+                expanded.append({"name": f"{name}_shape_{i}", "kind": "i64"})
+            for i in range(rank):
+                expanded.append({"name": f"{name}_stride_{i}", "kind": "i64"})
+            expanded.append({"name": f"{name}_padding_nan", "kind": "i1"})
+            for i in range(rank):
+                expanded.append({"name": f"{name}_shape2_{i}", "kind": "i32"})
+            for i in range(rank):
+                expanded.append({"name": f"{name}_stride2_{i}", "kind": "i64"})
+        else:
+            expanded.append({"name": name, "kind": "nvTmaDesc"})
+            for i in range(rank):
+                expanded.append({"name": f"{name}_shape_{i}", "kind": "i32"})
+            for i in range(rank):
+                expanded.append({"name": f"{name}_stride_{i}", "kind": "i64"})
+    return expanded
+
+
+def _expand_tensordesc_signature(
+        signature: tuple[_SignatureEntry, ...],
+        metadata: dict[str, Any],
+) -> tuple[_SignatureEntry, ...]:
+    runtime_entries = tuple(entry for entry in signature if not entry.is_constexpr)
+    descriptor_specs = _parse_tensordesc_specs(runtime_entries, metadata)
+    expanded: list[_SignatureEntry] = []
+    spec_index = 0
+    for entry in signature:
+        if entry.is_constexpr:
+            expanded.append(entry)
+            continue
+        if not entry.type_name.startswith("tensordesc"):
+            expanded.append(entry)
+            continue
+        spec = descriptor_specs[spec_index]
+        spec_index += 1
+        rank = spec.rank
+        if spec.metadata is None:
+            expanded.append(_SignatureEntry(f"{entry.name}_base", "*", entry.specialization, entry.is_kwargs))
+            for i in range(rank):
+                expanded.append(_SignatureEntry(f"{entry.name}_shape_{i}", "i64", entry.specialization, entry.is_kwargs))
+            for i in range(rank):
+                expanded.append(_SignatureEntry(f"{entry.name}_stride_{i}", "i64", entry.specialization, entry.is_kwargs))
+            expanded.append(_SignatureEntry(f"{entry.name}_padding_nan", "i1", entry.specialization, entry.is_kwargs))
+            for i in range(rank):
+                expanded.append(_SignatureEntry(f"{entry.name}_shape2_{i}", "i32", entry.specialization, entry.is_kwargs))
+            for i in range(rank):
+                expanded.append(_SignatureEntry(f"{entry.name}_stride2_{i}", "i64", entry.specialization, entry.is_kwargs))
+        else:
+            expanded.append(_SignatureEntry(entry.name, "nvTmaDesc", entry.specialization, entry.is_kwargs))
+            for i in range(rank):
+                expanded.append(_SignatureEntry(f"{entry.name}_shape_{i}", "i32", entry.specialization, entry.is_kwargs))
+            for i in range(rank):
+                expanded.append(_SignatureEntry(f"{entry.name}_stride_{i}", "i64", entry.specialization, entry.is_kwargs))
+    return tuple(expanded)
+
+
+def _get_tensordesc_python_expansion_info(
+        runtime_entries: tuple[_SignatureEntry, ...],
+        metadata: dict[str, Any],
+) -> list[tuple[int, int, dict[str, Any] | None]]:
+    descriptor_specs = _parse_tensordesc_specs(runtime_entries, metadata)
+    info: list[tuple[int, int, dict[str, Any] | None]] = []
+    spec_index = 0
+    runtime_idx = 0
+    for entry in runtime_entries:
+        if entry.type_name.startswith("tensordesc"):
+            spec = descriptor_specs[spec_index]
+            spec_index += 1
+            info.append((runtime_idx, spec.rank, spec.metadata))
+        runtime_idx += 1
+    return info
+
+
 def _validate_launch_metadata(metadata: dict[str, Any]) -> None:
     cluster_dims = tuple(int(v) for v in metadata.get("cluster_dims", (1, 1, 1)))
     cluster_product = cluster_dims[0] * cluster_dims[1] * cluster_dims[2]
@@ -300,6 +374,5 @@ def _validate_launch_metadata(metadata: dict[str, Any]) -> None:
         unsupported.append("launch_cooperative_grid")
     if unsupported:
         raise NotImplementedError(
-            "Current apache-tvm-ffi releases expose only `CubinKernel.Launch(...)`; "
-            "the Triton metadata uses unsupported launch features: " + ", ".join(unsupported)
+            "TVM-FFI launcher does not support: " + ", ".join(unsupported)
         )

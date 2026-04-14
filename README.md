@@ -129,11 +129,11 @@ def kernel(...):
 
 Examples:
 
-- Python runner: [examples/runner/v3.5.x/python/matmul.py](./examples/runner/v3.5.x/python/matmul.py)
+- Python runner: [examples/runner/python/matmul.py](./examples/runner/python/matmul.py)
 - cubin autotune with monkey patch: [examples/autotune/cubin/gate.py](./examples/autotune/cubin/gate.py)
 
 ```shell
-python examples/runner/v3.5.x/python/matmul.py
+python examples/runner/python/matmul.py
 ```
 
 On success, Triton Runner prints the kernel launch banner. When the kernel cache is reused, it also prints the cache location.
@@ -182,7 +182,7 @@ Architecture-specific examples are collected in [examples/runner/README.md](./ex
 Representative commands:
 
 ```shell
-python examples/runner/v3.5.x/python/matmul-with-tma-v4.py
+python examples/runner/python/matmul-with-tma-v4.py
 python examples/runner/v3.5.x/ttgir/sm90/matmul-with-tma-v4.py
 python examples/runner/v3.5.x/cubin/sm90/matmul-with-tma-v4.py
 python examples/runner/amd/v3.6.0/hsaco/matmul.py
