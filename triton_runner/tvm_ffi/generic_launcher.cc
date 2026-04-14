@@ -604,6 +604,7 @@ enum class ArgKind {
   kFp32,
   kFp64,
   kTensorDesc,
+  kNvTmaDesc,
 };
 
 struct TensorDescMetadata {
@@ -633,24 +634,11 @@ struct RegisteredKernel {
   std::vector<RuntimeArgSpec> runtime_args;
 };
 
-enum class BoundArgActionKind {
-  kPassThrough,
-  kConstexpr,
-  kTensorDesc,
-};
-
-struct BoundArgAction {
-  BoundArgActionKind kind;
-  int rank = 0;
-};
-
 struct BoundArgsLauncherPlan {
   Function tvm_func;
   int64_t registry_handle = 0;
-  std::vector<BoundArgAction> actions;
   std::vector<int32_t> fast_arg_indices;
-  int32_t runtime_arg_count = 0;
-  bool needs_python = false;
+  int32_t total_bound_arg_count = 0;
 };
 
 static std::mutex g_kernel_mu;
@@ -710,6 +698,8 @@ inline ArgKind ArgKindFromCode(int64_t code) {
       return ArgKind::kFp64;
     case 15:
       return ArgKind::kTensorDesc;
+    case 16:
+      return ArgKind::kNvTmaDesc;
     default:
       TVM_FFI_THROW(ValueError) << "Unsupported Triton runtime arg kind code: " << code;
       return ArgKind::kPointer;
@@ -861,91 +851,36 @@ Function MakeBoundArgsLauncher(const Function& tvm_func,
   auto plan = std::make_shared<BoundArgsLauncherPlan>();
   plan->tvm_func = tvm_func;
   plan->registry_handle = registry_handle;
-  plan->actions.reserve(signature_type_names.size());
+  plan->total_bound_arg_count = static_cast<int32_t>(signature_type_names.size());
 
   int32_t arg_offset = 0;
   for (const String& type_name : signature_type_names) {
     std::string_view type_name_view(type_name.data(), type_name.size());
     if (type_name_view == "constexpr") {
-      plan->actions.push_back({BoundArgActionKind::kConstexpr, 0});
       ++arg_offset;
       continue;
     }
-    if (type_name_view.rfind("tensordesc", 0) == 0) {
-      int rank = ParseTensorDescRank(type_name_view);
-      TVM_FFI_CHECK(rank > 0 && rank <= 5, ValueError)
-          << "Tensor descriptor signature has unsupported rank " << rank << ": " << type_name_view;
-      plan->actions.push_back({BoundArgActionKind::kTensorDesc, rank});
-      plan->runtime_arg_count += 2 * rank + 2;
-      plan->needs_python = true;
-      ++arg_offset;
-      continue;
-    }
-    plan->actions.push_back({BoundArgActionKind::kPassThrough, 0});
     plan->fast_arg_indices.push_back(arg_offset);
     ++arg_offset;
-    ++plan->runtime_arg_count;
   }
 
   return Function::FromPacked([plan = std::move(plan)](PackedArgs args, Any* ret) {
     TVM_FFI_CHECK(args.size() >= 3, ValueError)
         << "Expected at least 3 launch arguments, got " << args.size();
-    TVM_FFI_CHECK(args.size() == static_cast<int32_t>(plan->actions.size() + 3), ValueError)
-        << "Expected " << plan->actions.size() << " bound arguments for TVM-FFI launch, got "
+    TVM_FFI_CHECK(args.size() == plan->total_bound_arg_count + 3, ValueError)
+        << "Expected " << plan->total_bound_arg_count << " bound arguments for TVM-FFI launch, got "
         << (args.size() - 3) << ".";
 
-    if (!plan->needs_python) {
-      // Fast path: no Python interaction, no intermediate allocations.
-      TVM_FFI_CHECK(static_cast<int32_t>(plan->fast_arg_indices.size()) == plan->runtime_arg_count, RuntimeError)
-          << "fast_arg_indices size mismatch";
-      auto get_arg = [&](int64_t idx) {
-        return args[plan->fast_arg_indices[static_cast<size_t>(idx)] + 3];
-      };
-      LaunchPackedImpl(plan->registry_handle,
-                       args[0].cast<int32_t>(),
-                       args[1].cast<int32_t>(),
-                       args[2].cast<int32_t>(),
-                       get_arg,
-                       plan->runtime_arg_count,
-                       ret);
-      return;
-    }
-
-    std::optional<ScopedPyGIL> gil;
-    gil.emplace();
-
-    std::array<Any, 4> prefix = {
-        Any(plan->registry_handle),
-        Any(args[0].cast<int32_t>()),
-        Any(args[1].cast<int32_t>()),
-        Any(args[2].cast<int32_t>()),
+    auto get_arg = [&](int64_t idx) {
+      return args[plan->fast_arg_indices[static_cast<size_t>(idx)] + 3];
     };
-    std::vector<Any> owned_args;
-    owned_args.reserve(static_cast<size_t>(plan->runtime_arg_count) + prefix.size());
-    StreamContextInfo stream_ctx;
-    std::vector<AnyView> launch_args;
-    launch_args.reserve(static_cast<size_t>(plan->runtime_arg_count) + prefix.size());
-    for (const Any& value : prefix) {
-      launch_args.push_back(value);
-    }
-
-    for (size_t i = 0; i < plan->actions.size(); ++i) {
-      const BoundArgAction& action = plan->actions[i];
-      if (action.kind == BoundArgActionKind::kPassThrough) {
-        launch_args.push_back(args[static_cast<int32_t>(i + 3)]);
-        continue;
-      }
-      if (action.kind == BoundArgActionKind::kTensorDesc) {
-        PyObject* tensor_desc = OpaquePyObjectBorrowedFromAny(args[static_cast<int32_t>(i + 3)], i);
-        AppendTensorDescExpandedArgs(
-            tensor_desc, action.rank, static_cast<int64_t>(i), &owned_args, &launch_args, &stream_ctx);
-      }
-    }
-
-    ScopedEnvStream scoped_stream(stream_ctx);
-    plan->tvm_func.CallPacked(
-        PackedArgs(launch_args.data(), static_cast<int32_t>(launch_args.size())),
-        ret);
+    LaunchPackedImpl(plan->registry_handle,
+                     args[0].cast<int32_t>(),
+                     args[1].cast<int32_t>(),
+                     args[2].cast<int32_t>(),
+                     get_arg,
+                     static_cast<int32_t>(plan->fast_arg_indices.size()),
+                     ret);
   });
 }
 
@@ -1175,6 +1110,15 @@ inline void LaunchPackedImpl(int64_t registry_handle,
         TVM_FFI_CHECK(arg_index < static_cast<size_t>(num_args), ValueError)
             << "Missing runtime argument for " << spec.name;
         KernelArgSlot& slot = push_slot(); slot.fp64 = get_arg(static_cast<int64_t>(arg_index++)).template cast<double>(); push_launch(&slot.fp64); break;
+      }
+      case ArgKind::kNvTmaDesc: {
+        TVM_FFI_CHECK(arg_index < static_cast<size_t>(num_args), ValueError)
+            << "Missing runtime argument for " << spec.name;
+        int64_t ptr_val = get_arg(static_cast<int64_t>(arg_index++)).template cast<int64_t>();
+        KernelArgSlot& slot = push_slot();
+        slot.ptr = reinterpret_cast<void*>(static_cast<uintptr_t>(ptr_val));
+        push_launch(&slot.ptr);
+        break;
       }
       case ArgKind::kTensorDesc: {
         TVM_FFI_CHECK(arg_index + static_cast<size_t>(2 * spec.rank + 2) <= static_cast<size_t>(num_args), ValueError)
