@@ -107,6 +107,9 @@ def _has_tensor_descriptor(args: tuple) -> bool:
 
 
 def make_direct_launch(compiled_kernel, grid: tuple, bound_args: tuple[object, ...]) -> Callable[[], None]:
+    if not hasattr(compiled_kernel, "_get_launcher"):
+        return make_compiled_launch(compiled_kernel, grid, bound_args)
+
     launcher = compiled_kernel._get_launcher()
     grid_x = grid[0]
     grid_y = grid[1] if len(grid) > 1 else 1
