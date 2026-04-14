@@ -216,11 +216,10 @@ class TvmFfiLauncher:
         from . import (
             _CompiledArtifact,
             _make_bound_args_launcher,
-            _normalize_metadata,
             _parse_kernel_signature,
         )
 
-        metadata_dict = _normalize_metadata(metadata)
+        metadata_dict = metadata._asdict() if hasattr(metadata, "_asdict") else dict(metadata)
 
         cubin_bytes = asm.get("cubin") if isinstance(asm, dict) else getattr(asm, "get", lambda k: None)("cubin")
         if cubin_bytes is None:

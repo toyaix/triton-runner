@@ -113,17 +113,6 @@ def _require_tvm_ffi():
     return tvm_ffi, cpp
 
 
-def _normalize_metadata(metadata: Any) -> dict[str, Any]:
-    if isinstance(metadata, dict):
-        return dict(metadata)
-    if hasattr(metadata, "_asdict"):
-        return dict(metadata._asdict())
-    fields = getattr(metadata, "_fields", None)
-    if fields is not None:
-        return {field: getattr(metadata, field) for field in fields}
-    raise TypeError(f"Unsupported metadata object: {type(metadata)!r}")
-
-
 def _parse_kernel_signature(kernel_signature: str | None) -> tuple[_SignatureEntry, ...]:
     if kernel_signature in (None, "", "None"):
         raise NotImplementedError("TVM-FFI export requires a concrete Triton kernel_signature.")

@@ -40,14 +40,15 @@ def update_kernel_metadata(kernel, bound_args, specialization):
         json_path = json_files[0]
         with open(json_path, 'r') as f:
             meta = json.load(f)
-        meta = {
+        runner_meta = {
             "kernel_signature": str(kernel_signature),
             "triton_version": triton_version,
             "triton_runner_version": __version__,
             **meta,
         }
         with open(json_path, 'w') as f:
-            json.dump(meta, f)
+            json.dump(runner_meta, f)
+    return runner_meta
 
 class ProdJITFunction(JITFunction[KernelInterface[T]]):
 
@@ -172,22 +173,8 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
             kernel_cache[key] = kernel
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs],
                             warmup)
-            update_kernel_metadata(kernel, bound_args, specialization)
-            import glob as _glob
-            import os as _os
-            import json
-            from triton.runtime.cache import get_cache_manager
-            _cubin_dir = get_cache_manager(kernel.hash).cache_dir
-            _grp_json = _glob.glob(_os.path.join(_cubin_dir, "__grp__*.json"))[0]
-            _child_paths = json.load(open(_grp_json))["child_paths"]
-            # file_name = src.name[0:150]
-            file_name = kernel.metadata.name
-            if _child_paths.get(kernel.metadata.name + ".cubin") is None:
-                file_name = self.__name__
-            kernel_cache[key + "_tvm"] = CompiledTVMFFIKernel(
-                _child_paths[file_name + ".cubin"],
-                _child_paths[file_name + ".json"],
-            )
+            runner_metadata = update_kernel_metadata(kernel, bound_args, specialization)
+            kernel_cache[key + "_tvm"] = CompiledTVMFFIKernel(kernel.kernel, runner_metadata)
 
         if TRITON_RUNNER_PROD_TEST:
             track_kernel_cache_dir(kernel, self.__name__)

@@ -32,6 +32,7 @@ Results:
 
 import argparse
 import dataclasses
+import json
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -78,10 +79,11 @@ def _resolve_arch_config() -> tuple[int, Path, ArchConfig]:
 
 
 def _make_tvm_ffi_kernel(cubin_dir: Path) -> CompiledTVMFFIKernel:
-    return CompiledTVMFFIKernel(
-        cubin_path=_only_file(cubin_dir, "*.cubin"),
-        json_path=_only_file(cubin_dir, "*.json"),
-    )
+    cubin_path = _only_file(cubin_dir, "*.cubin")
+    json_path = _only_file(cubin_dir, "*.json")
+    cubin_bytes = cubin_path.read_bytes()
+    metadata = json.loads(json_path.read_text())
+    return CompiledTVMFFIKernel(cubin_bytes, metadata)
 
 
 @dataclasses.dataclass(frozen=True)
