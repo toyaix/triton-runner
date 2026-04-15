@@ -56,7 +56,7 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
 
         # parse options
         device = driver.active.get_current_device()
-        # stream = driver.active.get_current_stream(device)
+        stream = driver.active.get_current_stream(device)
 
         # Execute pre run hooks with args and kwargs
         for hook in self.pre_run_hooks:
@@ -130,9 +130,8 @@ class ProdJITFunction(JITFunction[KernelInterface[T]]):
             grid_2 = grid[2] if grid_size > 2 else 1
             # launch kernel via TVM-FFI
             tvm_kernel = kernel_cache[key + "_tvm"]
-            tvm_kernel.run(grid_0, grid_1, grid_2,
-                           knobs.runtime.launch_enter_hook, knobs.runtime.launch_exit_hook,
-                           *bound_args.values())
+            tvm_kernel.launch(grid_0, grid_1, grid_2,
+                              *bound_args.values(), stream=stream)
         return kernel
 
 
