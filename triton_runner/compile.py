@@ -17,26 +17,17 @@ from .color_print import print_triton_cache_dir
 from .triton_compat import triton_key
 from . import __version__
 from triton.compiler.compiler import CompiledKernel
+from .source_types import (
+    AMD_IR_SOURCE_EXTS,
+    BINARY_SOURCE_EXTS,
+    NV_IR_SOURCE_EXTS,
+    PRECOMPILED_SOURCE_EXTS,
+    STORE_ONLY_BINARY_EXTS,
+    TEXT_FILE_SOURCE_EXTS,
+)
 from .version_utils import is_triton_v3_4, is_disable_multithreading
 from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_5
 from .version_utils import triton_version
-
-
-COMMON_TEXT_FILE_SOURCE_EXTS = frozenset({"llir"})
-NV_IR_SOURCE_EXTS = frozenset({"ptx"})
-NV_BINARY_SOURCE_EXTS = frozenset({"cubin"})
-AMD_IR_SOURCE_EXTS = frozenset({"amdgcn"})
-AMD_BINARY_SOURCE_EXTS = frozenset({"hsaco"})
-TEXT_FILE_SOURCE_EXTS = COMMON_TEXT_FILE_SOURCE_EXTS | AMD_IR_SOURCE_EXTS
-BINARY_SOURCE_EXTS = NV_BINARY_SOURCE_EXTS | AMD_BINARY_SOURCE_EXTS
-PRECOMPILED_SOURCE_EXTS = (
-    COMMON_TEXT_FILE_SOURCE_EXTS
-    | NV_IR_SOURCE_EXTS
-    | NV_BINARY_SOURCE_EXTS
-    | AMD_IR_SOURCE_EXTS
-    | AMD_BINARY_SOURCE_EXTS
-)
-STORE_ONLY_BINARY_EXTS = BINARY_SOURCE_EXTS | frozenset({"json"})
 
 
 def _get_path_ext(src):
