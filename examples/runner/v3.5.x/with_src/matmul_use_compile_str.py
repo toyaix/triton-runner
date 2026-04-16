@@ -40,7 +40,7 @@ def matmul_kernel(
     tl.store(c_ptrs, accumulator, mask=c_mask)
 
 
-def matmul(a, b, ptx_src=None, metadata_json=None):
+def matmul(a, b, source_type=None, source_text=None, metadata_json=None):
     assert a.shape[1] == b.shape[0], "Incompatible dimensions"
     assert a.is_contiguous(), "Matrix A must be contiguous"
     M, K = a.shape
@@ -51,8 +51,9 @@ def matmul(a, b, ptx_src=None, metadata_json=None):
     kwargs = dict(
         BLOCK_SIZE_M=16, BLOCK_SIZE_N=16, BLOCK_SIZE_K=16,
     )
-    if ptx_src is not None:
-        kwargs["ptx_src"] = ptx_src
+    if source_type is not None:
+        kwargs[source_type] = source_text
+    if metadata_json is not None:
         kwargs["metadata_json"] = metadata_json
     compiled = matmul_kernel[grid](
         a, b, c,
@@ -72,13 +73,19 @@ torch_output = torch.matmul(a, b)
 
 # First run: normal compile, extract the generated PTX text.
 triton_output, compiled = matmul(a, b)
+matmul_ttgir_src = compiled.asm["ttgir"]
+matmul_llir_src = compiled.asm["llir"]
 matmul_ptx_src = compiled.asm["ptx"]
 matmul_metadata_json = compiled.metadata
 
-# Second run: feed the PTX text back together with the kernel metadata.
-triton_output_from_ptx, _ = matmul(a, b, ptx_src=matmul_ptx_src, metadata_json=matmul_metadata_json)
+# Second run: feed the generated lowerings back via source strings.
+triton_output_from_ttgir, _ = matmul(a, b, source_type="ttgir_src", source_text=matmul_ttgir_src)
+triton_output_from_llir, _ = matmul(a, b, source_type="llir_src", source_text=matmul_llir_src, metadata_json=matmul_metadata_json)
+triton_output_from_ptx, _ = matmul(a, b, source_type="ptx_src", source_text=matmul_ptx_src, metadata_json=matmul_metadata_json)
 
 if (torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0)
+        and torch.allclose(triton_output_from_ttgir, torch_output, atol=1e-2, rtol=0)
+        and torch.allclose(triton_output_from_llir, torch_output, atol=1e-2, rtol=0)
         and torch.allclose(triton_output_from_ptx, torch_output, atol=1e-2, rtol=0)):
     print("✅ Triton and Torch match")
 else:
