@@ -2,9 +2,10 @@ import ast
 import json
 import os
 
+from .source_types import DUMP_IR_DIR_TYPES, METADATA_DIR_TYPES, METADATA_INLINE_SRC_TYPES
+
 
 class MetadataMixin:
-
     def handle_autotune(self, kwargs):
         if kwargs.get("autotune_cubin_dir"):
             metadata_json = self.get_metadata_json(kwargs["autotune_cubin_dir"])
@@ -40,7 +41,7 @@ class MetadataMixin:
                 source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
                 src = os.path.join(kwargs[source_dir_type], source_file_name)
 
-            if self.need_dump(kwargs) and source_dir_type in ["ttir_dir", "ttgir_dir"]:
+            if self.need_dump(kwargs) and source_dir_type in DUMP_IR_DIR_TYPES:
                 if not os.path.exists(src):
                     src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
                 if not os.path.exists(src):
@@ -51,10 +52,14 @@ class MetadataMixin:
                 with open(src, "w") as file:
                     file.write(dump_content)
             metadata_json = {}
-            if source_dir_type in {"cubin_dir", "llir_dir", "ptx_dir", "amdgcn_dir", "hsaco_dir"}:
+            if source_dir_type in METADATA_DIR_TYPES:
                 json_file_name = f"{self.__name__}.json"
                 json_path = os.path.join(kwargs[source_dir_type], json_file_name)
                 metadata_json = json.loads(open(json_path, "r").read())
+            elif source_dir_type in METADATA_INLINE_SRC_TYPES:
+                metadata_json = kwargs.get("metadata_json") or {}
+                if not metadata_json:
+                    raise ValueError(f"{source_dir_type} requires metadata_json")
             return src, metadata_json
         elif self.need_dump(kwargs):
             return src, {}

@@ -22,6 +22,39 @@ from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_tr
 from .version_utils import triton_version
 
 
+COMMON_TEXT_FILE_SOURCE_EXTS = frozenset({"llir"})
+NV_IR_SOURCE_EXTS = frozenset({"ptx"})
+NV_BINARY_SOURCE_EXTS = frozenset({"cubin"})
+AMD_IR_SOURCE_EXTS = frozenset({"amdgcn"})
+AMD_BINARY_SOURCE_EXTS = frozenset({"hsaco"})
+TEXT_FILE_SOURCE_EXTS = COMMON_TEXT_FILE_SOURCE_EXTS | AMD_IR_SOURCE_EXTS
+BINARY_SOURCE_EXTS = NV_BINARY_SOURCE_EXTS | AMD_BINARY_SOURCE_EXTS
+PRECOMPILED_SOURCE_EXTS = (
+    COMMON_TEXT_FILE_SOURCE_EXTS
+    | NV_IR_SOURCE_EXTS
+    | NV_BINARY_SOURCE_EXTS
+    | AMD_IR_SOURCE_EXTS
+    | AMD_BINARY_SOURCE_EXTS
+)
+STORE_ONLY_BINARY_EXTS = BINARY_SOURCE_EXTS | frozenset({"json"})
+
+
+def _get_path_ext(src):
+    return Path(src).suffix[1:]
+
+
+def _get_src_ext(src):
+    return src.ext if isinstance(src, (ASTSource, IRSource)) else _get_path_ext(src)
+
+
+def _get_src_hash(src, module):
+    if isinstance(src, (ASTSource, IRSource)):
+        return src.hash()
+    if _get_path_ext(src) in BINARY_SOURCE_EXTS:
+        return hashlib.sha256(module).hexdigest()
+    return hashlib.sha256(module.encode("utf-8")).hexdigest()
+
+
 
 def _load_ir_source_module(src, context, backend):
     """Read an IR file from disk, returning (src, module).
@@ -31,14 +64,12 @@ def _load_ir_source_module(src, context, backend):
     """
     assert isinstance(src, str), "source must be either AST or a filepath"
     module = None
-    if src.endswith("llir"):
+    src_ext = _get_path_ext(src)
+    if src_ext in TEXT_FILE_SOURCE_EXTS:
         llvm.init_targets()
         module = Path(src).read_text()
-    elif src.endswith("cubin") or src.endswith("hsaco"):
+    elif src_ext in BINARY_SOURCE_EXTS:
         module = Path(src).read_bytes()
-    elif src.endswith("amdgcn"):
-        llvm.init_targets()
-        module = Path(src).read_text()
     else:
         src = IRSource(src) if is_triton_leq_v3_2 else IRSource(src, context, backend)
     return src, module
@@ -93,12 +124,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
 
     # create cache manager
     env_vars = get_cache_invalidating_env_vars()
-    if isinstance(src, (ASTSource, IRSource)):
-        src_hash = src.hash()
-    elif src.endswith("cubin") or src.endswith("hsaco"):
-        src_hash = hashlib.sha256(module).hexdigest()
-    else:
-        src_hash = hashlib.sha256(module.encode("utf-8")).hexdigest()
+    src_hash = _get_src_hash(src, module)
     key = get_cache_key(src_hash, backend, options, env_vars=env_vars)
     hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
     fn_cache_manager = get_cache_manager(hash)
@@ -145,10 +171,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
             backend.add_stages(stages, options, Language.TRITON)
     else:
         backend.add_stages(stages, options)
-    if isinstance(src, (ASTSource, IRSource)):
-        src_ext = src.ext
-    else:
-        src_ext = Path(src).suffix[1:]
+    src_ext = _get_src_ext(src)
     first_stage = list(stages.keys()).index(src_ext)
     # when the source is an IR file, don't apply the passes related to this stage. This makes it easier to write IR level tests.
     # TODO: src_ext perhaps don't need in condition, this is source file
@@ -157,7 +180,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
 
     # For IRSource, we have already grabbed the context + called both
     # ir.load_dialects and backend.load_dialects.
-    if not isinstance(src, IRSource) or src_ext == "amdgcn":
+    if not isinstance(src, IRSource) or src_ext in AMD_IR_SOURCE_EXTS:
         context = ir.context()
         ir.load_dialects(context)
         backend.load_dialects(context)
@@ -169,9 +192,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     else:
         codegen_fns = backend.get_codegen_implementation(options)
     try:
-        if src_ext == "ptx":
+        if src_ext in NV_IR_SOURCE_EXTS:
             module = src.src
-        elif src_ext not in {"llir", "cubin", "amdgcn", "hsaco"}:
+        elif src_ext not in PRECOMPILED_SOURCE_EXTS:
             module = get_module_with_src_with_make_ir(src, backend, target, options, codegen_fns, context)
     except Exception as e:
         filter_traceback(e)
@@ -203,8 +226,8 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         if (fn_override_manager is not None and (full_name := fn_override_manager.get_file(ir_filename)) is not None):
             print(f"\nOverriding kernel with file {full_name}")
             next_module = parse(full_name, ext, context)
-        # If TRITON_STORE_BINARY_ONLY is 1, only store cubin/hsaco/json
-        if (not store_only_binary) or (ext in ("cubin", "hsaco", "json")):
+        # If TRITON_STORE_BINARY_ONLY is 1, only store binary/json artifacts
+        if (not store_only_binary) or (ext in STORE_ONLY_BINARY_EXTS):
             metadata_group[ir_filename] = fn_cache_manager.put(next_module, ir_filename)
         if fn_dump_manager is not None:
             fn_dump_manager.put(next_module, ir_filename)
