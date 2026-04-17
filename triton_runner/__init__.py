@@ -64,7 +64,8 @@ def _runner_compile(src, target=None, options=None, _env_vars=None, **kwargs):
     if options_dict is not None and not isinstance(options_dict, dict):
         options_dict = getattr(options_dict, "__dict__", None) or dict(options_dict)
 
-    return native_compile(src, src, {}, target=target, options=options_dict)
+    source_path = getattr(src.fn, "__globals__", {}).get("__file__")
+    return native_compile(src, src, {}, target=target, options=options_dict, source_path=source_path)
 
 
 def configure_jit_backend():
