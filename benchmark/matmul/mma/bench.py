@@ -1,6 +1,6 @@
 import sys
 
-from triton_runner.version_utils import is_triton_geq_v3_3, triton_version
+from triton_runner.compat.version import is_triton_geq_v3_3, triton_version
 
 if __name__ == "__main__" and not is_triton_geq_v3_3:
     print(

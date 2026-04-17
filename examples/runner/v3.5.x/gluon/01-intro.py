@@ -39,15 +39,17 @@ controlling these low-level details.
 # import pytest
 import torch
 import triton
-# from triton.experimental import gluon
-from triton_runner import gluon_runner
+import triton_runner
+from triton.experimental import gluon
 from triton.experimental.gluon import language as gl
+
+triton_runner.configure_jit_backend()
 
 # %%
 # We illustrate this with a trivial kernel that copies a scalar.
 
 
-@gluon_runner.jit
+@gluon.jit
 def copy_scalar_kernel(in_ptr, out_ptr):
     value = gl.load(in_ptr)
     gl.store(out_ptr, value)
@@ -82,7 +84,7 @@ def test_copy_scalar():
 # subtiling the tensors into 1D blocks, where each program processes one block.
 
 
-@gluon_runner.jit
+@gluon.jit
 def memcpy_kernel(in_ptr, out_ptr, xnumel, XBLOCK: gl.constexpr):
     # Each program processes the addresses [pid, pid + BLOCK_X), clamped into
     # the range [0, xnumel).
@@ -119,7 +121,7 @@ def memcpy(input, output, XBLOCK):
     configs=[triton.Config({"XBLOCK": 2**i}, num_warps=1) for i in range(8, 14)],
     key=["xnumel"],
 )
-@gluon_runner.jit
+@gluon.jit
 def memcpy_kernel_autotune(in_ptr, out_ptr, xnumel, XBLOCK: gl.constexpr):
     memcpy_kernel(in_ptr, out_ptr, xnumel, XBLOCK)
 
