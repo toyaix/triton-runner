@@ -1,4 +1,4 @@
-from .autotune import Autotuner, autotune
+from ..compat.version import is_triton_geq_v3_4
 from .triton_backend import (
     configure_autotune_backend,
     configure_jit_backend,
@@ -13,9 +13,10 @@ from .torch import (
     pad_2d_to_block_shape,
 )
 
+if is_triton_geq_v3_4:
+    from .autotune import Autotuner, autotune
+
 __all__ = [
-    "Autotuner",
-    "autotune",
     "configure_autotune_backend",
     "configure_jit_backend",
     "get_active_torch_device",
@@ -26,3 +27,6 @@ __all__ = [
     "restore_autotune_backend",
     "restore_jit_backend",
 ]
+
+if is_triton_geq_v3_4:
+    __all__.extend(["Autotuner", "autotune"])

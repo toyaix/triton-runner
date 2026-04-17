@@ -34,14 +34,14 @@ def configure_jit_backend():
     import triton
     import triton.compiler.compiler as _triton_compiler
     from .. import jit as runner_jit
-    from ..jit.gluon import jit as runner_gluon_jit
 
     if _original_triton_jit is None:
         _original_triton_jit = triton.jit
     triton.jit = runner_jit
     try:
         from triton.experimental import gluon as _triton_gluon
-    except ImportError:
+        from ..jit.gluon import jit as runner_gluon_jit
+    except Exception:
         _triton_gluon = None
     if _triton_gluon is not None:
         if _original_gluon_jit is None:
@@ -70,7 +70,7 @@ def restore_jit_backend():
     if _original_gluon_jit is not None:
         try:
             from triton.experimental import gluon as _triton_gluon
-        except ImportError:
+        except Exception:
             _triton_gluon = None
         if _triton_gluon is not None:
             _triton_gluon.jit = _original_gluon_jit
