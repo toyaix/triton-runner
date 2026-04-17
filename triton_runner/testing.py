@@ -7,6 +7,7 @@ import statistics
 import subprocess
 import sys
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Dict, List
 from triton import language as tl
 from triton.runtime import driver as triton_driver
@@ -396,11 +397,12 @@ class Mark:
             if save_path:
                 # Create directory if it doesn't exist
                 os.makedirs(save_path, exist_ok=True)
-                with open(os.path.join(save_path, "results.html"), "w") as html:
-                    html.write("<html><body>\n")
-                    for bench in benchmarks[:len(result_dfs)]:
-                        html.write(f"<image src=\"{bench.plot_name}.png\"/>\n")
-                    html.write("</body></html>\n")
+                html_path = Path(save_path) / "results.html"
+                html_content = ["<html><body>\n"]
+                for bench in benchmarks[:len(result_dfs)]:
+                    html_content.append(f"<image src=\"{bench.plot_name}.png\"/>\n")
+                html_content.append("</body></html>\n")
+                html_path.write_text("".join(html_content))
         if return_df:
             if has_single_bench:
                 return result_dfs[0]

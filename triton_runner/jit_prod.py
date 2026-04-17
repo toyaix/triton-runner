@@ -1,15 +1,12 @@
-from triton.runtime.jit import JITFunction, KernelInterface, T, JitFunctionInfo
-from triton.runtime.jit import KernelParam, create_function_from_signature, find_paths_if, get_iterable_path, serialize_specialization_data, get_full_name
-from triton.runtime.jit import DependenciesFinder, MockTensor, Dict, Tuple, Any, Optional, Callable, Iterable, Union, overload
+from triton.runtime.jit import JITFunction, KernelInterface, T
+from triton.runtime.jit import find_paths_if, get_iterable_path
+from triton.runtime.jit import Dict, Optional, Callable, Iterable, Union, overload
 from triton.runtime import driver
 from triton import knobs
 from collections import defaultdict
-import ast
-import inspect
-import re
-import textwrap
+from pathlib import Path
 from . import TRITON_RUNNER_PROD_TEST
-from .compiler import CompiledTVMFFIKernel
+from .tvm_ffi import CompiledTVMFFIKernel
 
 _kernel_cache_dirs: Dict[str, set] = defaultdict(set)
 
@@ -37,17 +34,15 @@ def update_kernel_metadata(kernel, bound_args, specialization):
     kernel_cache_dir = get_cache_manager(kernel.hash).cache_dir
     json_files = [f for f in glob.glob(os.path.join(kernel_cache_dir, "*.json")) if not os.path.basename(f).startswith("__grp__")]
     if json_files:
-        json_path = json_files[0]
-        with open(json_path, 'r') as f:
-            meta = json.load(f)
+        json_path = Path(json_files[0])
+        meta = json.loads(json_path.read_text())
         runner_meta = {
             "kernel_signature": str(kernel_signature),
             "triton_version": triton_version,
             "triton_runner_version": __version__,
             **meta,
         }
-        with open(json_path, 'w') as f:
-            json.dump(runner_meta, f)
+        json_path.write_text(json.dumps(runner_meta))
     return runner_meta
 
 class ProdJITFunction(JITFunction[KernelInterface[T]]):

@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 import os
+from pathlib import Path
 
 import torch
 import triton
@@ -23,7 +24,7 @@ QUICK_SKIP_RUNNER_CMDS = frozenset({
 })
 
 def get_content(file_path):
-    return open(file_path, "r").read()
+    return Path(file_path).read_text()
 
 def get_lines(match):
     return [line.strip() for line in match.group(1).strip().splitlines() if line.strip()]

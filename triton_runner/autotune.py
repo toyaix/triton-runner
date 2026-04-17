@@ -5,6 +5,7 @@ import time
 import inspect
 import hashlib
 import json
+from pathlib import Path
 from functools import cached_property
 from typing import Dict, Tuple, List, Optional
 
@@ -194,11 +195,10 @@ class Autotuner(KernelInterface):
         file_name = f"{fn.__name__[:150]}.autotune.json"
         path = cache.get_file(file_name)
         if path:
-            with open(path, "r") as cached_configs:
-                timings = json.load(cached_configs)["configs_timings"]
-                timings = {Config(**config): timing for config, timing in timings}
-                self.cache[tuning_key] = builtins.min(timings, key=timings.get)
-                self.configs_timings = timings
+            timings = json.loads(Path(path).read_text())["configs_timings"]
+            timings = {Config(**config): timing for config, timing in timings}
+            self.cache[tuning_key] = builtins.min(timings, key=timings.get)
+            self.configs_timings = timings
             return True
 
         bench_fn()

@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 
 from .dump_utils import get_injected_ir
 from .compile import get_source_ir
@@ -104,7 +105,6 @@ class DumpMixin:
                 dump_content = self.insert_dump_tensor_param(str(module))
                 dump_content = self.inject_dump_op_dump_store(dump_content)
                 src = os.path.join(runner_cache_dir, f"{self.__name__}-dump.ttir")
-                with open(src, "w") as file:
-                    file.write(dump_content)
+                Path(src).write_text(dump_content)
             signature["dump_tensor"], bound_args["dump_tensor"] = "*fp32", dump_tensor
         return src

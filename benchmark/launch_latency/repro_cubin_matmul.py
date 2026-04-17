@@ -49,7 +49,7 @@ from triton_runner.bench.matmul.arch import (
 )
 from triton_runner.bench.matmul.kernels import _scalar_matmul_kernel, _dot_matmul_kernel, _tma_matmul_kernel
 from triton_runner.bench.utils import bench_host_us, make_compiled_launch, make_direct_launch, make_subscript_launch
-from triton_runner.compiler.compiler import CompiledTVMFFIKernel
+from triton_runner.tvm_ffi import CompiledTVMFFIKernel
 
 scalar_matmul_kernel = triton.jit(_scalar_matmul_kernel)
 dot_matmul_kernel = triton.jit(_dot_matmul_kernel)

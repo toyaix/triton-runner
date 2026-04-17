@@ -199,10 +199,9 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
 
     if source_path and os.path.exists(source_path):
-        with open(source_path, 'r') as source:
-            filename = os.path.basename(source_path)
-            content = f"# {source_path}\n\n{source.read()}"
-            fn_cache_manager.put(content, filename)
+        filename = os.path.basename(source_path)
+        content = f"# {source_path}\n\n{Path(source_path).read_text()}"
+        fn_cache_manager.put(content, filename)
 
     print_triton_cache_dir(metadata_group[ir_filename])
 
@@ -299,7 +298,7 @@ def parse_mlir_to_folder(mlir_path):
     folder_path = os.path.join(os.path.dirname(mlir_path), "mlir")
     shutil.rmtree(folder_path, ignore_errors=True)
     os.makedirs(folder_path, exist_ok=True)
-    content = open(mlir_path).read()
+    content = Path(mlir_path).read_text()
 
     pattern = re.compile(
         r'// -----// IR Dump Before (?P<pass_name>.*?) '
@@ -319,12 +318,12 @@ def parse_mlir_to_folder(mlir_path):
         body = match.group("body").strip()
         changed = "-changed" if last_body and last_body != body else ""
         changed_text = ", This Pass IR has changed!\n" if changed else "\n"
-        with open(os.path.join(folder_path, f"{idx+1:02d}{changed}-{item}.mlir"), "w") as fp:
-            fp.write(f"// IR Dump After {title}{changed_text}// Next run Pass --{pass_key}\n\n{body}")
+        output_path = Path(folder_path) / f"{idx+1:02d}{changed}-{item}.mlir"
+        output_path.write_text(f"// IR Dump After {title}{changed_text}// Next run Pass --{pass_key}\n\n{body}")
         item = f"{pass_name}"
         title = f"{item} ({operation})\n// Current Run Pass --{pass_key}"
         last_body = body
 
     if idx >= 0:
-        with open(os.path.join(folder_path, f"{idx+2:02d}-{item}.mlir"), "w") as fp:
-            print(f"// IR Dump After {title}\n", file=fp)
+        output_path = Path(folder_path) / f"{idx+2:02d}-{item}.mlir"
+        output_path.write_text(f"// IR Dump After {title}\n")

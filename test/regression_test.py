@@ -2,6 +2,7 @@ import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 # All supported versions. 3.3.x uses 3.3.1, 3.5.x uses 3.5.1.
 ALL_VERSIONS = ["3.6.0", "3.5.1", "3.4.0", "3.3.1", "3.2.0", "3.1.0", "3.0.0"]
@@ -76,8 +77,7 @@ if failed:
 summary = "\n".join(summary_lines)
 print(f"\n{summary}")
 
-with open("regression_result.txt", "w") as f:
-    f.write(summary + "\n")
+Path("regression_result.txt").write_text(summary + "\n")
 
 if failed:
     sys.exit(1)

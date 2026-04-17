@@ -20,7 +20,7 @@ Compatibility summary:
 - Primary target: `v3.5.x`
 - Supported runner inputs: Python Triton, Gluon, TTIR, TTGIR, LLIR, PTX, cubin, AMDGCN, and hsaco
 - Dump support: Python, TTIR, and TTGIR
-- Optional CUDA bridge: TVM-FFI on Triton `v3.3+`
+- Optional CUDA bridge: TVM-FFI on Triton `v3.4.0` only, with Triton `v3.7.0` planned for a future release
 - MLIR split output: set `MLIR_ENABLE_DUMP=1` to expand `all.mlir` into per-pass files in the cache directory
 
 ## ✨ Features
@@ -48,13 +48,13 @@ pip install -e .
 
 ### Optional: TVM-FFI
 
-Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) for Triton `v3.3+`.
+Triton Runner also provides a CUDA/cubin-only bridge to [TVM-FFI](https://github.com/apache/tvm-ffi) for Triton `v3.4.0` only.
+Support for Triton `v3.7.0` is planned for a future release.
 
 ```shell
 pip install triton-runner[tvm-ffi]
 
 pip install -e .[tvm-ffi]
-export TRITON_RUNNER_ENABLE_TVM_FFI=1
 ```
 
 ## 🚀 Quick Start
@@ -298,8 +298,12 @@ Current documented cases include:
 
 | Variable | Default | Description |
 |---|---|---|
-| `TRITON_RUNNER_ENABLE_TVM_FFI` | `0` | Enable TVM-FFI CUDA bridge (requires `triton-runner[tvm-ffi]` and Triton v3.3+) |
-| `TRITON_RUNNER_QUIET` | `0` | Suppress verbose kernel cache path output |
+| `TRITON_RUNNER_PROD` | `0` | Enable Triton Runner production mode on CUDA with Triton `v3.4.0`; this switches `triton_runner.jit` to the production launcher path and requires `triton-runner[tvm-ffi]`. |
+| `TRITON_RUNNER_PROD_TEST` | `0` | Enable production mode and keep the extra production cache consistency checks used by `jit_prod.py`. |
+
+Other environment variables such as `TRITON_CACHE_DIR`, `TRITON_ALWAYS_COMPILE`, `TRITON_KERNEL_OVERRIDE`,
+`TRITON_KERNEL_DUMP`, `TRITON_STORE_BINARY_ONLY`, `TRITON_DEBUG`, `MLIR_ENABLE_DUMP`, `MLIR_DUMP_PATH`,
+and `USE_IR_LOC` are Triton or Triton compiler controls that Triton Runner reuses rather than redefining.
 
 ## 📄 License
 

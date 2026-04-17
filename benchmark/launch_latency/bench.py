@@ -31,7 +31,7 @@ from triton_runner.bench.launch_latency.kernels import (
     runner_nop_with_args_kernel,
 )
 from triton_runner.bench.utils import benchmark
-from triton_runner.compiler.compiler import CompiledTVMFFIKernel
+from triton_runner.tvm_ffi import CompiledTVMFFIKernel
 
 
 class Operator:

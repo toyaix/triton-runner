@@ -44,3 +44,4 @@ triton_runner/README.md
 fused-attention-*
 results.html
 regression_result.txt
+dist/*
