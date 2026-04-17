@@ -79,6 +79,10 @@ def configure_jit_backend():
         _original_triton_compile = _triton_compiler.compile
     triton.compile = _runner_compile
     _triton_compiler.compile = _runner_compile
+    import tempfile
+    tmp_inductor = tempfile.mkdtemp(prefix="torchinductor_")
+    import os
+    os.environ["TORCHINDUCTOR_CACHE_DIR"] = tmp_inductor
 
 
 def restore_jit_backend():
