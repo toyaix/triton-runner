@@ -43,6 +43,10 @@ from . import torch_utils
 
 _original_triton_jit = None
 _original_triton_compile = None
+_env_unset = object()
+_no_saved_env = object()
+_original_torchinductor_cache_dir = _no_saved_env
+_runner_torchinductor_cache_dir = None
 
 
 def _runner_compile(src, target=None, options=None, _env_vars=None, **kwargs):
@@ -70,6 +74,7 @@ def _runner_compile(src, target=None, options=None, _env_vars=None, **kwargs):
 
 def configure_jit_backend():
     global _original_triton_jit, _original_triton_compile
+    global _original_torchinductor_cache_dir, _runner_torchinductor_cache_dir
     import triton
     import triton.compiler.compiler as _triton_compiler
     if _original_triton_jit is None:
@@ -79,13 +84,17 @@ def configure_jit_backend():
         _original_triton_compile = _triton_compiler.compile
     triton.compile = _runner_compile
     _triton_compiler.compile = _runner_compile
-    import tempfile
-    tmp_inductor = tempfile.mkdtemp(prefix="torchinductor_")
     import os
-    os.environ["TORCHINDUCTOR_CACHE_DIR"] = tmp_inductor
+    import tempfile
+    if _original_torchinductor_cache_dir is _no_saved_env:
+        _original_torchinductor_cache_dir = os.environ.get("TORCHINDUCTOR_CACHE_DIR", _env_unset)
+    if _runner_torchinductor_cache_dir is None:
+        _runner_torchinductor_cache_dir = tempfile.mkdtemp(prefix="torchinductor_")
+    os.environ["TORCHINDUCTOR_CACHE_DIR"] = _runner_torchinductor_cache_dir
 
 
 def restore_jit_backend():
+    global _original_torchinductor_cache_dir, _runner_torchinductor_cache_dir
     import triton
     import triton.compiler.compiler as _triton_compiler
     if _original_triton_jit is not None:
@@ -93,6 +102,17 @@ def restore_jit_backend():
     if _original_triton_compile is not None:
         triton.compile = _original_triton_compile
         _triton_compiler.compile = _original_triton_compile
+    import os
+    import shutil
+    if _original_torchinductor_cache_dir is not _no_saved_env:
+        if _original_torchinductor_cache_dir is _env_unset:
+            os.environ.pop("TORCHINDUCTOR_CACHE_DIR", None)
+        else:
+            os.environ["TORCHINDUCTOR_CACHE_DIR"] = _original_torchinductor_cache_dir
+    if _runner_torchinductor_cache_dir is not None:
+        shutil.rmtree(_runner_torchinductor_cache_dir, ignore_errors=True)
+        _runner_torchinductor_cache_dir = None
+    _original_torchinductor_cache_dir = _no_saved_env
 
 
 _original_triton_autotune = None

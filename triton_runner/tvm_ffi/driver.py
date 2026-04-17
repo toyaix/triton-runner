@@ -8,12 +8,12 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from triton.runtime import _allocation
 from triton.runtime.cache import get_cache_manager
 from ._cuda_build import build_module_from_src, cuda_include_dirs, library_dirs
 
 _GENERIC_LAUNCHER_NAME = "triton_runner_tvm_ffi_generic_launcher"
 _GENERIC_LAUNCHER_LIBRARIES = ["tvm_ffi", "cudart", "cuda", "dl"]
+_registered_kernel_cache: dict[tuple[str, str], int] = {}
 _ARG_KIND_CODES = {
     "pointer": 0,
     "i1": 1,
@@ -77,6 +77,37 @@ def _generic_launcher_cache_key(
     }
     payload = json.dumps(fingerprint, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _registration_token_for_payload(payload: tuple[Any, ...]) -> str:
+    hasher = hashlib.sha256()
+
+    def _update(value: Any) -> None:
+        if isinstance(value, str):
+            hasher.update(b"s\0")
+            hasher.update(value.encode("utf-8"))
+            hasher.update(b"\0")
+            return
+        if isinstance(value, int):
+            hasher.update(f"i{value}\0".encode("ascii"))
+            return
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            raw = bytes(value)
+            hasher.update(b"b\0")
+            hasher.update(str(len(raw)).encode("ascii"))
+            hasher.update(b"\0")
+            hasher.update(raw)
+            return
+        if isinstance(value, (list, tuple)):
+            hasher.update(b"[\0")
+            for item in value:
+                _update(item)
+            hasher.update(b"]\0")
+            return
+        raise TypeError(f"Unsupported registration payload value: {type(value)!r}")
+
+    _update(payload)
+    return hasher.hexdigest()
 
 
 def _build_registration_payload(artifact: Any) -> tuple[Any, ...]:
@@ -178,6 +209,21 @@ def _get_or_build_generic_launcher_module() -> tuple[str, Any]:
     return cache_key, mod
 
 
+def _register_kernel_if_needed(
+        launcher_cache_key: str,
+        module: Any,
+        registration_args: tuple[Any, ...],
+) -> int:
+    registration_token = _registration_token_for_payload(registration_args)
+    cache_key = (launcher_cache_key, registration_token)
+    cached = _registered_kernel_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    handle = int(module.register_kernel_from_function(*registration_args))
+    _registered_kernel_cache[cache_key] = handle
+    return handle
+
+
 def _lookup_module_function(module: Any, name: str) -> Any:
     if hasattr(module, "__getitem__"):
         try:
@@ -225,7 +271,11 @@ class TvmFfiLauncher:
             function_handle=int(function_handle),
         )
         registration_args = _build_registration_payload(artifact)
-        self._registry_handle = int(self._tvm_mod.register_kernel_from_function(*registration_args))
+        self._registry_handle = _register_kernel_if_needed(
+            launcher_cache_key,
+            self._tvm_mod,
+            registration_args,
+        )
 
         self._tvm_func = _lookup_module_function(self._tvm_mod, "launch")
         self._launch_bound_args_for_tvm_ffi = _make_bound_args_launcher(
