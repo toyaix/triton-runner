@@ -36,8 +36,7 @@ class MetadataMixin:
             if source_dir_type.endswith("src"):
                 runner_cache_dir = self.get_runner_cache_dir()
                 src = os.path.join(runner_cache_dir, f"{self.__name__}-src.{source_dir_type[:-4]}")
-                with open(src, "w") as file:
-                    file.write(kwargs[source_dir_type])
+                Path(src).write_text(kwargs[source_dir_type])
             else:
                 source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
                 src = os.path.join(kwargs[source_dir_type], source_file_name)
@@ -50,8 +49,7 @@ class MetadataMixin:
                 dump_content = self.insert_dump_tensor_param(Path(src).read_text())
                 dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"], kwargs.get("dump_grid", 0))
                 src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
-                with open(src, "w") as file:
-                    file.write(dump_content)
+                Path(src).write_text(dump_content)
             metadata_json = {}
             if source_dir_type in METADATA_DIR_TYPES:
                 json_file_name = f"{self.__name__}.json"
