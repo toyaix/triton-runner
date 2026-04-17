@@ -5,6 +5,7 @@ from triton.runtime.jit import T
 from .versions import (
     RunnerJITFunction,
     RunnerJITFunction_TLX,
+    RunnerJITFunctionV3_7_0,
     RunnerJITFunctionV3_6_0,
     RunnerJITFunctionV3_5_0,
     RunnerJITFunctionV3_4_0,
@@ -49,6 +50,7 @@ def jit(
         assert callable(fn)
         from ..compat.version import is_tlx
         from ..compat.version import (
+            is_triton_v3_7,
             is_triton_v3_6,
             is_triton_v3_5,
             is_triton_v3_4,
@@ -71,6 +73,7 @@ def jit(
 
         dispatch_map = [
             (is_tlx, RunnerJITFunction_TLX),
+            (is_triton_v3_7, RunnerJITFunctionV3_7_0),
             (is_triton_v3_6, RunnerJITFunctionV3_6_0),
             (is_triton_v3_5, RunnerJITFunctionV3_5_0),
             (is_triton_v3_4, RunnerJITFunctionV3_4_0),
