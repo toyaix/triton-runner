@@ -1,6 +1,7 @@
 import ast
 import json
 import os
+from pathlib import Path
 
 from .source_types import DUMP_IR_DIR_TYPES, METADATA_DIR_TYPES, METADATA_INLINE_SRC_TYPES
 
@@ -28,7 +29,7 @@ class MetadataMixin:
         if not (os.path.exists(json_path) and os.path.exists(cubin_path)):
             from triton.runtime.errors import PTXASError
             raise PTXASError("autotune_cubin_dir is error")
-        return json.loads(open(json_path, "r").read())
+        return json.loads(Path(json_path).read_text())
 
     def get_src_and_metadata_json(self, kwargs, source_dir_type, src, ast_src):
         if source_dir_type:
@@ -46,7 +47,7 @@ class MetadataMixin:
                     src = os.path.join(kwargs[source_dir_type], source_file_name[:-4] + "source")
                 if not os.path.exists(src):
                     raise RuntimeError("Check .source/.ttir/.ttgir file for dump.")
-                dump_content = self.insert_dump_tensor_param(open(src, "r").read())
+                dump_content = self.insert_dump_tensor_param(Path(src).read_text())
                 dump_content = self.inject_ssa_ir_dump_store(dump_content, kwargs["dump_value"], kwargs.get("dump_grid", 0))
                 src = os.path.join(kwargs[source_dir_type], f"dump.{source_dir_type[:-4]}")
                 with open(src, "w") as file:
@@ -55,7 +56,7 @@ class MetadataMixin:
             if source_dir_type in METADATA_DIR_TYPES:
                 json_file_name = f"{self.__name__}.json"
                 json_path = os.path.join(kwargs[source_dir_type], json_file_name)
-                metadata_json = json.loads(open(json_path, "r").read())
+                metadata_json = json.loads(Path(json_path).read_text())
             elif source_dir_type in METADATA_INLINE_SRC_TYPES:
                 metadata_json = kwargs.get("metadata_json") or {}
                 if not metadata_json:

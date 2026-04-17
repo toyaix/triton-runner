@@ -1,3 +1,6 @@
+import dataclasses
+import hashlib
+import json
 import os
 
 from triton.runtime.driver import driver
@@ -7,6 +10,47 @@ from .compile import native_compile
 from .jit_dump import DumpMixin
 from .jit_metadata import MetadataMixin
 from .source_types import RUNNER_SOURCE_TYPES
+
+
+def _normalize_cache_key_value(value):
+    if hasattr(value, "_asdict"):
+        return _normalize_cache_key_value(value._asdict())
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return _normalize_cache_key_value(dataclasses.asdict(value))
+    if isinstance(value, dict):
+        return {
+            str(key): _normalize_cache_key_value(value[key])
+            for key in sorted(value, key=lambda item: str(item))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_normalize_cache_key_value(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        normalized_items = [_normalize_cache_key_value(item) for item in value]
+        return sorted(
+            normalized_items,
+            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        )
+    if isinstance(value, os.PathLike):
+        return os.fspath(value)
+    if isinstance(value, bytes):
+        return {"__bytes__": value.hex()}
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if hasattr(value, "__dict__"):
+        public_attrs = {
+            key: attr
+            for key, attr in vars(value).items()
+            if not key.startswith("_")
+        }
+        if public_attrs:
+            return _normalize_cache_key_value(public_attrs)
+    return repr(value)
+
+
+def _stable_cache_key_digest(value):
+    normalized = _normalize_cache_key_value(value)
+    payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
@@ -26,7 +70,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         if (runner_source_key_suffix := self.get_runner_source_key_suffix(kwargs)):
             key += f"|runner_src={runner_source_key_suffix}"
         if "metadata_json" in kwargs:
-            key += f"|runner_metadata={repr(kwargs['metadata_json'])}"
+            key += f"|runner_metadata={_stable_cache_key_digest(kwargs['metadata_json'])}"
         return key
 
     def get_runner_args_set(self):
@@ -71,6 +115,9 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         runner_args_set = self.get_runner_args_set()
         for k in kwargs:
             if k in runner_args_set:
+                if k.endswith("_src"):
+                    src_hash = hashlib.sha256(kwargs[k].encode("utf-8")).hexdigest()
+                    return f"{k}:{src_hash}"
                 return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
         return ""
 
