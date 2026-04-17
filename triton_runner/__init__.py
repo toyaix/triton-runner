@@ -33,7 +33,7 @@ if is_triton_geq_v3_4:
 if TRITON_RUNNER_PROD and IS_CUDA and is_triton_v3_4:
     from .tvm_ffi import _require_tvm_ffi
     _require_tvm_ffi()
-    from .jit_prod import jit
+    from .jit.prod import jit
     from .color_print import blue_print
     blue_print("[Triton Runner] Production mode enabled")
 else:

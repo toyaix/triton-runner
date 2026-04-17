@@ -1,6 +1,8 @@
 from typing import Callable, Iterable, Optional, Union, overload
+
 from triton.runtime.jit import T
-from .jit_versions import (
+
+from .versions import (
     RunnerJITFunction,
     RunnerJITFunction_TLX,
     RunnerJITFunctionV3_6_0,
@@ -10,11 +12,6 @@ from .jit_versions import (
     RunnerJITFunctionV3_2_0,
     RunnerJITFunctionV3_1_0,
 )
-
-
-# -----------------------------------------------------------------------------
-# jit decorator
-# -----------------------------------------------------------------------------
 
 
 @overload
@@ -50,8 +47,8 @@ def jit(
 
     def decorator(fn: T) -> RunnerJITFunction[T]:
         assert callable(fn)
-        from .version_utils import is_tlx
-        from .version_utils import (
+        from ..version_utils import is_tlx
+        from ..version_utils import (
             is_triton_v3_6,
             is_triton_v3_5,
             is_triton_v3_4,
@@ -60,7 +57,7 @@ def jit(
             is_triton_v3_1,
             is_triton_v3_0,
         )
-        from .version_utils import triton_version
+        from ..version_utils import triton_version
 
         common_kwargs = {
             "fn": fn,
@@ -94,3 +91,4 @@ def jit(
         return decorator(fn)
     else:
         return decorator
+

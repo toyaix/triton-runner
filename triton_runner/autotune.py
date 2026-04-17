@@ -11,7 +11,7 @@ from typing import Dict, Tuple, List, Optional
 
 from triton import knobs
 from triton.runtime.jit import KernelInterface
-from .jit import RunnerJITFunction
+from .jit.versions import RunnerJITFunction
 from .compile import triton_key
 from triton.runtime.cache import get_cache_manager
 from triton.runtime.driver import driver
