@@ -1,3 +1,4 @@
+import argparse
 import os
 import subprocess
 import sys
@@ -5,7 +6,20 @@ import sys
 # All supported versions. 3.3.x uses 3.3.1, 3.5.x uses 3.5.1.
 ALL_VERSIONS = ["3.6.0", "3.5.1", "3.4.0", "3.3.1", "3.2.0", "3.1.0", "3.0.0"]
 
-versions = sys.argv[1:] if len(sys.argv) > 1 else ALL_VERSIONS
+DEFAULT_QUICK_DUMP_SAMPLE_SIZE = 5
+DEFAULT_QUICK_DUMP_SEED = 20260417
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("versions", nargs="*", default=ALL_VERSIONS)
+parser.add_argument("--quick", action="store_true", help="Run the reduced regression subset in test/test.py.")
+parser.add_argument("--dump-sample-size", type=int, default=DEFAULT_QUICK_DUMP_SAMPLE_SIZE,
+                    help="Number of dump commands to sample when --quick is enabled.")
+parser.add_argument("--dump-seed", type=int, default=DEFAULT_QUICK_DUMP_SEED,
+                    help="Random seed for dump command sampling when --quick is enabled.")
+args = parser.parse_args()
+
+versions = args.versions
 
 python_exe = sys.executable
 
@@ -19,8 +33,17 @@ for ver in versions:
     subprocess.run([python_exe, "-m", "pip", "install", "-q", f"triton=={ver}"], check=True)
 
     print(f"Running test on triton=={ver}...")
+    test_cmd = [python_exe, "test/test.py"]
+    if args.quick:
+        test_cmd.extend([
+            "--quick",
+            "--dump-sample-size",
+            str(args.dump_sample_size),
+            "--dump-seed",
+            str(args.dump_seed),
+        ])
     proc = subprocess.Popen(
-        [python_exe, "test/test.py"],
+        test_cmd,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
     fail_cmds = []
