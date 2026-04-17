@@ -1,3 +1,5 @@
+# Tested with helion==1.0.0 torch==2.9.0+ triton==3.5.0+
+
 import helion
 import helion.language as hl
 import torch
