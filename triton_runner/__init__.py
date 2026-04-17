@@ -42,20 +42,52 @@ from . import color_print
 from . import torch_utils
 
 _original_triton_jit = None
+_original_triton_compile = None
+
+
+def _runner_compile(src, target=None, options=None, _env_vars=None, **kwargs):
+    """Drop-in replacement for ``triton.compile`` that routes through
+    :func:`triton_runner.compile.native_compile` so TorchInductor-generated
+    kernels (which call ``triton.compile(ASTSource(...), ...)`` directly
+    and bypass the ``@triton.jit`` decorator path) still flow through the
+    Triton Runner pipeline.
+    """
+    from triton.compiler.compiler import ASTSource
+    from .compile import native_compile
+
+    if not isinstance(src, ASTSource):
+        # IRSource / string paths are not produced by Inductor; fall back
+        # to the stock compiler so we don't have to synthesise an ast_src.
+        return _original_triton_compile(src, target=target, options=options, _env_vars=_env_vars, **kwargs)
+
+    options_dict = options
+    if options_dict is not None and not isinstance(options_dict, dict):
+        options_dict = getattr(options_dict, "__dict__", None) or dict(options_dict)
+
+    return native_compile(src, src, {}, target=target, options=options_dict)
 
 
 def configure_jit_backend():
-    global _original_triton_jit
+    global _original_triton_jit, _original_triton_compile
     import triton
+    import triton.compiler.compiler as _triton_compiler
     if _original_triton_jit is None:
         _original_triton_jit = triton.jit
     triton.jit = jit
+    if _original_triton_compile is None:
+        _original_triton_compile = _triton_compiler.compile
+    triton.compile = _runner_compile
+    _triton_compiler.compile = _runner_compile
 
 
 def restore_jit_backend():
     import triton
+    import triton.compiler.compiler as _triton_compiler
     if _original_triton_jit is not None:
         triton.jit = _original_triton_jit
+    if _original_triton_compile is not None:
+        triton.compile = _original_triton_compile
+        _triton_compiler.compile = _original_triton_compile
 
 
 _original_triton_autotune = None

@@ -1,7 +1,9 @@
+import torch
+
 import triton_runner
 triton_runner.configure_jit_backend()
 
-import torch
+
 
 def matmul_bias_relu(x: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor) -> torch.Tensor:
     return torch.relu(x @ weight + bias)
