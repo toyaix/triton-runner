@@ -2,9 +2,9 @@ import os
 import re
 from pathlib import Path
 
-from ..dump_utils import get_injected_ir
-from ..compile import get_source_ir
-from ..source_types import DUMP_IR_DIR_TYPES
+from ..compiler.compile import get_source_ir
+from ..compiler.source_types import DUMP_IR_DIR_TYPES
+from ..debug.ir_dump import get_injected_ir
 
 
 
@@ -96,7 +96,7 @@ class DumpMixin:
         src = None
         if self.need_dump(kwargs):
             dump_tensor = kwargs["dump_tensor"]
-            from ..color_print import check_dump_tensor_dtype
+            from ..debug.console import check_dump_tensor_dtype
             check_dump_tensor_dtype(dump_tensor)
             if self.is_python_dump(kwargs, source_dir_type):
                 src = self.ASTSource(self, signature, constexprs, attrs)

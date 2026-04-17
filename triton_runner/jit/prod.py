@@ -12,7 +12,7 @@ _kernel_cache_dirs: Dict[str, set] = defaultdict(set)
 
 
 def track_kernel_cache_dir(kernel, name):
-    from ..color_print import blue_print, red_print
+    from ..debug.console import blue_print, red_print
     from triton.runtime.cache import get_cache_manager
     cache_dir = get_cache_manager(kernel.hash).cache_dir
     old_num = len(_kernel_cache_dirs[name])
@@ -28,7 +28,7 @@ def update_kernel_metadata(kernel, bound_args, specialization):
     import json
     import os
     from triton.runtime.cache import get_cache_manager
-    from ..version_utils import triton_version
+    from ..compat.version import triton_version
     from .. import __version__
     kernel_signature = tuple((k, arg_type, spec) for k, (arg_type, spec) in zip(bound_args.keys(), specialization))
     kernel_cache_dir = get_cache_manager(kernel.hash).cache_dir

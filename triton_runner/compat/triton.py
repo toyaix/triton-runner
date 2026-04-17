@@ -1,5 +1,5 @@
 """Version-conditional triton imports, unified across all supported versions."""
-from .version_utils import is_triton_geq_v3_4, is_triton_geq_v3_5, is_tlx
+from .version import is_triton_geq_v3_4, is_triton_geq_v3_5, is_tlx
 
 # triton_key moved from triton.compiler.compiler to triton.runtime.cache in 3.5
 if is_triton_geq_v3_5 or is_tlx:

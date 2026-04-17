@@ -1,4 +1,4 @@
-from ..version_utils import is_triton_geq_v3_4
+from ..compat.version import is_triton_geq_v3_4
 
 if is_triton_geq_v3_4:
     from ._impl.v3_4_plus import dump, dump_boundary, dump_grids

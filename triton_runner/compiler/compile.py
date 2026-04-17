@@ -12,10 +12,10 @@ from triton.compiler.compiler import make_backend, parse, filter_traceback
 from triton.compiler.compiler import ASTSource, IRSource
 from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
 
-from .check_utils import runner_check_triton
-from .color_print import print_triton_cache_dir
-from .triton_compat import triton_key
-from . import __version__
+from .checks import runner_check_triton
+from ..debug.console import print_triton_cache_dir
+from ..compat.triton import triton_key
+from .. import __version__
 from triton.compiler.compiler import CompiledKernel
 from .source_types import (
     AMD_IR_SOURCE_EXTS,
@@ -25,9 +25,9 @@ from .source_types import (
     STORE_ONLY_BINARY_EXTS,
     TEXT_FILE_SOURCE_EXTS,
 )
-from .version_utils import is_triton_v3_4, is_disable_multithreading
-from .version_utils import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_5
-from .version_utils import triton_version
+from ..compat.version import is_triton_v3_4, is_disable_multithreading
+from ..compat.version import is_tlx, is_triton_leq_v3_2, is_triton_leq_v3_1, is_triton_geq_v3_5
+from ..compat.version import triton_version
 
 
 def _get_path_ext(src):

@@ -47,8 +47,8 @@ def jit(
 
     def decorator(fn: T) -> RunnerJITFunction[T]:
         assert callable(fn)
-        from ..version_utils import is_tlx
-        from ..version_utils import (
+        from ..compat.version import is_tlx
+        from ..compat.version import (
             is_triton_v3_6,
             is_triton_v3_5,
             is_triton_v3_4,
@@ -57,7 +57,7 @@ def jit(
             is_triton_v3_1,
             is_triton_v3_0,
         )
-        from ..version_utils import triton_version
+        from ..compat.version import triton_version
 
         common_kwargs = {
             "fn": fn,
@@ -91,4 +91,3 @@ def jit(
         return decorator(fn)
     else:
         return decorator
-

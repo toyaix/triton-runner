@@ -41,7 +41,7 @@ def _get_generic_launcher_source_path() -> Path:
 
 
 def _build_generic_launcher_module(tvm_ffi_module: Any, module_name: str, build_dir: str | Path, source: str) -> Any:
-    from . import _shared_library_path
+    from ._support import _shared_library_path
 
     tvm_ffi_root = Path(tvm_ffi_module.__file__).resolve().parent
     include_dirs = [str(tvm_ffi_root / "include"), *cuda_include_dirs()]
@@ -111,7 +111,7 @@ def _registration_token_for_payload(payload: tuple[Any, ...]) -> str:
 
 
 def _build_registration_payload(artifact: Any) -> tuple[Any, ...]:
-    from . import (
+    from ._support import (
         _expand_tensordesc_registration_specs,
         _runtime_arg_registration_specs,
         _validate_launch_metadata,
@@ -179,7 +179,7 @@ def _build_registration_payload(artifact: Any) -> tuple[Any, ...]:
 
 
 def _get_or_build_generic_launcher_module() -> tuple[str, Any]:
-    from . import (
+    from ._support import (
         _require_tvm_ffi,
         _shared_library_path,
     )
@@ -237,7 +237,7 @@ class TvmFfiLauncher:
     """TVM-FFI kernel launcher with the same call convention as ``CudaLauncher``."""
 
     def __init__(self, metadata, function_handle):
-        from . import (
+        from ._support import (
             _CompiledArtifact,
             _expand_tensordesc_signature,
             _get_tensordesc_python_expansion_info,
