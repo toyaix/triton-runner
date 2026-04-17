@@ -20,7 +20,7 @@ from triton_runner.compat.version import (
 DEFAULT_QUICK_DUMP_SAMPLE_SIZE = 5
 DEFAULT_QUICK_DUMP_SEED = 20260417
 QUICK_SKIP_RUNNER_CMDS = frozenset({
-    "python examples/runner/v3.5.x/gluon/02-layouts.py",
+    "python examples/runner/python/gluon/02-layouts.py",
 })
 
 def get_content(file_path):
@@ -36,8 +36,8 @@ def dedupe_keep_order(lines):
 
 def get_mandatory_runner_lines():
     lines = []
-    with_src_cmd = "python examples/runner/v3.5.x/with_src/matmul_use_compile_str.py"
-    if is_triton_geq_v3_4 and os.path.exists("examples/runner/v3.5.x/with_src/matmul_use_compile_str.py"):
+    with_src_cmd = "python examples/runner/python/runner_with_src/matmul_use_compile_str.py"
+    if is_triton_geq_v3_4 and os.path.exists("examples/runner/python/runner_with_src/matmul_use_compile_str.py"):
         lines.append(with_src_cmd)
     return lines
 
