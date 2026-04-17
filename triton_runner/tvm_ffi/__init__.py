@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 import os
 import re
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -83,24 +82,6 @@ class _TensorDescSpec:
         return self.entry.name
 
 
-def _get_tvm_ffi_cache_dir() -> str:
-    cache_dir = os.environ.get("TRITON_CACHE_DIR")
-    if cache_dir is None:
-        cache_dir = os.path.join(Path.home(), ".triton", "cache")
-    return os.path.join(cache_dir, "tvm_ffi_launcher")
-
-
-def _ensure_tvm_ffi_cache_dir(*parts: str) -> str:
-    preferred = os.path.join(_get_tvm_ffi_cache_dir(), *parts)
-    try:
-        os.makedirs(preferred, exist_ok=True)
-        return preferred
-    except PermissionError:
-        fallback = os.path.join(tempfile.gettempdir(), "triton_runner_cache", "tvm_ffi_launcher", *parts)
-        os.makedirs(fallback, exist_ok=True)
-        return fallback
-
-
 def _require_tvm_ffi():
     try:
         import tvm_ffi  # type: ignore[import-not-found]
@@ -159,13 +140,6 @@ def _parse_kernel_signature(kernel_signature: str | None) -> tuple[_SignatureEnt
 def _shared_library_path(build_dir: str | Path, module_name: str) -> Path:
     ext = ".dll" if os.name == "nt" else ".so"
     return Path(build_dir) / f"{module_name}{ext}"
-
-
-def _maybe_load_cached_module(tvm_ffi_module: Any, build_dir: str | Path, module_name: str) -> Any | None:
-    lib_path = _shared_library_path(build_dir, module_name)
-    if not lib_path.is_file():
-        return None
-    return tvm_ffi_module.load_module(lib_path, keep_module_alive=True)
 
 
 def _parse_tensordesc_specs(

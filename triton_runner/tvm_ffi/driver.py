@@ -1,18 +1,18 @@
-"""TVM-FFI based CUDA kernel launcher following the driver/v3_5_0 pattern."""
+"""TVM-FFI based CUDA kernel launcher."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import threading
 from pathlib import Path
 from typing import Any
 
+from triton.runtime import _allocation
+from triton.runtime.cache import get_cache_manager
 from ._cuda_build import build_module_from_src, cuda_include_dirs, library_dirs
 
 _GENERIC_LAUNCHER_NAME = "triton_runner_tvm_ffi_generic_launcher"
-_generic_module_cache: dict[str, Any] = {}
-_registered_kernel_cache: dict[tuple[str, str], int] = {}
-_cache_lock = threading.Lock()
 _GENERIC_LAUNCHER_LIBRARIES = ["tvm_ffi", "cudart", "cuda", "dl"]
 _ARG_KIND_CODES = {
     "pointer": 0,
@@ -59,38 +59,27 @@ def _build_generic_launcher_module(tvm_ffi_module: Any, module_name: str, build_
     )
 
 
-def _registration_token_for_payload(payload: tuple[Any, ...]) -> str:
-    hasher = hashlib.sha256()
-
-    def _update(value: Any) -> None:
-        if isinstance(value, str):
-            hasher.update(b"s\0")
-            hasher.update(value.encode("utf-8"))
-            hasher.update(b"\0")
-            return
-        if isinstance(value, int):
-            hasher.update(f"i{value}\0".encode("ascii"))
-            return
-        if isinstance(value, (bytes, bytearray, memoryview)):
-            raw = bytes(value)
-            hasher.update(b"b\0")
-            hasher.update(str(len(raw)).encode("ascii"))
-            hasher.update(b"\0")
-            hasher.update(raw)
-            return
-        if isinstance(value, (list, tuple)):
-            hasher.update(b"[\0")
-            for item in value:
-                _update(item)
-            hasher.update(b"]\0")
-            return
-        raise TypeError(f"Unsupported registration payload value: {type(value)!r}")
-
-    _update(payload)
-    return hasher.hexdigest()
+def _generic_launcher_cache_key(
+        *,
+        source: str,
+        include_dirs: tuple[str, ...] | list[str],
+        library_dirs_list: tuple[str, ...] | list[str],
+        libraries: tuple[str, ...] | list[str],
+        ccflags: tuple[str, ...] | list[str],
+) -> str:
+    fingerprint = {
+        "version": 3,
+        "source": source,
+        "include_dirs": list(include_dirs),
+        "library_dirs": list(library_dirs_list),
+        "libraries": list(libraries),
+        "ccflags": list(ccflags),
+    }
+    payload = json.dumps(fingerprint, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
+def _build_registration_payload(artifact: Any) -> tuple[Any, ...]:
     from . import (
         _expand_tensordesc_registration_specs,
         _runtime_arg_registration_specs,
@@ -155,52 +144,38 @@ def _build_registration_payload(artifact: Any) -> tuple[tuple[Any, ...], str]:
         runtime_arg_block_size_offsets,
         runtime_arg_block_size_values,
     )
-    token = _registration_token_for_payload(payload)
-    return payload, token
+    return payload
 
 
 def _get_or_build_generic_launcher_module() -> tuple[str, Any]:
     from . import (
-        _ensure_tvm_ffi_cache_dir,
-        _maybe_load_cached_module,
         _require_tvm_ffi,
+        _shared_library_path,
     )
 
     cuda_source = _get_generic_launcher_source_path().read_text()
-    cache_key = hashlib.sha256(b"generic_launcher_cpp_v2\0" + cuda_source.encode("utf-8")).hexdigest()
-
-    with _cache_lock:
-        cached = _generic_module_cache.get(cache_key)
-    if cached is not None:
-        return cache_key, cached
-
     tvm_ffi_module, _ = _require_tvm_ffi()
-    module_name = f"{_GENERIC_LAUNCHER_NAME}_{cache_key[:12]}"
-    build_dir = _ensure_tvm_ffi_cache_dir("generic", cache_key)
+    tvm_ffi_root = Path(tvm_ffi_module.__file__).resolve().parent
+    include_dirs = [str(tvm_ffi_root / "include"), *cuda_include_dirs()]
+    library_dirs_list = list(library_dirs(tvm_ffi_root / "lib", include_stubs=True))
+    ccflags = ("-std=c++17",)
+    cache_key = _generic_launcher_cache_key(
+        source=cuda_source,
+        include_dirs=include_dirs,
+        library_dirs_list=library_dirs_list,
+        libraries=_GENERIC_LAUNCHER_LIBRARIES,
+        ccflags=ccflags,
+    )
 
-    mod = _maybe_load_cached_module(tvm_ffi_module, build_dir, module_name)
+    module_name = f"{_GENERIC_LAUNCHER_NAME}_{cache_key[:12]}"
+    cache_manager = get_cache_manager(f"tvm_ffi_generic_launcher_{cache_key}")
+    build_dir = Path(cache_manager.cache_dir)
+    lib_path = cache_manager.get_file(_shared_library_path("", module_name).name)
+
+    mod = tvm_ffi_module.load_module(lib_path, keep_module_alive=True) if lib_path is not None else None
     if mod is None:
         mod = _build_generic_launcher_module(tvm_ffi_module, module_name, build_dir, cuda_source)
-
-    with _cache_lock:
-        _generic_module_cache[cache_key] = mod
     return cache_key, mod
-
-
-def _register_kernel_if_needed(
-        launcher_cache_key: str,
-        module: Any,
-        registration_token: str,
-        registration_args: tuple[Any, ...],
-) -> int:
-    cache_token = (launcher_cache_key, registration_token)
-    with _cache_lock:
-        cached = _registered_kernel_cache.get(cache_token)
-        if cached is not None:
-            return cached
-        handle = int(module.register_kernel_from_function(*registration_args))
-        _registered_kernel_cache[cache_token] = handle
-        return handle
 
 
 def _lookup_module_function(module: Any, name: str) -> Any:
@@ -249,13 +224,8 @@ class TvmFfiLauncher:
             signature=original_signature,
             function_handle=int(function_handle),
         )
-        registration_args, registration_token = _build_registration_payload(artifact)
-        self._registry_handle = _register_kernel_if_needed(
-            launcher_cache_key,
-            self._tvm_mod,
-            registration_token,
-            registration_args,
-        )
+        registration_args = _build_registration_payload(artifact)
+        self._registry_handle = int(self._tvm_mod.register_kernel_from_function(*registration_args))
 
         self._tvm_func = _lookup_module_function(self._tvm_mod, "launch")
         self._launch_bound_args_for_tvm_ffi = _make_bound_args_launcher(
