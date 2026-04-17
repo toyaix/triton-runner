@@ -1,12 +1,20 @@
+import os
+
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
+
 from .compile import native_compile
 from .jit_dump import DumpMixin
 from .jit_metadata import MetadataMixin
-import os
+from .source_types import RUNNER_SOURCE_TYPES
 
 
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
+
+    def normalize_runner_kwargs(self, kwargs):
+        metadata_json = kwargs.get("metadata_json")
+        if hasattr(metadata_json, "_asdict"):
+            kwargs["metadata_json"] = metadata_json._asdict()
 
     def get_cache_key_with_runner_args(self, key, kwargs):
         if kwargs.get("dump_tensor") is not None:
@@ -17,16 +25,21 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
             key += f"|dump_grid={kwargs['dump_grid']}"
         if (runner_source_key_suffix := self.get_runner_source_key_suffix(kwargs)):
             key += f"|runner_src={runner_source_key_suffix}"
+        if "metadata_json" in kwargs:
+            key += f"|runner_metadata={repr(kwargs['metadata_json'])}"
         return key
 
     def get_runner_args_set(self):
-        return {"ttir_dir", "ttgir_dir", "llir_dir", "ptx_dir", "amdgcn_dir", "cubin_dir", "hsaco_dir", "ttir_src", "ttgir_src"}
+        return RUNNER_SOURCE_TYPES
 
     def get_dump_args_set(self):
         return {"dump_tensor", "dump_value", "dump_grid"}
 
     def get_autotune_args_set(self):
         return {"autotune_cubin_dir"}
+
+    def get_metadata_args_set(self):
+        return {"metadata_json"}
 
     @property
     def source_path(self):
@@ -42,8 +55,9 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         runner_args_set = self.get_runner_args_set()
         dump_args_set = self.get_dump_args_set()
         autotune_args_set = self.get_autotune_args_set()
+        metadata_args_set = self.get_metadata_args_set()
         for k in need_check_lst:
-            if not k in runner_args_set | dump_args_set | autotune_args_set:
+            if not k in runner_args_set | dump_args_set | autotune_args_set | metadata_args_set:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         for k in need_check_lst:
             if k in runner_args_set:
@@ -123,6 +137,7 @@ class RunnerJITFunctionV3_6_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
         self.handle_autotune(kwargs)
+        self.normalize_runner_kwargs(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
@@ -171,6 +186,7 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
         self.handle_autotune(kwargs)
+        self.normalize_runner_kwargs(kwargs)
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
 
@@ -216,6 +232,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
         self.handle_autotune(kwargs)
+        self.normalize_runner_kwargs(kwargs)
 
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
 
@@ -265,6 +282,7 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
         from triton.runtime.jit import compute_cache_key
+        self.normalize_runner_kwargs(kwargs)
 
         kwargs["debug"] = kwargs.get("debug", self.debug) or knobs.runtime.debug
 
@@ -304,6 +322,7 @@ class RunnerJITFunction_TLX(RunnerJITFunction[KernelInterface[T]]):
 class RunnerJITFunctionV3_3_0(RunnerJITFunction[KernelInterface[T]]):
 
     def run(self, *args, grid, warmup, **kwargs):
+        self.normalize_runner_kwargs(kwargs)
         kwargs["debug"] = kwargs.get("debug", self.debug) or os.environ.get("TRITON_DEBUG", "0") == "1"
 
         device = driver.active.get_current_device()
@@ -353,6 +372,7 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
         return self._check_source_dir_type([k.lower() for k in excess_kwargs if k not in options.__dict__])
 
     def run(self, *args, grid, warmup, **kwargs):
+        self.normalize_runner_kwargs(kwargs)
         kwargs["debug"] = kwargs.get("debug", False) or os.environ.get("TRITON_DEBUG", "0") == "1"
 
         from triton.compiler import make_backend
@@ -428,6 +448,7 @@ class RunnerJITFunctionV3_1_0(RunnerJITFunction[KernelInterface[T]]):
         return self._check_source_dir_type([k.lower() for k in excess_kwargs if k not in options.__dict__])
 
     def run(self, *args, grid, warmup, **kwargs):
+        self.normalize_runner_kwargs(kwargs)
         device = driver.active.get_current_device()
         stream = driver.active.get_current_stream(device)
         kwargs["debug"] = self.debug

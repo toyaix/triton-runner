@@ -35,7 +35,8 @@ def check_cuda_arch_with_capability(kernel_arch, target_arch):
 
 
 def check_cuda_arch(target):
-    kernel_arch = _metadata["target"]["arch"]
+    kernel_target = _metadata["target"]
+    kernel_arch = kernel_target["arch"] if isinstance(kernel_target, dict) else kernel_target.arch
     check_cuda_arch_with_capability(target.arch, kernel_arch)
 
 

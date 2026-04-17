@@ -1,7 +1,9 @@
 import os
 import re
+
 from .dump_utils import get_injected_ir
 from .compile import get_source_ir
+from .source_types import DUMP_IR_DIR_TYPES
 
 
 
@@ -11,7 +13,7 @@ class DumpMixin:
         return "dump_tensor" in kwargs
 
     def is_python_dump(self, kwargs, source_dir_type):
-        return self.need_dump(kwargs) and source_dir_type not in ["ttir_dir", "ttgir_dir"]
+        return self.need_dump(kwargs) and source_dir_type not in DUMP_IR_DIR_TYPES
 
     def insert_dump_tensor_param(self, full_text):
         pattern = re.compile(r'(tt\.func\s+public\s+@\w+\s*)\((.*?)\)(\s*attributes\s*{[^}]*}\s*{)', re.DOTALL)

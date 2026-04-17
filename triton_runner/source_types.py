@@ -1,0 +1,37 @@
+def _suffix_types(exts, suffix):
+    return frozenset(f"{ext}_{suffix}" for ext in exts)
+
+
+def _src_types(exts):
+    return _suffix_types(exts, "src")
+
+
+def _dir_types(exts):
+    return _suffix_types(exts, "dir")
+
+
+DUMP_IR_EXTS = frozenset({"ttir", "ttgir"})
+COMMON_TEXT_EXTS = frozenset({"llir"})
+NV_IR_EXTS = frozenset({"ptx"})
+NV_BINARY_EXTS = frozenset({"cubin"})
+AMD_IR_EXTS = frozenset({"amdgcn"})
+AMD_BINARY_EXTS = frozenset({"hsaco"})
+
+COMMON_RUNNER_EXTS = DUMP_IR_EXTS | COMMON_TEXT_EXTS
+INLINE_METADATA_EXTS = COMMON_TEXT_EXTS | NV_IR_EXTS | AMD_IR_EXTS
+FILE_METADATA_EXTS = INLINE_METADATA_EXTS | NV_BINARY_EXTS | AMD_BINARY_EXTS
+
+DUMP_IR_DIR_TYPES = _dir_types(DUMP_IR_EXTS)
+RUNNER_SRC_TYPES = _src_types(COMMON_RUNNER_EXTS | NV_IR_EXTS | AMD_IR_EXTS)
+RUNNER_DIR_TYPES = _dir_types(COMMON_RUNNER_EXTS | NV_IR_EXTS | NV_BINARY_EXTS | AMD_IR_EXTS | AMD_BINARY_EXTS)
+RUNNER_SOURCE_TYPES = RUNNER_SRC_TYPES | RUNNER_DIR_TYPES
+METADATA_INLINE_SRC_TYPES = _src_types(INLINE_METADATA_EXTS)
+METADATA_DIR_TYPES = _dir_types(FILE_METADATA_EXTS)
+
+TEXT_FILE_SOURCE_EXTS = COMMON_TEXT_EXTS | AMD_IR_EXTS
+BINARY_SOURCE_EXTS = NV_BINARY_EXTS | AMD_BINARY_EXTS
+PRECOMPILED_SOURCE_EXTS = FILE_METADATA_EXTS
+STORE_ONLY_BINARY_EXTS = BINARY_SOURCE_EXTS | frozenset({"json"})
+
+AMD_IR_SOURCE_EXTS = AMD_IR_EXTS
+NV_IR_SOURCE_EXTS = NV_IR_EXTS
