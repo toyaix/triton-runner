@@ -1,6 +1,5 @@
 
-
-from .color_print import warning_dump_mode_ssa_and_op
+from .console import warning_dump_mode_ssa_and_op
 
 def get_injected_ir_begin(original_line, indent, loc, python_dump, dump_grid):
     if isinstance(dump_grid, int):

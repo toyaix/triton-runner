@@ -10,7 +10,7 @@ import torch
 import triton
 import triton_runner
 
-from triton_runner.version_utils import (
+from triton_runner.compat.version import (
     is_triton_geq_v3_3,
     is_triton_geq_v3_4,
     triton_version,

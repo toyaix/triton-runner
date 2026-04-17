@@ -6,10 +6,11 @@ import os
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 
-from .compile import native_compile
-from .jit_dump import DumpMixin
-from .jit_metadata import MetadataMixin
-from .source_types import RUNNER_SOURCE_TYPES
+from ..compiler.compile import native_compile
+from ..compiler.source_types import RUNNER_SOURCE_TYPES
+from ..compat.triton import get_triton_cache_dir
+from .dump import DumpMixin
+from .metadata import MetadataMixin
 
 
 def _normalize_cache_key_value(value):
@@ -90,7 +91,6 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         return self.__dict__["__globals__"].get("__file__")
 
     def get_runner_cache_dir(self):
-        from .triton_compat import get_triton_cache_dir
         runner_cache_dir = os.path.join(get_triton_cache_dir(), "runner_cache")
         os.makedirs(runner_cache_dir, exist_ok=True)
         return runner_cache_dir

@@ -1,3 +1,5 @@
+# copy from https://github.com/triton-lang/triton/blob/main/python/triton/runtime/autotuner.py
+
 from __future__ import annotations
 
 import builtins
@@ -11,8 +13,8 @@ from typing import Dict, Tuple, List, Optional
 
 from triton import knobs
 from triton.runtime.jit import KernelInterface
-from .jit import RunnerJITFunction
-from .compile import triton_key
+from ..compat.triton import triton_key
+from ..jit.versions import RunnerJITFunction
 from triton.runtime.cache import get_cache_manager
 from triton.runtime.driver import driver
 from triton.runtime.errors import OutOfResources, PTXASError

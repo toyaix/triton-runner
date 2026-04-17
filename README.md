@@ -299,7 +299,7 @@ Current documented cases include:
 | Variable | Default | Description |
 |---|---|---|
 | `TRITON_RUNNER_PROD` | `0` | Enable Triton Runner production mode on CUDA with Triton `v3.4.0`; this switches `triton_runner.jit` to the production launcher path and requires `triton-runner[tvm-ffi]`. |
-| `TRITON_RUNNER_PROD_TEST` | `0` | Enable production mode and keep the extra production cache consistency checks used by `jit_prod.py`. |
+| `TRITON_RUNNER_PROD_TEST` | `0` | Enable production mode and keep the extra production cache consistency checks used by the production JIT path. |
 
 Other environment variables such as `TRITON_CACHE_DIR`, `TRITON_ALWAYS_COMPILE`, `TRITON_KERNEL_OVERRIDE`,
 `TRITON_KERNEL_DUMP`, `TRITON_STORE_BINARY_ONLY`, `TRITON_DEBUG`, `MLIR_ENABLE_DUMP`, `MLIR_DUMP_PATH`,

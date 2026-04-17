@@ -5,14 +5,14 @@ from triton.runtime import driver
 from triton import knobs
 from collections import defaultdict
 from pathlib import Path
-from . import TRITON_RUNNER_PROD_TEST
-from .tvm_ffi import CompiledTVMFFIKernel
+from .. import TRITON_RUNNER_PROD_TEST
+from ..tvm_ffi import CompiledTVMFFIKernel
 
 _kernel_cache_dirs: Dict[str, set] = defaultdict(set)
 
 
 def track_kernel_cache_dir(kernel, name):
-    from .color_print import blue_print, red_print
+    from ..debug.console import blue_print, red_print
     from triton.runtime.cache import get_cache_manager
     cache_dir = get_cache_manager(kernel.hash).cache_dir
     old_num = len(_kernel_cache_dirs[name])
@@ -28,8 +28,8 @@ def update_kernel_metadata(kernel, bound_args, specialization):
     import json
     import os
     from triton.runtime.cache import get_cache_manager
-    from .version_utils import triton_version
-    from . import __version__
+    from ..compat.version import triton_version
+    from .. import __version__
     kernel_signature = tuple((k, arg_type, spec) for k, (arg_type, spec) in zip(bound_args.keys(), specialization))
     kernel_cache_dir = get_cache_manager(kernel.hash).cache_dir
     json_files = [f for f in glob.glob(os.path.join(kernel_cache_dir, "*.json")) if not os.path.basename(f).startswith("__grp__")]
@@ -187,7 +187,7 @@ def jit(
     def decorator(fn: T) -> ProdJITFunction[T]:
         assert callable(fn)
         if knobs.runtime.interpret:
-            from .interpreter import InterpretedFunction
+            from ..interpreter import InterpretedFunction
             return InterpretedFunction(fn, version=version, do_not_specialize=do_not_specialize,
                                        do_not_specialize_on_alignment=do_not_specialize_on_alignment, debug=debug,
                                        noinline=noinline, repr=repr, launch_metadata=launch_metadata)

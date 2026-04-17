@@ -1,6 +1,6 @@
 import warnings
 import triton
-from .color_print import get_project_name
+from ..debug.console import get_project_name
 
 _metadata = {}
 
@@ -23,7 +23,7 @@ def check_kernel_name(kernel_name):
 
 def check_triton_version():
     kernel_version = _metadata.get('triton_version', '')
-    from .version_utils import triton_version
+    from ..compat.version import triton_version
     installed_version = triton_version
     if kernel_version and kernel_version != installed_version:
         warnings.warn(f"{get_project_name()} This kernel Triton v{kernel_version} is different with intstalled v{installed_version}")

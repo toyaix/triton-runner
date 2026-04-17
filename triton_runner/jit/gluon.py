@@ -1,4 +1,9 @@
-from ..jit import RunnerJITFunctionV3_6_0, RunnerJITFunctionV3_5_0, RunnerJITFunctionV3_4_0, RunnerJITFunction
+from .versions import (
+    RunnerJITFunction,
+    RunnerJITFunctionV3_4_0,
+    RunnerJITFunctionV3_5_0,
+    RunnerJITFunctionV3_6_0,
+)
 from triton.runtime.jit import JITFunction
 from triton.experimental.gluon._runtime import GluonASTSource, T
 from typing import Optional, Callable, Iterable, Union
@@ -56,7 +61,7 @@ def jit(
 
     def decorator(fn: T) -> JITFunction[T]:
         assert callable(fn)
-        from ..version_utils import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, triton_version
+        from ..compat.version import is_triton_v3_6, is_triton_v3_5, is_triton_v3_4, triton_version
 
         kwargs = {
             "fn": fn,

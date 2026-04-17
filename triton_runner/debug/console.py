@@ -1,7 +1,7 @@
 import os
 
 import termcolor
-from . import TRITON_RUNNER_PROD
+from .. import TRITON_RUNNER_PROD
 
 def blue_print(text):
     print(termcolor.colored(text, "blue"), flush=True)

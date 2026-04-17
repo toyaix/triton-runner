@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-from .source_types import DUMP_IR_DIR_TYPES, METADATA_DIR_TYPES, METADATA_INLINE_SRC_TYPES
+from ..compiler.source_types import DUMP_IR_DIR_TYPES, METADATA_DIR_TYPES, METADATA_INLINE_SRC_TYPES
 
 
 class MetadataMixin:
