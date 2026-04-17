@@ -1,0 +1,4 @@
+interface:
+  display_name: "Triton Version Support"
+  short_description: "Adapt Triton Runner to an exact Triton version"
+  default_prompt: "Use $triton-version-support to adapt and validate Triton Runner for a specific Triton version."
