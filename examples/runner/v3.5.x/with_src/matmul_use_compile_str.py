@@ -89,4 +89,8 @@ if (torch.allclose(triton_output, torch_output, atol=1e-1, rtol=0)
         and torch.allclose(triton_output_from_ptx, torch_output, atol=1e-1, rtol=0)):
     print("✅ Triton and Torch match")
 else:
+    print(abs(triton_output - torch_output).max())
+    print(abs(triton_output_from_ttgir - torch_output).max())
+    print(abs(triton_output_from_llir - torch_output).max())
+    print(abs(triton_output_from_ptx - torch_output).max())
     print("❌ Triton and Torch differ")
