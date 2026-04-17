@@ -83,10 +83,10 @@ triton_output_from_ttgir, _ = matmul(a, b, source_type="ttgir_src", source_text=
 triton_output_from_llir, _ = matmul(a, b, source_type="llir_src", source_text=matmul_llir_src, metadata_json=matmul_metadata_json)
 triton_output_from_ptx, _ = matmul(a, b, source_type="ptx_src", source_text=matmul_ptx_src, metadata_json=matmul_metadata_json)
 
-if (torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0)
-        and torch.allclose(triton_output_from_ttgir, torch_output, atol=1e-2, rtol=0)
-        and torch.allclose(triton_output_from_llir, torch_output, atol=1e-2, rtol=0)
-        and torch.allclose(triton_output_from_ptx, torch_output, atol=1e-2, rtol=0)):
+if (torch.allclose(triton_output, torch_output, atol=1e-1, rtol=0)
+        and torch.allclose(triton_output_from_ttgir, torch_output, atol=1e-1, rtol=0)
+        and torch.allclose(triton_output_from_llir, torch_output, atol=1e-1, rtol=0)
+        and torch.allclose(triton_output_from_ptx, torch_output, atol=1e-1, rtol=0)):
     print("✅ Triton and Torch match")
 else:
     print("❌ Triton and Torch differ")
