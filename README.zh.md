@@ -57,6 +57,8 @@ pip install -e .
 
 ## [开发文档](https://www.zhihu.com/column/c_1940119129400013405)
 
+[Triton Runner v0.3.6 : TVMFFI支持，AMD支持(54f16d7)](https://zhuanlan.zhihu.com/p/2026595598799763177)
+
 [Triton Runner v0.2.6 : Python调试，Gluon支持(8eebaaa)](https://zhuanlan.zhihu.com/p/1958653485118624326)
 
 [Triton Runner v0.2.0 : 支持调试，多版本支持(4b85c7a)](https://zhuanlan.zhihu.com/p/1951383935830454570)
