@@ -9,7 +9,7 @@ import inspect
 import re
 import textwrap
 from . import TRITON_RUNNER_PROD_TEST
-from .compiler import CompiledTVMFFIKernel
+from .tvm_ffi import CompiledTVMFFIKernel
 
 _kernel_cache_dirs: Dict[str, set] = defaultdict(set)
 

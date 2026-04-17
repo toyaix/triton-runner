@@ -376,3 +376,6 @@ def _validate_launch_metadata(metadata: dict[str, Any]) -> None:
         raise NotImplementedError(
             "TVM-FFI launcher does not support: " + ", ".join(unsupported)
         )
+
+
+from .compiled_kernel import CompiledTVMFFIKernel
