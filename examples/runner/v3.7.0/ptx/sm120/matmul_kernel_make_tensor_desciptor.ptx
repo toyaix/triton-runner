@@ -873,7 +873,7 @@ $L__tmp3:
 $L__func_end0:
                                         // -- End function
 }
-	.file	1 "/home/ubuntu/triton-runner/skills/triton-runner-generate-artifacts/scripts/generate_runner_artifacts.py"
+	.file	1 "/home/ubuntu/triton-runner/skills/triton-generate-artifacts/scripts/generate_runner_artifacts.py"
 	.file	2 "/home/ubuntu/.local/lib/python3.10/site-packages/triton/language/standard.py"
 	.section	.debug_abbrev
 	{
@@ -933,12 +933,12 @@ $L__func_end0:
 	}
 	.section	.debug_info
 	{
-.b32 210                                // Length of Unit
+.b32 203                                // Length of Unit
 .b8 2                                   // DWARF version number
 .b8 0
 .b32 .debug_abbrev                      // Offset Into Abbrev. Section
 .b8 8                                   // Address Size (in bytes)
-.b8 1                                   // Abbrev [1] 0xb:0xcb DW_TAG_compile_unit
+.b8 1                                   // Abbrev [1] 0xb:0xc4 DW_TAG_compile_unit
 .b8 116                                 // DW_AT_producer
 .b8 114
 .b8 105
@@ -1019,13 +1019,6 @@ $L__func_end0:
 .b8 111
 .b8 110
 .b8 45
-.b8 114
-.b8 117
-.b8 110
-.b8 110
-.b8 101
-.b8 114
-.b8 45
 .b8 103
 .b8 101
 .b8 110
@@ -1053,7 +1046,7 @@ $L__func_end0:
 .b8 116
 .b8 115
 .b8 0
-.b8 2                                   // Abbrev [2] 0x81:0x26 DW_TAG_subprogram
+.b8 2                                   // Abbrev [2] 0x7a:0x26 DW_TAG_subprogram
 .b8 109                                 // DW_AT_name
 .b8 97
 .b8 116
@@ -1091,12 +1084,12 @@ $L__func_end0:
 .b8 114
 .b8 0
 .b8 1                                   // DW_AT_inline
-.b8 3                                   // Abbrev [3] 0xa7:0x2e DW_TAG_subprogram
+.b8 3                                   // Abbrev [3] 0xa0:0x2e DW_TAG_subprogram
 .b64 $L__func_begin0                    // DW_AT_low_pc
 .b64 $L__func_end0                      // DW_AT_high_pc
-.b32 129                                // DW_AT_abstract_origin
-.b8 4                                   // Abbrev [4] 0xbc:0x18 DW_TAG_inlined_subroutine
-.b32 129                                // DW_AT_abstract_origin
+.b32 122                                // DW_AT_abstract_origin
+.b8 4                                   // Abbrev [4] 0xb5:0x18 DW_TAG_inlined_subroutine
+.b32 122                                // DW_AT_abstract_origin
 .b64 $L__tmp1                           // DW_AT_low_pc
 .b64 $L__tmp2                           // DW_AT_high_pc
 .b8 1                                   // DW_AT_call_file

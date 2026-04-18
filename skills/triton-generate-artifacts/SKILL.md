@@ -1,9 +1,9 @@
 ---
-name: triton-runner-generate-artifacts
+name: triton-generate-artifacts
 description: Generate Triton Runner ttir, ttgir, llir, ptx, cubin, and metadata artifacts inside examples/runner/vX.Y.Z for the active Triton version and the current machine's GPU capability. Use when publishing a new Triton version's runner artifacts, regenerating checked-in example kernels, or producing compile-only artifacts for extra NVIDIA capabilities on another machine.
 ---
 
-# Triton Runner Generate Artifacts
+# Triton Generate Artifacts
 
 Use this skill when the task is to generate or refresh versioned runner artifacts under `examples/runner/vX.Y.Z`.
 
@@ -20,19 +20,19 @@ Use this skill when the task is to generate or refresh versioned runner artifact
 From the repository root:
 
 ```bash
-python skills/triton-runner-generate-artifacts/scripts/generate_runner_artifacts.py
+python skills/triton-generate-artifacts/scripts/generate_runner_artifacts.py
 ```
 
 To target explicit capabilities:
 
 ```bash
-python skills/triton-runner-generate-artifacts/scripts/generate_runner_artifacts.py 75 80 86 90 120
+python skills/triton-generate-artifacts/scripts/generate_runner_artifacts.py 75 80 86 90 120
 ```
 
 To target another Triton version directory without changing the environment:
 
 ```bash
-python skills/triton-runner-generate-artifacts/scripts/generate_runner_artifacts.py --version 3.7.0 75
+python skills/triton-generate-artifacts/scripts/generate_runner_artifacts.py --version 3.7.0 75
 ```
 
 ## Validation

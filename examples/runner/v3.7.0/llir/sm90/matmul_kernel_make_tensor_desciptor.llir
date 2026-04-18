@@ -838,7 +838,7 @@ attributes #7 = { convergent nounwind }
 !llvm.module.flags = !{!2, !3}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C, file: !1, producer: "triton", isOptimized: true, runtimeVersion: 0, emissionKind: LineTablesOnly)
-!1 = !DIFile(filename: "generate_runner_artifacts.py", directory: "/home/ubuntu/triton-runner/skills/triton-runner-generate-artifacts/scripts")
+!1 = !DIFile(filename: "generate_runner_artifacts.py", directory: "/home/ubuntu/triton-runner/skills/triton-generate-artifacts/scripts")
 !2 = !{i32 2, !"Debug Info Version", i32 3}
 !3 = !{i32 4, !"nvvm-reflect-ftz", i32 1}
 !4 = distinct !DISubprogram(name: "matmul_kernel_make_tensor_desciptor", linkageName: "matmul_kernel_make_tensor_desciptor", scope: !1, file: !1, line: 215, type: !5, scopeLine: 215, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0)
