@@ -1,0 +1,4 @@
+interface:
+  display_name: "Triton Runner Artifacts"
+  short_description: "Generate Triton Runner artifacts"
+  default_prompt: "Use $triton-runner-generate-artifacts to generate Triton Runner ttir/ttgir/llir/ptx/cubin outputs for the current machine and Triton version."
