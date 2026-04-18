@@ -12,15 +12,15 @@ import triton_runner
 
 from triton_runner.compat.version import (
     is_triton_geq_v3_3,
-    is_triton_geq_v3_4,
     triton_version,
     uni_triton_version,
 )
 
 DEFAULT_QUICK_DUMP_SAMPLE_SIZE = 5
 DEFAULT_QUICK_DUMP_SEED = 20260417
+RUNNER_PYTHON_DIR = "examples/runner/python"
 QUICK_SKIP_RUNNER_CMDS = frozenset({
-    "python examples/runner/v3.5.x/gluon/02-layouts.py",
+    f"python {RUNNER_PYTHON_DIR}/gluon/02-layouts.py",
 })
 
 def get_content(file_path):
@@ -34,14 +34,6 @@ def dedupe_keep_order(lines):
     return list(dict.fromkeys(lines))
 
 
-def get_mandatory_runner_lines():
-    lines = []
-    with_src_cmd = "python examples/runner/v3.5.x/with_src/matmul_use_compile_str.py"
-    if is_triton_geq_v3_4 and os.path.exists("examples/runner/v3.5.x/with_src/matmul_use_compile_str.py"):
-        lines.append(with_src_cmd)
-    return lines
-
-
 def collect_commands(capability, quick, dump_sample_size, dump_seed):
     pattern = re.compile(rf"### sm{capability}.*?shell(.*?)```", re.DOTALL)
     runner_file_path = os.path.join("examples", "runner", f"v{uni_triton_version}", "README.md")
@@ -53,7 +45,7 @@ def collect_commands(capability, quick, dump_sample_size, dump_seed):
     runner_lines = get_lines(match)
     if quick:
         runner_lines = [cmd for cmd in runner_lines if cmd not in QUICK_SKIP_RUNNER_CMDS]
-    runner_lines = dedupe_keep_order(runner_lines + get_mandatory_runner_lines())
+    runner_lines = dedupe_keep_order(runner_lines)
 
     generic_shell_block = re.compile(r"shell(.*?)```", re.DOTALL)
     bench_file_path = os.path.join("doc", "benchmark.md")

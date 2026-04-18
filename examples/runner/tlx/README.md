@@ -2,7 +2,7 @@ Triton v3.4.0 in TLX with commit [9a7a23d](https://github.com/facebookexperiment
 
 ### sm90 (H100, H200, H20, etc.)
 ```shell
-python examples/runner/tlx/v3.4.0/python/hopper-fa-ws-pipelined-pingpong.py
+python examples/runner/python/tlx/hopper-fa-ws-pipelined-pingpong.py
 
 python examples/runner/tlx/v3.4.0/ttir/sm90/hopper-fa-ws-pipelined-pingpong.py
 

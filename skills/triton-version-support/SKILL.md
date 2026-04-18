@@ -73,7 +73,7 @@ If `test/test.py` loads commands from `examples/runner/v{uni_triton_version}/REA
 Typical command:
 
 ```bash
-python examples/runner/python/matmul.py
+python examples/runner/python/triton/matmul.py
 ```
 
 ### 5. Validate in escalating steps
@@ -82,7 +82,7 @@ Run fast checks before long regressions:
 
 ```bash
 python -m py_compile triton_runner/jit/versions.py triton_runner/jit/api.py triton_runner/compat/version.py
-python examples/runner/python/matmul.py
+python examples/runner/python/triton/matmul.py
 python test/regression_test.py 3.7.0
 ```
 
