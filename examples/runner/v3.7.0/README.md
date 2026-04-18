@@ -2,15 +2,15 @@
 ```shell
 python examples/runner/python/triton/matmul-with-tma-v4.py
 
-python examples/runner/v3.5.x/ttir/matmul-with-tma/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/ttir/matmul-with-tma/matmul-with-tma-v4.py
 
-python examples/runner/v3.6.0/ttgir/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/ttgir/sm90/matmul-with-tma-v4.py
 
-python examples/runner/v3.5.x/llir/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/llir/sm90/matmul-with-tma-v4.py
 
-python examples/runner/v3.5.x/ptx/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/ptx/sm90/matmul-with-tma-v4.py
 
-python examples/runner/v3.5.x/cubin/sm90/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/cubin/sm90/matmul-with-tma-v4.py
 
 python examples/runner/python/runner_with_src/matmul_use_compile_str.py
 
@@ -22,15 +22,15 @@ python examples/runner/python/gluon/02-layouts.py
 ```shell
 python examples/runner/python/triton/matmul-with-dot-v2.py
 
-python examples/runner/v3.5.x/ttir/matmul-with-dot/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/ttir/matmul-with-dot/matmul-with-dot-v2.py
 
-python examples/runner/v3.5.x/ttgir/sm80/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/ttgir/sm80/matmul-with-dot-v2.py
 
-python examples/runner/v3.4.0/llir/sm80/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/llir/sm80/matmul-with-dot-v2.py
 
-python examples/runner/v3.4.0/ptx/sm80/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/ptx/sm80/matmul-with-dot-v2.py
 
-python examples/runner/v3.4.0/cubin/sm80/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/cubin/sm80/matmul-with-dot-v2.py
 
 python examples/runner/python/runner_with_src/matmul_use_compile_str.py
 
@@ -42,15 +42,15 @@ python examples/runner/python/gluon/02-layouts.py
 ```shell
 python examples/runner/python/triton/matmul-with-tma-v4.py
 
-python examples/runner/v3.5.x/ttir/matmul-with-tma/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/ttir/matmul-with-tma/matmul-with-tma-v4.py
 
-python examples/runner/v3.6.0/ttgir/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/ttgir/sm120/matmul-with-tma-v4.py
 
-python examples/runner/v3.4.0/llir/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/llir/sm120/matmul-with-tma-v4.py
 
-python examples/runner/v3.4.0/ptx/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/ptx/sm120/matmul-with-tma-v4.py
 
-python examples/runner/v3.4.0/cubin/sm120/matmul-with-tma-v4.py
+python examples/runner/v3.7.0/cubin/sm120/matmul-with-tma-v4.py
 
 python examples/runner/python/runner_with_src/matmul_use_compile_str.py
 
@@ -62,15 +62,15 @@ python examples/runner/python/gluon/02-layouts.py
 ```shell
 python examples/runner/python/triton/matmul-with-dot-v2.py
 
-python examples/runner/v3.5.x/ttir/matmul-with-dot/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/ttir/matmul-with-dot/matmul-with-dot-v2.py
 
-python examples/runner/v3.5.x/ttgir/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/ttgir/sm86/matmul-with-dot-v2.py
 
-python examples/runner/v3.4.0/llir/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/llir/sm86/matmul-with-dot-v2.py
 
-python examples/runner/v3.4.0/ptx/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/ptx/sm86/matmul-with-dot-v2.py
 
-python examples/runner/v3.4.0/cubin/sm86/matmul-with-dot-v2.py
+python examples/runner/v3.7.0/cubin/sm86/matmul-with-dot-v2.py
 
 python examples/runner/python/runner_with_src/matmul_use_compile_str.py
 
@@ -82,15 +82,15 @@ python examples/runner/python/gluon/02-layouts.py
 ```shell
 python examples/runner/python/triton/matmul.py
 
-python examples/runner/v3.5.x/ttir/matmul/matmul.py
+python examples/runner/v3.7.0/ttir/matmul/matmul.py
 
-python examples/runner/v3.5.x/ttgir/sm75/matmul.py
+python examples/runner/v3.7.0/ttgir/sm75/matmul.py
 
-python examples/runner/v3.4.0/llir/sm75/matmul.py
+python examples/runner/v3.7.0/llir/sm75/matmul.py
 
-python examples/runner/v3.4.0/ptx/sm75/matmul.py
+python examples/runner/v3.7.0/ptx/sm75/matmul.py
 
-python examples/runner/v3.4.0/cubin/sm75/matmul.py
+python examples/runner/v3.7.0/cubin/sm75/matmul.py
 
 python examples/runner/python/runner_with_src/matmul_use_compile_str.py
 
