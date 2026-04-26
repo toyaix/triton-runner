@@ -17,6 +17,7 @@ from ..debug.console import print_triton_cache_dir
 from ..compat.triton import triton_key
 from .. import __version__
 from triton.compiler.compiler import CompiledKernel
+from .pass_pipeline import build_pipeline_for_stage
 from .source_types import (
     AMD_IR_SOURCE_EXTS,
     BINARY_SOURCE_EXTS,
@@ -96,7 +97,45 @@ def _merge_metadata_from_json(metadata, metadata_json):
         metadata["profile_scratch_align"] = metadata_json.get("profile_scratch_align", 1)
 
 
-def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None):
+def _llvm_convert_and_optimize(mod, metadata, options, capability, backend):
+    """Convert MLIR module to LLVM IR, optimize, and extract metadata."""
+    from triton.backends.nvidia.compiler import get_features, sm_arch_from_capability
+    from triton import knobs
+    from triton._C.libtriton import nvidia
+
+    llvm.init_targets()
+    context = llvm.context()
+    if knobs.compilation.enable_asan:
+        raise RuntimeError(
+            "Address Sanitizer Error: Address sanitizer is currently only supported on the AMD backend")
+    llvm_mod = llvm.to_module(mod, context)
+    proc = sm_arch_from_capability(capability)
+    features = get_features(options, getattr(backend.target, 'arch', capability))
+    triple = 'nvptx64-nvidia-cuda'
+    nvidia.set_short_ptr()
+    llvm.attach_datalayout(llvm_mod, triple, proc, features)
+    nvidia.set_nvvm_reflect_ftz(llvm_mod)
+
+    if options.extern_libs:
+        paths = [path for (name, path) in options.extern_libs]
+        llvm.link_extern_libs(llvm_mod, paths)
+
+    llvm.optimize_module(llvm_mod, llvm.OPTIMIZE_O3)
+
+    total_num_warps = mod.get_int_attr("ttg.total-num-warps")
+    if total_num_warps is not None:
+        metadata["num_warps"] = total_num_warps
+    metadata["shared"] = mod.get_int_attr("ttg.shared")
+    metadata["tmem_size"] = mod.get_int_attr("ttg.tensor_memory_size")
+    metadata["global_scratch_size"] = mod.get_int_attr("ttg.global_scratch_memory_size")
+    metadata["global_scratch_align"] = mod.get_int_attr("ttg.global_scratch_memory_alignment")
+    ret = str(llvm_mod)
+    del llvm_mod
+    del context
+    return ret
+
+
+def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None, kernel_signature=None, source_path=None, start_pass=None):
     if target is None:
         target = driver.active.get_current_target()
     assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
@@ -164,9 +203,18 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         backend.add_stages(stages, options)
     src_ext = _get_src_ext(src)
     first_stage = list(stages.keys()).index(src_ext)
+    capability = backend._parse_arch(options.arch) if hasattr(backend, '_parse_arch') else None
+    ptx_version = None
+    if capability is not None:
+        from triton.backends.nvidia.compiler import get_ptx_version_from_options
+        ptx_version = get_ptx_version_from_options(options, getattr(backend.target, 'arch', capability))
+
     # when the source is an IR file, don't apply the passes related to this stage. This makes it easier to write IR level tests.
     # TODO: src_ext perhaps don't need in condition, this is source file
-    if (ir_source and src_ext != "ttir") or (ir_source and is_tlx):
+    if start_pass and src_ext in ("ttir", "ttgir", "llir"):
+        # don't skip the current stage yet — run_from_pass will handle it after module load
+        pass
+    elif (ir_source and src_ext != "ttir") or (ir_source and is_tlx):
         first_stage += 1
 
     # For IRSource, we have already grabbed the context + called both
@@ -208,6 +256,27 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     if mlir_dump_path is None:
         mlir_dump_path = os.path.join(os.path.dirname(metadata_group[ir_filename]), "all.mlir")
     os.environ["MLIR_DUMP_PATH"] = mlir_dump_path
+
+    # --- Pass-level pipeline execution ---
+    if start_pass and src_ext in ("ttir", "ttgir", "llir"):
+        # LLIR sources loaded from text files are strings; parse as MLIR for the pass pipeline
+        if src_ext == "llir" and isinstance(module, str):
+            module = ir.parse_mlir_module(src, context)
+        pipeline = build_pipeline_for_stage(src_ext, capability, options, ptx_version)
+        pass_idx = pipeline.find_pass(start_pass)
+        pipeline.run_from(module, metadata, pass_idx + 1, context=context if src_ext == "llir" else None)
+        # Extract TTGIR metadata after pass pipeline
+        if src_ext == "ttgir":
+            metadata["tensordesc_meta"] = module.get_tensordesc_metadata()
+        # for LLIR, also run LLVM conversion + optimization
+        if src_ext == "llir":
+            module = _llvm_convert_and_optimize(module, metadata, options, capability, backend)
+        first_stage += 1
+        # save IR after pass pipeline execution
+        next_ext = list(stages.keys())[first_stage]
+        if next_ext == "ptx":
+            ir_filename = f"{file_name}.ptx_input"
+            metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
 
     use_ir_loc = os.environ.get("USE_IR_LOC", None)
     for ext, compile_ir in list(stages.items())[first_stage:]:
