@@ -68,6 +68,8 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
             key += f"|dump_value={kwargs['dump_value']}"
         if "dump_grid" in kwargs:
             key += f"|dump_grid={kwargs['dump_grid']}"
+        if "start_pass" in kwargs:
+            key += f"|start_pass={kwargs['start_pass']}"
         if (runner_source_key_suffix := self.get_runner_source_key_suffix(kwargs)):
             key += f"|runner_src={runner_source_key_suffix}"
         if "metadata_json" in kwargs:
@@ -100,8 +102,9 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         dump_args_set = self.get_dump_args_set()
         autotune_args_set = self.get_autotune_args_set()
         metadata_args_set = self.get_metadata_args_set()
+        recognized = runner_args_set | dump_args_set | autotune_args_set | metadata_args_set | {"start_pass"}
         for k in need_check_lst:
-            if not k in runner_args_set | dump_args_set | autotune_args_set | metadata_args_set:
+            if k not in recognized:
                 raise KeyError("Keyword argument %s was specified but unrecognised" % k)
         for k in need_check_lst:
             if k in runner_args_set:
@@ -405,7 +408,7 @@ class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
             # [Triton Runner] dump after _call_hook
             src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature, start_pass=kwargs.get("start_pass"))
             kernel_cache[key] = kernel
             self._call_hook(knobs.runtime.jit_post_compile_hook, key, signature, device, constexprs, options, [attrs], warmup)
 

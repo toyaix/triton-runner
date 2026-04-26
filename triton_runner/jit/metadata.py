@@ -34,9 +34,12 @@ class MetadataMixin:
     def get_src_and_metadata_json(self, kwargs, source_dir_type, src, ast_src):
         if source_dir_type:
             if source_dir_type.endswith("src"):
+                value = kwargs[source_dir_type]
+                src_ext = source_dir_type[:-4]  # "ttgir" from "ttgir_src"
+                content = Path(value).read_text() if os.path.exists(value) else value
                 runner_cache_dir = self.get_runner_cache_dir()
-                src = os.path.join(runner_cache_dir, f"{self.__name__}-src.{source_dir_type[:-4]}")
-                Path(src).write_text(kwargs[source_dir_type])
+                src = os.path.join(runner_cache_dir, f"{self.__name__}-src.{src_ext}")
+                Path(src).write_text(content)
             else:
                 source_file_name = f"{self.__name__}.{source_dir_type[:-4]}"
                 src = os.path.join(kwargs[source_dir_type], source_file_name)
