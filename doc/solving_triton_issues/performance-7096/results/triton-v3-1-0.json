@@ -1,0 +1,100 @@
+{
+  "kernel": "/home/ubuntu/triton-runner/doc/solving_triton_issues/performance-7096/bench_kernel.py",
+  "results": [
+    {
+      "index": 0,
+      "problem_size": {
+        "M": 512,
+        "N": 512,
+        "K": 512
+      },
+      "latency_ms": 0.025112,
+      "grid": [
+        32,
+        1,
+        1
+      ],
+      "triton_version": "3.1.0",
+      "pytorch_version": "2.2.0+cu121",
+      "gpu": "Tesla T4",
+      "timestamp": "2026-04-30T06:28:46.265640",
+      "replayed_inputs": true
+    },
+    {
+      "index": 1,
+      "problem_size": {
+        "M": 1024,
+        "N": 1024,
+        "K": 1024
+      },
+      "latency_ms": 0.121681,
+      "grid": [
+        128,
+        1,
+        1
+      ],
+      "triton_version": "3.1.0",
+      "pytorch_version": "2.2.0+cu121",
+      "gpu": "Tesla T4",
+      "timestamp": "2026-04-30T06:28:47.522069",
+      "replayed_inputs": true
+    },
+    {
+      "index": 2,
+      "problem_size": {
+        "M": 1536,
+        "N": 1536,
+        "K": 1536
+      },
+      "latency_ms": 0.3932,
+      "grid": [
+        288,
+        1,
+        1
+      ],
+      "triton_version": "3.1.0",
+      "pytorch_version": "2.2.0+cu121",
+      "gpu": "Tesla T4",
+      "timestamp": "2026-04-30T06:28:48.641563",
+      "replayed_inputs": true
+    },
+    {
+      "index": 3,
+      "problem_size": {
+        "M": 2048,
+        "N": 2048,
+        "K": 2048
+      },
+      "latency_ms": 0.896246,
+      "grid": [
+        512,
+        1,
+        1
+      ],
+      "triton_version": "3.1.0",
+      "pytorch_version": "2.2.0+cu121",
+      "gpu": "Tesla T4",
+      "timestamp": "2026-04-30T06:28:49.708138",
+      "replayed_inputs": true
+    },
+    {
+      "index": 4,
+      "problem_size": {
+        "M": 4096,
+        "N": 4096,
+        "K": 4096
+      },
+      "latency_ms": 7.466362,
+      "grid": [
+        2048,
+        1,
+        1
+      ],
+      "triton_version": "3.1.0",
+      "pytorch_version": "2.2.0+cu121",
+      "gpu": "Tesla T4",
+      "timestamp": "2026-04-30T06:28:51.430220",
+      "replayed_inputs": true
+    }
+  ]
+}
