@@ -13,6 +13,7 @@ from typing import Dict, Tuple, List, Optional
 
 from triton import knobs
 from triton.runtime.jit import KernelInterface
+from triton.runtime.autotuner import Config
 from ..compat.triton import triton_key
 from ..jit.versions import RunnerJITFunction
 from triton.runtime.cache import get_cache_manager
