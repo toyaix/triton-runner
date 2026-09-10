@@ -39,7 +39,9 @@ tvm-ffi = [
 ]
 
 [tool.setuptools.package-data]
-"triton_runner" = ["README.md"]
+# LICENSE covers files adapted from TritonBench (BSD 3-Clause, see the headers
+# in this package); generic_launcher.cc ships for the tvm-ffi build.
+"triton_runner.bench" = ["LICENSE"]
 "triton_runner.tvm_ffi" = ["generic_launcher.cc"]
 
 [tool.setuptools.packages.find]
