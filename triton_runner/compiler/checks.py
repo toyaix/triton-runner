@@ -1,5 +1,5 @@
+import os
 import warnings
-import triton
 from ..debug.console import get_project_name
 
 _metadata = {}
@@ -13,7 +13,19 @@ def colored_warning(message, category, filename, lineno, file=None, line=None):
     file.write(formatted)
 
 
-warnings.showwarning = colored_warning
+def enable_colored_warnings():
+    """Opt in to ANSI-colored warnings for the whole process.
+
+    This replaces warnings.showwarning globally, so it must only be triggered
+    by an explicit caller (or the TRITON_RUNNER_COLORED_WARNINGS switch below),
+    never by importing the library - otherwise every warning in the process,
+    including other libraries', gets reformatted.
+    """
+    warnings.showwarning = colored_warning
+
+
+if os.environ.get("TRITON_RUNNER_COLORED_WARNINGS", "0") == "1":
+    enable_colored_warnings()
 
 
 def check_kernel_name(kernel_name):
