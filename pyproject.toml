@@ -2,8 +2,14 @@
 name = "triton-runner"
 description = "Multi-Level Triton Runner supporting Python, IR, PTX, and cubin."
 
+# jit/gluon.py and jit/prod.py use `int | str` annotations without a future
+# import, so the package cannot be imported on Python 3.9.
+requires-python = ">=3.10"
+
 dependencies = [
-    "triton>=3.0.0",
+    # source supports Triton 3.0 through 3.8; raise the ceiling when a new
+    # version has an adapter and has passed the regression
+    "triton>=3.0.0,<3.9",
     "termcolor",
 ]
 
