@@ -55,8 +55,7 @@ def get_file_dir(file):
 
 
 def __getattr__(name):
-    # torch_utils pulls in torch; load it on first use so importing the runner
-    # itself does not require torch (declared dependencies: triton, termcolor).
+    # torch_utils pulls in torch; load it on first use
     if name == "torch_utils":
         from .runtime import torch as torch_utils
         return torch_utils

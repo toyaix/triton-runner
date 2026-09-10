@@ -20,8 +20,7 @@ from triton_runner.compat.version import (
 DEFAULT_QUICK_DUMP_SAMPLE_SIZE = 5
 DEFAULT_QUICK_DUMP_SEED = 20260417
 RUNNER_PYTHON_DIR = "examples/runner/python"
-# Exit codes: 0 = all commands passed, 1 = failure (or skip with --strict),
-# 3 = SKIP: this GPU/Triton combination has no recorded commands.
+# 0 pass, 1 fail, 3 skip (no recorded commands for this GPU/Triton)
 EXIT_SKIP = 3
 QUICK_SKIP_RUNNER_CMDS = frozenset({
     f"python {RUNNER_PYTHON_DIR}/gluon/02-layouts.py",

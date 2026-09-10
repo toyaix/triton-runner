@@ -58,10 +58,7 @@ def _stable_cache_key_digest(value):
 
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
 
-    # start_pass only reaches the compiler on pipelines where the pass
-    # execution has been verified (see RunnerJITFunctionV3_4_0). Versions
-    # without wired support reject the argument instead of silently
-    # compiling as if it had never been passed.
+    # start_pass only reaches the compiler on verified pipelines (3.4 only)
     supports_start_pass = False
 
     def normalize_runner_kwargs(self, kwargs):
@@ -128,13 +125,8 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
     def _runner_source_digest(self, source_dir_type, kwargs):
-        """Fingerprint the inputs that will actually be read for this source arg.
-
-        Mirrors get_src_and_metadata_json: inline text and file paths are hashed
-        by content, directory inputs hash the IR/binary file (with the .source
-        fallback used for IR dumps) plus the sibling metadata json when one is
-        read. Editing a file in place therefore changes the in-process cache key.
-        """
+        # mirror what get_src_and_metadata_json reads, so editing a file in
+        # place changes the in-process cache key
         value = kwargs[source_dir_type]
         hasher = hashlib.sha256()
         if source_dir_type.endswith("_src"):

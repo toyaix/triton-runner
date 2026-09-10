@@ -258,9 +258,6 @@ def main() -> None:
     print(f"scenario: {case.name}")
     if config is not None:
         print(f"problem: A=({args.m}, {args.k}) B=({args.k}, {args.n}) C=({args.m}, {args.n}) variant={config.variant}")
-    # Report the switches that actually select the runner path. TRITON_RUNNER_PROD
-    # (with CUDA on Triton 3.7) is what enables the production jit backend; printing
-    # env vars the package never reads invites misreading the data.
     print(f"versions: triton={triton.__version__} triton_runner={triton_runner.__version__} torch={torch.__version__}")
     print(f"runner jit backend: {triton_runner.jit.__module__} "
           f"(TRITON_RUNNER_PROD={os.environ.get('TRITON_RUNNER_PROD', '0')}, "

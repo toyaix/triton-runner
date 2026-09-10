@@ -8,9 +8,8 @@ from .triton_backend import (
     restore_jit_backend,
 )
 
-# torch helpers stay importable from this package but load on first use, so the
-# core runner does not require torch to be installed. Anything that calls them
-# (examples, benchmarks, dump dtype checks) still needs torch.
+# torch helpers stay importable but load on first use, so importing the
+# runner does not require torch
 _TORCH_HELPER_NAMES = (
     "get_active_torch_device",
     "get_grid_dim",

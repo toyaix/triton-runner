@@ -2,13 +2,9 @@
 name = "triton-runner"
 description = "Multi-Level Triton Runner supporting Python, IR, PTX, and cubin."
 
-# jit/gluon.py and jit/prod.py use `int | str` annotations without a future
-# import, so the package cannot be imported on Python 3.9.
 requires-python = ">=3.10"
 
 dependencies = [
-    # source supports Triton 3.0 through 3.8; raise the ceiling when a new
-    # version has an adapter and has passed the regression
     "triton>=3.0.0,<3.9",
     "termcolor",
 ]
@@ -25,8 +21,7 @@ repository = "https://github.com/toyaix/triton-runner"
 homepage = "https://github.com/toyaix/triton-runner"
 
 [build-system]
-# SPDX license expressions (license = "MIT") need setuptools >= 77; 77.0.3 is the
-# packaging guide's recommended floor for the new table format.
+# SPDX license expressions need setuptools >= 77
 requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
@@ -39,8 +34,6 @@ tvm-ffi = [
 ]
 
 [tool.setuptools.package-data]
-# LICENSE covers files adapted from TritonBench (BSD 3-Clause, see the headers
-# in this package); generic_launcher.cc ships for the tvm-ffi build.
 "triton_runner.bench" = ["LICENSE"]
 "triton_runner.tvm_ffi" = ["generic_launcher.cc"]
 

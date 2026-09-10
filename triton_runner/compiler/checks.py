@@ -14,13 +14,7 @@ def colored_warning(message, category, filename, lineno, file=None, line=None):
 
 
 def enable_colored_warnings():
-    """Opt in to ANSI-colored warnings for the whole process.
-
-    This replaces warnings.showwarning globally, so it must only be triggered
-    by an explicit caller (or the TRITON_RUNNER_COLORED_WARNINGS switch below),
-    never by importing the library - otherwise every warning in the process,
-    including other libraries', gets reformatted.
-    """
+    # replaces warnings.showwarning process-wide; caller opts in explicitly
     warnings.showwarning = colored_warning
 
 

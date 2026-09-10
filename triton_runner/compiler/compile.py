@@ -255,10 +255,7 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
 
     if mlir_dump_path is None:
         mlir_dump_path = os.path.join(os.path.dirname(metadata_group[ir_filename]), "all.mlir")
-    # The pass pipeline reads MLIR_DUMP_PATH from the process environment. Save the
-    # previous value and restore it in a finally block: on failure a leaked override
-    # would redirect later compiles' dumps, and the old pop() also wiped a value the
-    # user had set themselves.
+    # the pass pipeline reads MLIR_DUMP_PATH from the process environment
     prior_mlir_dump_path = os.environ.get("MLIR_DUMP_PATH")
     os.environ["MLIR_DUMP_PATH"] = mlir_dump_path
     try:
@@ -366,9 +363,6 @@ def get_source_ir(src, target=None, options=None):
 def get_cache_key(src_hash, backend, backend_options, env_vars, start_pass=None, metadata_json=None):
     runner_key = f'{__version__}'
     key = f"{triton_key()}-{runner_key}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
-    # start_pass selects a different entry pass pipeline and metadata_json feeds the
-    # final metadata merge; neither is part of src_hash, so both must be in the key
-    # or a cache hit bypasses the pass execution and metadata merge entirely.
     if start_pass:
         key = f"{key}-start_pass={start_pass}"
     if metadata_json:
@@ -378,20 +372,13 @@ def get_cache_key(src_hash, backend, backend_options, env_vars, start_pass=None,
     return key
 
 
-# Ownership manifest for the mlir/ output folder. Only files listed in the
-# manifest are ever removed or overwritten, so user files that merely happen
-# to match the numbered naming scheme (e.g. 01-source.mlir) are never touched.
+# Only files recorded in the manifest are ever removed or overwritten.
 _MLIR_MANIFEST_NAME = ".triton-runner-mlir-manifest.json"
-_MLIR_DIR_LIMIT = 100  # try mlir, mlir-1, ... mlir-99 before giving up
+_MLIR_DIR_LIMIT = 100  # mlir, mlir-1, ... mlir-99
 
 
 def _manifest_names(folder_path):
-    """File names this tool recorded as its own in the folder's manifest.
-
-    Entries must be plain file names. Anything absolute or containing a path
-    separator could point outside the output directory (a hand-edited or
-    hostile manifest), so those entries are ignored.
-    """
+    # entries must be plain file names inside the folder
     manifest_path = os.path.join(folder_path, _MLIR_MANIFEST_NAME)
     try:
         manifest = json.loads(Path(manifest_path).read_text())
@@ -413,13 +400,6 @@ def _write_manifest(folder_path, file_names):
 
 
 def _remove_generated_mlir_files(folder_path):
-    """Remove only files this tool recorded in its manifest.
-
-    The folder may live in a user-provided directory (MLIR_DUMP_PATH) and a
-    numbered filename alone does not prove ownership, so deletion is driven by
-    the manifest written alongside previous outputs. Without a readable
-    manifest nothing is removed.
-    """
     for name in _manifest_names(folder_path):
         path = os.path.join(folder_path, name)
         if os.path.isfile(path):
@@ -427,12 +407,7 @@ def _remove_generated_mlir_files(folder_path):
 
 
 def _writable_name(folder, name, owned):
-    """A planned output name is writable when free, or a regular file we own.
-
-    Symlinks are never written through even when the manifest claims the name:
-    a dangling link looks free to exists() while write_text creates a file at
-    its target.
-    """
+    # writable when free, or a regular file we own; never a symlink
     path = os.path.join(folder, name)
     if not os.path.lexists(path):
         return True
@@ -442,13 +417,8 @@ def _writable_name(folder, name, owned):
 
 
 def _pick_output_folder(parent_dir, planned_names):
-    """Choose the folder to write per-pass dumps into.
-
-    Prefer the plain `mlir` folder next to the all.mlir dump; a folder is only
-    reused when every planned file name is free or manifest-owned, otherwise
-    the outputs move to `mlir-1`, `mlir-2`, ... Symlinked or non-directory
-    `mlir*` entries are skipped entirely.
-    """
+    # prefer mlir; fall back to mlir-1, mlir-2, ... when a planned name is
+    # taken by anything we cannot prove we own
     for idx in range(_MLIR_DIR_LIMIT):
         name = "mlir" if idx == 0 else f"mlir-{idx}"
         folder = os.path.join(parent_dir, name)
@@ -471,9 +441,8 @@ def parse_mlir_to_folder(mlir_path):
         return
     content = Path(mlir_path).read_text()
 
-    # Phase 1: parse the dump into (file name, content) pairs without touching the disk.
+    # parse first, then pick a folder whose names we own
     # Upstream MLIR prints "Pass (key) (op)"; fbtriton prints "Pass: key{opts} (op)".
-
     pattern = re.compile(
         r'// -----// IR Dump Before (?P<pass_name>.*?) '
         r'(?:\((?P<pass_key>.*?)\) )?'
@@ -507,8 +476,6 @@ def parse_mlir_to_folder(mlir_path):
         name = f"{idx+2:02d}-{item}.mlir"
         outputs.append((name, f"// IR Dump After {title}\n"))
 
-    # Phase 2: pick a folder whose planned names we own (or a fresh one), clean
-    # up the previous run's files there, then write and record ownership.
     folder_path = _pick_output_folder(os.path.dirname(mlir_path), [name for name, _ in outputs])
     if os.path.basename(folder_path) != "mlir":
         print(f"mlir output folder 'mlir' is not usable (occupied by files not written by this tool, "
@@ -517,7 +484,4 @@ def parse_mlir_to_folder(mlir_path):
     _remove_generated_mlir_files(folder_path)
     for name, text in outputs:
         (Path(folder_path) / name).write_text(text)
-
-    # Record ownership of what we just wrote (possibly nothing) so the next run
-    # can clean up exactly these files and nothing else.
     _write_manifest(folder_path, [name for name, _ in outputs])
