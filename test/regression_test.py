@@ -18,6 +18,10 @@ parser.add_argument("--dump-sample-size", type=int, default=DEFAULT_QUICK_DUMP_S
                     help="Number of dump commands to sample when --quick is enabled.")
 parser.add_argument("--dump-seed", type=int, default=DEFAULT_QUICK_DUMP_SEED,
                     help="Random seed for dump command sampling when --quick is enabled.")
+parser.add_argument("--allow-skip", action="store_true",
+                    help="Count versions whose GPU has no recorded commands as SKIP (exit 3 from "
+                         "test/test.py) instead of failing them. By default --strict is passed, so a "
+                         "missing configuration counts as FAIL and never as PASS.")
 args = parser.parse_args()
 
 versions = args.versions
@@ -26,6 +30,7 @@ python_exe = sys.executable
 
 passed = []
 failed = []
+skipped = []
 
 for ver in versions:
     print(f"\n==========================================")
@@ -35,6 +40,8 @@ for ver in versions:
 
     print(f"Running test on triton=={ver}...")
     test_cmd = [python_exe, "test/test.py"]
+    if not args.allow_skip:
+        test_cmd.append("--strict")
     if args.quick:
         test_cmd.extend([
             "--quick",
@@ -59,6 +66,8 @@ for ver in versions:
     proc.wait()
     if proc.returncode == 0:
         passed.append(ver)
+    elif args.allow_skip and proc.returncode == 3:  # EXIT_SKIP from test/test.py
+        skipped.append(ver)
     else:
         failed.append((ver, fail_cmds))
 
@@ -68,6 +77,8 @@ summary_lines.append("REGRESSION SUMMARY")
 summary_lines.append("==========================================")
 if passed:
     summary_lines.append(f"✅ PASS: {' '.join(passed)}")
+if skipped:
+    summary_lines.append(f"⏭️ SKIP (no commands recorded for this GPU): {' '.join(skipped)}")
 if failed:
     for ver, fail_cmds in failed:
         summary_lines.append(f"❌ FAIL: triton=={ver}")

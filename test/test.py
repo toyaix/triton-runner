@@ -20,6 +20,9 @@ from triton_runner.compat.version import (
 DEFAULT_QUICK_DUMP_SAMPLE_SIZE = 5
 DEFAULT_QUICK_DUMP_SEED = 20260417
 RUNNER_PYTHON_DIR = "examples/runner/python"
+# Exit codes: 0 = all commands passed, 1 = failure (or skip with --strict),
+# 3 = SKIP: this GPU/Triton combination has no recorded commands.
+EXIT_SKIP = 3
 QUICK_SKIP_RUNNER_CMDS = frozenset({
     f"python {RUNNER_PYTHON_DIR}/gluon/02-layouts.py",
 })
@@ -80,7 +83,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true", help="Run a reduced regression subset.")
     parser.add_argument("--strict", action="store_true",
-                        help="Fail when this GPU/Triton combination has no recorded commands, instead of skipping.")
+                        help="Fail (exit 1) when this GPU/Triton combination has no recorded commands, "
+                             f"instead of skipping (exit {EXIT_SKIP}).")
     parser.add_argument("--dump-sample-size", type=int, default=DEFAULT_QUICK_DUMP_SAMPLE_SIZE,
                         help="Number of dump commands to sample in --quick mode.")
     parser.add_argument("--dump-seed", type=int, default=DEFAULT_QUICK_DUMP_SEED,
@@ -101,7 +105,7 @@ def main():
     )
     if lines is None:
         print(f"SKIP: no commands recorded for sm{capability} on triton v{triton.__version__}")
-        sys.exit(1 if args.strict else 0)
+        sys.exit(1 if args.strict else EXIT_SKIP)
 
     mode = "QUICK TEST" if args.quick else "TEST"
     triton_runner.color_print.yellow_print(f"{mode} on triton v{triton_version}")
