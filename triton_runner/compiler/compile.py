@@ -255,49 +255,57 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
 
     if mlir_dump_path is None:
         mlir_dump_path = os.path.join(os.path.dirname(metadata_group[ir_filename]), "all.mlir")
+    # The pass pipeline reads MLIR_DUMP_PATH from the process environment. Save the
+    # previous value and restore it in a finally block: on failure a leaked override
+    # would redirect later compiles' dumps, and the old pop() also wiped a value the
+    # user had set themselves.
+    prior_mlir_dump_path = os.environ.get("MLIR_DUMP_PATH")
     os.environ["MLIR_DUMP_PATH"] = mlir_dump_path
+    try:
+        # --- Pass-level pipeline execution ---
+        if start_pass and src_ext in ("ttir", "ttgir", "llir"):
+            # LLIR sources loaded from text files are strings; parse as MLIR for the pass pipeline
+            if src_ext == "llir" and isinstance(module, str):
+                module = ir.parse_mlir_module(src, context)
+            pipeline = build_pipeline_for_stage(src_ext, capability, options, ptx_version)
+            pass_idx = pipeline.find_pass(start_pass)
+            pipeline.run_from(module, metadata, pass_idx + 1, context=context if src_ext == "llir" else None)
+            # Extract TTGIR metadata after pass pipeline
+            if src_ext == "ttgir":
+                metadata["tensordesc_meta"] = module.get_tensordesc_metadata()
+            # for LLIR, also run LLVM conversion + optimization
+            if src_ext == "llir":
+                module = _llvm_convert_and_optimize(module, metadata, options, capability, backend)
+            first_stage += 1
+            # save IR after pass pipeline execution
+            next_ext = list(stages.keys())[first_stage]
+            if next_ext == "ptx":
+                ir_filename = f"{file_name}.ptx_input"
+                metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
 
-    # --- Pass-level pipeline execution ---
-    if start_pass and src_ext in ("ttir", "ttgir", "llir"):
-        # LLIR sources loaded from text files are strings; parse as MLIR for the pass pipeline
-        if src_ext == "llir" and isinstance(module, str):
-            module = ir.parse_mlir_module(src, context)
-        pipeline = build_pipeline_for_stage(src_ext, capability, options, ptx_version)
-        pass_idx = pipeline.find_pass(start_pass)
-        pipeline.run_from(module, metadata, pass_idx + 1, context=context if src_ext == "llir" else None)
-        # Extract TTGIR metadata after pass pipeline
-        if src_ext == "ttgir":
-            metadata["tensordesc_meta"] = module.get_tensordesc_metadata()
-        # for LLIR, also run LLVM conversion + optimization
-        if src_ext == "llir":
-            module = _llvm_convert_and_optimize(module, metadata, options, capability, backend)
-        first_stage += 1
-        # save IR after pass pipeline execution
-        next_ext = list(stages.keys())[first_stage]
-        if next_ext == "ptx":
-            ir_filename = f"{file_name}.ptx_input"
-            metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
-
-    use_ir_loc = os.environ.get("USE_IR_LOC", None)
-    for ext, compile_ir in list(stages.items())[first_stage:]:
-        next_module = compile_ir(module, metadata)
-        ir_filename = f"{file_name}.{ext}"
-        if (fn_override_manager is not None and (full_name := fn_override_manager.get_file(ir_filename)) is not None):
-            print(f"\nOverriding kernel with file {full_name}")
-            next_module = parse(full_name, ext, context)
-        # If TRITON_STORE_BINARY_ONLY is 1, only store binary/json artifacts
-        if (not store_only_binary) or (ext in STORE_ONLY_BINARY_EXTS):
-            metadata_group[ir_filename] = fn_cache_manager.put(next_module, ir_filename)
-        if fn_dump_manager is not None:
-            fn_dump_manager.put(next_module, ir_filename)
-        # use an env variable to parse ir from file
-        if use_ir_loc == ext:
-            ir_full_name = fn_cache_manager.get_file(ir_filename)
-            next_module.create_location_snapshot(ir_full_name)
-            print(f"Creating new locations for {ir_full_name}")
-        module = next_module
-
-    os.environ.pop("MLIR_DUMP_PATH", None)
+        use_ir_loc = os.environ.get("USE_IR_LOC", None)
+        for ext, compile_ir in list(stages.items())[first_stage:]:
+            next_module = compile_ir(module, metadata)
+            ir_filename = f"{file_name}.{ext}"
+            if (fn_override_manager is not None and (full_name := fn_override_manager.get_file(ir_filename)) is not None):
+                print(f"\nOverriding kernel with file {full_name}")
+                next_module = parse(full_name, ext, context)
+            # If TRITON_STORE_BINARY_ONLY is 1, only store binary/json artifacts
+            if (not store_only_binary) or (ext in STORE_ONLY_BINARY_EXTS):
+                metadata_group[ir_filename] = fn_cache_manager.put(next_module, ir_filename)
+            if fn_dump_manager is not None:
+                fn_dump_manager.put(next_module, ir_filename)
+            # use an env variable to parse ir from file
+            if use_ir_loc == ext:
+                ir_full_name = fn_cache_manager.get_file(ir_filename)
+                next_module.create_location_snapshot(ir_full_name)
+                print(f"Creating new locations for {ir_full_name}")
+            module = next_module
+    finally:
+        if prior_mlir_dump_path is None:
+            os.environ.pop("MLIR_DUMP_PATH", None)
+        else:
+            os.environ["MLIR_DUMP_PATH"] = prior_mlir_dump_path
     parse_mlir_to_folder(mlir_dump_path)
 
     if metadata_json:
