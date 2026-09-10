@@ -379,19 +379,32 @@ def get_cache_key(src_hash, backend, backend_options, env_vars, start_pass=None,
 
 
 # Ownership manifest for the mlir/ output folder. Only files listed in the
-# manifest are ever removed, so user files that merely happen to match the
-# numbered naming scheme (e.g. 01-my-experiment.mlir) survive cleanup.
+# manifest are ever removed or overwritten, so user files that merely happen
+# to match the numbered naming scheme (e.g. 01-source.mlir) are never touched.
 _MLIR_MANIFEST_NAME = ".triton-runner-mlir-manifest.json"
+_MLIR_DIR_LIMIT = 100  # try mlir, mlir-1, ... mlir-99 before giving up
 
 
-def _read_manifest_files(folder_path):
+def _manifest_names(folder_path):
+    """File names this tool recorded as its own in the folder's manifest.
+
+    Entries must be plain file names. Anything absolute or containing a path
+    separator could point outside the output directory (a hand-edited or
+    hostile manifest), so those entries are ignored.
+    """
     manifest_path = os.path.join(folder_path, _MLIR_MANIFEST_NAME)
     try:
         manifest = json.loads(Path(manifest_path).read_text())
     except (OSError, ValueError):
         return []
     files = manifest.get("files") if isinstance(manifest, dict) else None
-    return [name for name in files if isinstance(name, str)] if isinstance(files, list) else []
+    if not isinstance(files, list):
+        return []
+    return [
+        name for name in files
+        if (isinstance(name, str) and name and name not in (os.curdir, os.pardir)
+            and not os.path.isabs(name) and os.path.basename(name) == name)
+    ]
 
 
 def _write_manifest(folder_path, file_names):
@@ -407,22 +420,42 @@ def _remove_generated_mlir_files(folder_path):
     the manifest written alongside previous outputs. Without a readable
     manifest nothing is removed.
     """
-    for name in _read_manifest_files(folder_path):
+    for name in _manifest_names(folder_path):
         path = os.path.join(folder_path, name)
         if os.path.isfile(path):
             os.remove(path)
 
 
+def _pick_output_folder(parent_dir, planned_names):
+    """Choose the folder to write per-pass dumps into.
+
+    Prefer the plain `mlir` folder next to the all.mlir dump. A folder is only
+    reused when every planned file name is either free or already owned via
+    the manifest; a same-name file of unknown ownership (no manifest, or not
+    listed in it) is never overwritten - the outputs move to `mlir-1`,
+    `mlir-2`, ... instead.
+    """
+    for idx in range(_MLIR_DIR_LIMIT):
+        name = "mlir" if idx == 0 else f"mlir-{idx}"
+        folder = os.path.join(parent_dir, name)
+        if not os.path.exists(folder):
+            return folder
+        owned = set(_manifest_names(folder))
+        if all(n in owned or not os.path.exists(os.path.join(folder, n)) for n in planned_names):
+            return folder
+    raise RuntimeError(
+        f"Could not find an mlir output folder under {parent_dir} whose files this tool owns; "
+        f"remove or rename the existing mlir* folders there.")
+
+
 def parse_mlir_to_folder(mlir_path):
     if not os.path.exists(mlir_path) or os.environ.get("MLIR_ENABLE_DUMP", "0") == "0":
         return
-    folder_path = os.path.join(os.path.dirname(mlir_path), "mlir")
-    os.makedirs(folder_path, exist_ok=True)
-    _remove_generated_mlir_files(folder_path)
-    written_files = []
     content = Path(mlir_path).read_text()
 
+    # Phase 1: parse the dump into (file name, content) pairs without touching the disk.
     # Upstream MLIR prints "Pass (key) (op)"; fbtriton prints "Pass: key{opts} (op)".
+
     pattern = re.compile(
         r'// -----// IR Dump Before (?P<pass_name>.*?) '
         r'(?:\((?P<pass_key>.*?)\) )?'
@@ -430,6 +463,7 @@ def parse_mlir_to_folder(mlir_path):
         r'(?P<body>.*?)(?=// -----// IR Dump Before|\Z)',
         re.DOTALL
     )
+    outputs = []
     item = 'source'
     title = 'Python ast_to_ttir'
     last_body = None
@@ -445,18 +479,26 @@ def parse_mlir_to_folder(mlir_path):
         body = match.group("body").strip()
         changed = "-changed" if last_body and last_body != body else ""
         changed_text = ", This Pass IR has changed!\n" if changed else "\n"
-        output_path = Path(folder_path) / f"{idx+1:02d}{changed}-{item}.mlir"
-        output_path.write_text(f"// IR Dump After {title}{changed_text}// Next run Pass --{pass_key}\n\n{body}")
-        written_files.append(output_path.name)
+        name = f"{idx+1:02d}{changed}-{item}.mlir"
+        outputs.append((name, f"// IR Dump After {title}{changed_text}// Next run Pass --{pass_key}\n\n{body}"))
         item = f"{pass_name}"
         title = f"{item} ({operation})\n// Current Run Pass --{pass_key}"
         last_body = body
 
     if idx >= 0:
-        output_path = Path(folder_path) / f"{idx+2:02d}-{item}.mlir"
-        output_path.write_text(f"// IR Dump After {title}\n")
-        written_files.append(output_path.name)
+        name = f"{idx+2:02d}-{item}.mlir"
+        outputs.append((name, f"// IR Dump After {title}\n"))
+
+    # Phase 2: pick a folder whose planned names we own (or a fresh one), clean
+    # up the previous run's files there, then write and record ownership.
+    folder_path = _pick_output_folder(os.path.dirname(mlir_path), [name for name, _ in outputs])
+    if os.path.basename(folder_path) != "mlir":
+        print(f"mlir folder 'mlir' contains files not written by this tool; using {folder_path} instead")
+    os.makedirs(folder_path, exist_ok=True)
+    _remove_generated_mlir_files(folder_path)
+    for name, text in outputs:
+        (Path(folder_path) / name).write_text(text)
 
     # Record ownership of what we just wrote (possibly nothing) so the next run
     # can clean up exactly these files and nothing else.
-    _write_manifest(folder_path, written_files)
+    _write_manifest(folder_path, [name for name, _ in outputs])
