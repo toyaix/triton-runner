@@ -426,19 +426,28 @@ def _remove_generated_mlir_files(folder_path):
             os.remove(path)
 
 
+def _writable_name(folder, name, owned):
+    """A planned output name is writable when free, or a regular file we own.
+
+    Symlinks are never written through even when the manifest claims the name:
+    a dangling link looks free to exists() while write_text creates a file at
+    its target.
+    """
+    path = os.path.join(folder, name)
+    if not os.path.lexists(path):
+        return True
+    if os.path.islink(path):
+        return False
+    return name in owned and os.path.isfile(path)
+
+
 def _pick_output_folder(parent_dir, planned_names):
     """Choose the folder to write per-pass dumps into.
 
-    Prefer the plain `mlir` folder next to the all.mlir dump. A folder is only
-    reused when every planned file name is either free or already owned via
-    the manifest; a same-name file of unknown ownership (no manifest, or not
-    listed in it) is never overwritten - the outputs move to `mlir-1`,
-    `mlir-2`, ... instead.
-
-    Occupancy is checked with lexists and symlinks are never written through:
-    a dangling link would look "free" to os.path.exists while write_text would
-    create a file at its target, and a linked folder would redirect every
-    output. Symlinked or non-directory `mlir*` entries are skipped entirely.
+    Prefer the plain `mlir` folder next to the all.mlir dump; a folder is only
+    reused when every planned file name is free or manifest-owned, otherwise
+    the outputs move to `mlir-1`, `mlir-2`, ... Symlinked or non-directory
+    `mlir*` entries are skipped entirely.
     """
     for idx in range(_MLIR_DIR_LIMIT):
         name = "mlir" if idx == 0 else f"mlir-{idx}"
@@ -447,9 +456,9 @@ def _pick_output_folder(parent_dir, planned_names):
             continue
         if os.path.exists(folder):
             if not os.path.isdir(folder):
-                continue  # a plain file named mlir/mlir-N: leave it, try the next
+                continue
             owned = set(_manifest_names(folder))
-            if any(n not in owned and os.path.lexists(os.path.join(folder, n)) for n in planned_names):
+            if not all(_writable_name(folder, n, owned) for n in planned_names):
                 continue
         return folder
     raise RuntimeError(
