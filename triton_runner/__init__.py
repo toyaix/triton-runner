@@ -41,7 +41,6 @@ if TRITON_RUNNER_PROD and IS_CUDA and is_triton_v3_7:
 else:
     from .jit import jit
 from .debug import console as color_print
-from .runtime import torch as torch_utils
 from .runtime.triton_backend import (
     configure_autotune_backend,
     configure_jit_backend,
@@ -53,3 +52,12 @@ from .runtime.triton_backend import (
 def get_file_dir(file):
     import os
     return os.path.dirname(os.path.abspath(file))
+
+
+def __getattr__(name):
+    # torch_utils pulls in torch; load it on first use so importing the runner
+    # itself does not require torch (declared dependencies: triton, termcolor).
+    if name == "torch_utils":
+        from .runtime import torch as torch_utils
+        return torch_utils
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
