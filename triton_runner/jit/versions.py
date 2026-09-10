@@ -2,12 +2,13 @@ import dataclasses
 import hashlib
 import json
 import os
+from pathlib import Path
 
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 
 from ..compiler.compile import native_compile
-from ..compiler.source_types import RUNNER_SOURCE_TYPES
+from ..compiler.source_types import DUMP_IR_DIR_TYPES, METADATA_DIR_TYPES, RUNNER_SOURCE_TYPES
 from ..compat.triton import get_triton_cache_dir
 from .dump import DumpMixin
 from .metadata import MetadataMixin
@@ -114,14 +115,36 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         return self._check_source_dir_type(
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
+    def _runner_source_digest(self, source_dir_type, kwargs):
+        """Fingerprint the inputs that will actually be read for this source arg.
+
+        Mirrors get_src_and_metadata_json: inline text and file paths are hashed
+        by content, directory inputs hash the IR/binary file (with the .source
+        fallback used for IR dumps) plus the sibling metadata json when one is
+        read. Editing a file in place therefore changes the in-process cache key.
+        """
+        value = kwargs[source_dir_type]
+        hasher = hashlib.sha256()
+        if source_dir_type.endswith("_src"):
+            if os.path.exists(value):
+                hasher.update(Path(value).read_bytes())
+            else:
+                hasher.update(value.encode("utf-8"))
+        else:
+            src_path = os.path.join(value, f"{self.__name__}.{source_dir_type[:-4]}")
+            if not os.path.exists(src_path) and self.need_dump(kwargs) and source_dir_type in DUMP_IR_DIR_TYPES:
+                src_path = os.path.join(value, f"{self.__name__}.source")
+            hasher.update(Path(src_path).read_bytes())
+            if source_dir_type in METADATA_DIR_TYPES:
+                hasher.update(b"\0metadata\0")
+                hasher.update(Path(os.path.join(value, f"{self.__name__}.json")).read_bytes())
+        return hasher.hexdigest()
+
     def get_runner_source_key_suffix(self, kwargs):
         runner_args_set = self.get_runner_args_set()
         for k in kwargs:
             if k in runner_args_set:
-                if k.endswith("_src"):
-                    src_hash = hashlib.sha256(kwargs[k].encode("utf-8")).hexdigest()
-                    return f"{k}:{src_hash}"
-                return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
+                return f"{k}:{self._runner_source_digest(k, kwargs)}"
         return ""
 
     def _pack_args(self, backend, kwargs, bound_args, specialization, options):
