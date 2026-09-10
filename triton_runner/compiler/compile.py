@@ -154,7 +154,8 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # create cache manager
     env_vars = get_cache_invalidating_env_vars()
     src_hash = _get_src_hash(src, module)
-    key = get_cache_key(src_hash, backend, options, env_vars=env_vars)
+    key = get_cache_key(src_hash, backend, options, env_vars=env_vars,
+                        start_pass=start_pass, metadata_json=metadata_json)
     hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
     fn_cache_manager = get_cache_manager(hash)
     # For dumping/overriding only hash the source as we want it to be independent of triton
@@ -354,9 +355,18 @@ def get_source_ir(src, target=None, options=None):
     return module
 
 
-def get_cache_key(src_hash, backend, backend_options, env_vars):
+def get_cache_key(src_hash, backend, backend_options, env_vars, start_pass=None, metadata_json=None):
     runner_key = f'{__version__}'
     key = f"{triton_key()}-{runner_key}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
+    # start_pass selects a different entry pass pipeline and metadata_json feeds the
+    # final metadata merge; neither is part of src_hash, so both must be in the key
+    # or a cache hit bypasses the pass execution and metadata merge entirely.
+    if start_pass:
+        key = f"{key}-start_pass={start_pass}"
+    if metadata_json:
+        metadata_digest = hashlib.sha256(
+            json.dumps(metadata_json, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+        key = f"{key}-metadata={metadata_digest}"
     return key
 
 
