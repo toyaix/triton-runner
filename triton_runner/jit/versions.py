@@ -10,6 +10,7 @@ from triton.runtime.jit import JITFunction, KernelInterface, T
 from ..compiler.compile import native_compile
 from ..compiler.source_types import DUMP_IR_DIR_TYPES, METADATA_DIR_TYPES, RUNNER_SOURCE_TYPES
 from ..compat.triton import get_triton_cache_dir
+from ..compat.version import triton_version
 from .dump import DumpMixin
 from .metadata import MetadataMixin
 
@@ -57,10 +58,21 @@ def _stable_cache_key_digest(value):
 
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
 
+    # start_pass only reaches the compiler on pipelines where the pass
+    # execution has been verified (see RunnerJITFunctionV3_4_0). Versions
+    # without wired support reject the argument instead of silently
+    # compiling as if it had never been passed.
+    supports_start_pass = False
+
     def normalize_runner_kwargs(self, kwargs):
         metadata_json = kwargs.get("metadata_json")
         if hasattr(metadata_json, "_asdict"):
             kwargs["metadata_json"] = metadata_json._asdict()
+        if kwargs.get("start_pass") is not None and not self.supports_start_pass:
+            raise NotImplementedError(
+                f"start_pass is not supported on Triton {triton_version} "
+                f"({self.__class__.__name__}); it is only wired into and verified on "
+                "the Triton 3.4 pipeline. Remove start_pass or use Triton 3.4.")
 
     def get_cache_key_with_runner_args(self, key, kwargs):
         if kwargs.get("dump_tensor") is not None:
@@ -463,6 +475,8 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
 
 class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
+
+    supports_start_pass = True
 
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
