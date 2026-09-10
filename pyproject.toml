@@ -19,7 +19,9 @@ repository = "https://github.com/toyaix/triton-runner"
 homepage = "https://github.com/toyaix/triton-runner"
 
 [build-system]
-requires = ["setuptools>=61.0"]
+# SPDX license expressions (license = "MIT") need setuptools >= 77; 77.0.3 is the
+# packaging guide's recommended floor for the new table format.
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
