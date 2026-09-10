@@ -1,4 +1,6 @@
-Python/TTIR/TTGIR now support dump on Triton v3.5.x, v3.4.0, v3.3.x.
+Python/TTIR/TTGIR support dump on Triton v3.8.0, v3.7.0, v3.6.0, v3.5.x, v3.4.0 and v3.3.x.
+
+`triton_runner.language.dump()` works on 1D/2D/3D block values. `dump_boundary()` and `dump_grids()` currently support 1D/2D values only (a 3D value raises `ValueError`; reshape it first).
 
 ## 1. Python Dump
 
