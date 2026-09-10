@@ -1,3 +1,4 @@
+import sys
 import triton
 import triton.language as tl
 import torch
@@ -69,3 +70,4 @@ if torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0):
     print("✅ Triton and Torch match")
 else:
     print("❌ Triton and Torch differ")
+    sys.exit(1)

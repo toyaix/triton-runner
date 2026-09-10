@@ -1,3 +1,4 @@
+import sys
 # copy from https://github.com/deepseek-ai/DeepSeek-V3/blob/main/inference/kernel.py
 
 from typing import Tuple, Optional
@@ -270,3 +271,4 @@ if torch.allclose(triton_output, torch_output, atol=2, rtol=0.25) and torch.allc
     print("✅ Triton and Torch match")
 else:
     print("❌ Triton and Torch differ")
+    sys.exit(1)

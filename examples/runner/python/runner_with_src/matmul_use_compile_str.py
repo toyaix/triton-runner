@@ -1,3 +1,4 @@
+import sys
 import triton
 import triton.language as tl
 import torch
@@ -94,3 +95,4 @@ else:
     print(abs(triton_output_from_llir - torch_output).max())
     print(abs(triton_output_from_ptx - torch_output).max())
     print("❌ Triton and Torch differ")
+    sys.exit(1)

@@ -13,6 +13,7 @@ Usage:
 """
 
 import json
+import sys
 from pathlib import Path
 
 import torch
@@ -151,3 +152,4 @@ for label, source_kwarg, start_pass, filename in CASES:
 
 print("-" * 95)
 print(f"Passed: {passed}/{len(CASES)}, Failed: {failed}/{len(CASES)}")
+sys.exit(1 if failed else 0)

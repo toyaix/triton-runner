@@ -1,3 +1,4 @@
+import sys
 # attention from gpt-oss https://github.com/openai/gpt-oss/blob/f018fab/gpt_oss/triton/attention.py
 
 import torch
@@ -350,3 +351,4 @@ if __name__ == "__main__":
         print("✅ Triton and Torch match")
     else:
         print("❌ Triton and Torch differ")
+        sys.exit(1)

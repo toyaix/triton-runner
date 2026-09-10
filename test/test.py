@@ -79,6 +79,8 @@ def collect_commands(capability, quick, dump_sample_size, dump_seed):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true", help="Run a reduced regression subset.")
+    parser.add_argument("--strict", action="store_true",
+                        help="Fail when this GPU/Triton combination has no recorded commands, instead of skipping.")
     parser.add_argument("--dump-sample-size", type=int, default=DEFAULT_QUICK_DUMP_SAMPLE_SIZE,
                         help="Number of dump commands to sample in --quick mode.")
     parser.add_argument("--dump-seed", type=int, default=DEFAULT_QUICK_DUMP_SEED,
@@ -98,8 +100,8 @@ def main():
         dump_seed=args.dump_seed,
     )
     if lines is None:
-        print(f"sm{capability} on triton v{triton.__version__} not found")
-        return
+        print(f"SKIP: no commands recorded for sm{capability} on triton v{triton.__version__}")
+        sys.exit(1 if args.strict else 0)
 
     mode = "QUICK TEST" if args.quick else "TEST"
     triton_runner.color_print.yellow_print(f"{mode} on triton v{triton_version}")
