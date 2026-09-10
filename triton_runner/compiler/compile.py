@@ -2,7 +2,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 from pathlib import Path
 
 from triton.runtime import driver
@@ -361,12 +360,32 @@ def get_cache_key(src_hash, backend, backend_options, env_vars):
     return key
 
 
+# Numbered output files written by parse_mlir_to_folder, e.g. "01-source.mlir"
+# or "18-changed-TritonGPURemoveLayoutConversions.mlir".
+_GENERATED_MLIR_FILE_RE = re.compile(r"^\d{2,}(?:-changed)?-.+\.mlir$")
+
+
+def _remove_generated_mlir_files(folder_path):
+    """Remove only files previously written by parse_mlir_to_folder.
+
+    The folder may live in a user-provided directory (MLIR_DUMP_PATH), so never
+    remove the directory itself or anything that does not follow our own
+    numbered output naming scheme.
+    """
+    for name in os.listdir(folder_path):
+        if not _GENERATED_MLIR_FILE_RE.match(name):
+            continue
+        path = os.path.join(folder_path, name)
+        if os.path.isfile(path):
+            os.remove(path)
+
+
 def parse_mlir_to_folder(mlir_path):
     if not os.path.exists(mlir_path) or os.environ.get("MLIR_ENABLE_DUMP", "0") == "0":
         return
     folder_path = os.path.join(os.path.dirname(mlir_path), "mlir")
-    shutil.rmtree(folder_path, ignore_errors=True)
     os.makedirs(folder_path, exist_ok=True)
+    _remove_generated_mlir_files(folder_path)
     content = Path(mlir_path).read_text()
 
     # Upstream MLIR prints "Pass (key) (op)"; fbtriton prints "Pass: key{opts} (op)".
