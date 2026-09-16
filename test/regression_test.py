@@ -66,7 +66,7 @@ for ver in versions:
     proc.wait()
     if proc.returncode == 0:
         passed.append(ver)
-    elif args.allow_skip and proc.returncode == 3:  # EXIT_SKIP from test/test.py
+    elif proc.returncode == 3:  # EXIT_SKIP from test/test.py (unrecorded or hardware-impossible)
         skipped.append(ver)
     else:
         failed.append((ver, fail_cmds))
@@ -78,7 +78,7 @@ summary_lines.append("==========================================")
 if passed:
     summary_lines.append(f"✅ PASS: {' '.join(passed)}")
 if skipped:
-    summary_lines.append(f"⏭️ SKIP (no commands recorded for this GPU): {' '.join(skipped)}")
+    summary_lines.append(f"⏭️ SKIP (no commands recorded or GPU cannot run this triton): {' '.join(skipped)}")
 if failed:
     for ver, fail_cmds in failed:
         summary_lines.append(f"❌ FAIL: triton=={ver}")
