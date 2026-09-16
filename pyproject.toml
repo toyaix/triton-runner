@@ -35,7 +35,8 @@ tvm-ffi = [
 
 [tool.setuptools.package-data]
 # README.md is a symlink to the root README, so the packaged copy always
-# matches it; builds dereference the symlink into real file content.
+# matches it; builds dereference the symlink into real file content
+# (requires a checkout with symlink support, e.g. Linux/macOS).
 "triton_runner" = ["README.md"]
 "triton_runner.bench" = ["LICENSE"]
 "triton_runner.tvm_ffi" = ["generic_launcher.cc"]
