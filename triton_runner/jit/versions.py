@@ -23,7 +23,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         metadata_json = kwargs.get("metadata_json")
         if hasattr(metadata_json, "_asdict"):
             kwargs["metadata_json"] = metadata_json._asdict()
-        if kwargs.get("start_pass") is not None and not self.supports_start_pass:
+        if kwargs.get("start_pass") and not self.supports_start_pass:
             raise NotImplementedError(
                 f"start_pass is not supported on Triton {triton_version} "
                 f"({self.__class__.__name__}); it is only wired into and verified on "
@@ -36,7 +36,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
             key += f"|dump_value={kwargs['dump_value']}"
         if "dump_grid" in kwargs:
             key += f"|dump_grid={kwargs['dump_grid']}"
-        if "start_pass" in kwargs:
+        if kwargs.get("start_pass"):
             key += f"|start_pass={kwargs['start_pass']}"
         if (runner_source_key_suffix := self.get_runner_source_key_suffix(kwargs)):
             key += f"|runner_src={runner_source_key_suffix}"
@@ -228,6 +228,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
             options=options.__dict__,
             source_path=self.source_path,
             kernel_signature=kernel_signature,
+            start_pass=kwargs.get("start_pass"),
         )
         if kernel is None:
             return None
@@ -595,7 +596,7 @@ class RunnerJITFunctionV3_3_0(RunnerJITFunction[KernelInterface[T]]):
             # [Triton Runner] dump after _call_hook
             src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature, start_pass=kwargs.get("start_pass"))
             kernel_cache[key] = kernel
             self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
 

@@ -146,6 +146,11 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         context = ir.context()
         src, module = _load_ir_source_module(src, context, backend)
 
+    if start_pass and _get_src_ext(src) not in ("ttir", "ttgir", "llir"):
+        raise ValueError(
+            f"start_pass restarts the ttir/ttgir/llir pass pipeline, but the input is "
+            f"'{_get_src_ext(src)}'; pass start_pass with an IR source instead")
+
     ast_extra_options = ast_src.parse_options()
     extra_options = src.parse_options() if isinstance(src, (ASTSource, IRSource)) else {}
     # merge dictionaries, with ast_extra_options(your python code) having higher priority
