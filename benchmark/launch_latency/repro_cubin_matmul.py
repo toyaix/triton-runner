@@ -37,7 +37,7 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
-os.environ.setdefault("TRITON_RUNNER_ENABLE_TVM_FFI", "1")
+os.environ.setdefault("TRITON_RUNNER_PROD", "1")
 
 import torch
 import triton
@@ -220,6 +220,9 @@ def main() -> None:
     print(f"kernel: sm{sm} cubin matmul from {cubin_dir}")
     print(f"problem: A=({args.m}, {args.k}) B=({args.k}, {args.n}) C=({args.m}, {args.n}) grid=({grid_x}, {grid_y}, 1)")
     print(f"measure: host launch latency, median over {args.repeats} repeats")
+    print(f"runner jit backend: {triton_runner.jit.__module__} "
+          f"(TRITON_RUNNER_PROD={os.environ.get('TRITON_RUNNER_PROD', '0')}, "
+          f"TRITON_RUNNER_PROD_TEST={os.environ.get('TRITON_RUNNER_PROD_TEST', '0')})")
     print(f"Triton: {triton_us:.3f} us")
     print(f"TVM-Triton (CompiledTVMFFIKernel.__getitem__/run): {tvm_triton_us:.3f} us")
     print(f"TVM-Triton (kernel[grid]() each call): {tvm_subscript_us:.3f} us")
