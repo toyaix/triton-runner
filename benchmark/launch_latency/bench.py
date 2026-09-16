@@ -79,10 +79,10 @@ class Operator:
     @benchmark("triton_runner", "us")
     def nop_triton_runner_kernel(self, *args):
         if len(args) == 0:
-            return lambda: nop_kernel[
+            return lambda: runner_nop_kernel[
                 1,
             ]()
-        return lambda: nop_with_args_kernel[
+        return lambda: runner_nop_with_args_kernel[
             1,
         ](*args)
 

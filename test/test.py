@@ -20,6 +20,8 @@ from triton_runner.compat.version import (
 DEFAULT_QUICK_DUMP_SAMPLE_SIZE = 5
 DEFAULT_QUICK_DUMP_SEED = 20260417
 RUNNER_PYTHON_DIR = "examples/runner/python"
+# 0 pass, 1 fail, 3 skip (no recorded commands for this GPU/Triton)
+EXIT_SKIP = 3
 QUICK_SKIP_RUNNER_CMDS = frozenset({
     f"python {RUNNER_PYTHON_DIR}/gluon/02-layouts.py",
 })
@@ -36,6 +38,10 @@ def dedupe_keep_order(lines):
 
 
 def collect_commands(capability, quick, dump_sample_size, dump_seed):
+    # returns (commands, quick-mode dump sample, skip_reason); skip_reason is
+    # "impossible" when this GPU cannot run this Triton at all (stay exit-3
+    # SKIP even under --strict) and "unrecorded" when no commands were
+    # recorded for the combination (--strict escalates that one to FAIL)
     pattern = re.compile(rf"### sm{capability}.*?shell(.*?)```", re.DOTALL)
     if is_tlx_v3_7_4:
         runner_file_path = os.path.join("examples", "runner", "tlx", "README.md")
@@ -43,8 +49,10 @@ def collect_commands(capability, quick, dump_sample_size, dump_seed):
         runner_file_path = os.path.join("examples", "runner", f"v{uni_triton_version}", "README.md")
     match = pattern.search(get_content(runner_file_path))
     _triton_ver_tuple = tuple(int(x) for x in triton_version.split("+")[0].split("."))
-    if not match or (capability == 120 and _triton_ver_tuple < (3, 3, 1)):
-        return None, None
+    if capability == 120 and _triton_ver_tuple < (3, 3, 1):
+        return None, None, "impossible"
+    if not match:
+        return None, None, "unrecorded"
 
     runner_lines = get_lines(match)
     if quick:
@@ -73,12 +81,15 @@ def collect_commands(capability, quick, dump_sample_size, dump_seed):
             rng = random.Random(dump_seed)
             dump_lines = rng.sample(dump_lines, min(dump_sample_size, len(dump_lines)))
 
-    return runner_lines + bench_lines + dump_lines, dump_lines if quick else None
+    return runner_lines + bench_lines + dump_lines, dump_lines if quick else None, None
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true", help="Run a reduced regression subset.")
+    parser.add_argument("--strict", action="store_true",
+                        help="Fail (exit 1) when this GPU/Triton combination has no recorded commands, "
+                             f"instead of skipping (exit {EXIT_SKIP}).")
     parser.add_argument("--dump-sample-size", type=int, default=DEFAULT_QUICK_DUMP_SAMPLE_SIZE,
                         help="Number of dump commands to sample in --quick mode.")
     parser.add_argument("--dump-seed", type=int, default=DEFAULT_QUICK_DUMP_SEED,
@@ -91,15 +102,18 @@ def main():
     device = torch.cuda.current_device()
     capability = torch.cuda.get_device_capability(device)
     capability = capability[0] * 10 + capability[1]
-    lines, sampled_dump_lines = collect_commands(
+    lines, sampled_dump_lines, skip_reason = collect_commands(
         capability,
         quick=args.quick,
         dump_sample_size=args.dump_sample_size,
         dump_seed=args.dump_seed,
     )
     if lines is None:
-        print(f"sm{capability} on triton v{triton.__version__} not found")
-        return
+        if skip_reason == "impossible":
+            print(f"SKIP: sm{capability} cannot run triton v{triton.__version__} (hardware/arch gate)")
+            sys.exit(EXIT_SKIP)
+        print(f"SKIP: no commands recorded for sm{capability} on triton v{triton.__version__}")
+        sys.exit(1 if args.strict else EXIT_SKIP)
 
     mode = "QUICK TEST" if args.quick else "TEST"
     triton_runner.color_print.yellow_print(f"{mode} on triton v{triton_version}")

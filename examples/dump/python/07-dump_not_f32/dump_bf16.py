@@ -1,3 +1,4 @@
+import sys
 import torch
 import triton
 import triton.language as tl
@@ -77,3 +78,4 @@ if __name__ == "__main__":
         print("✅ Triton and Torch match")
     else:
         print("❌ Triton and Torch differ")
+        sys.exit(1)

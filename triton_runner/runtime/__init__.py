@@ -1,3 +1,5 @@
+import importlib
+
 from ..compat.version import is_triton_geq_v3_4
 from .triton_backend import (
     configure_autotune_backend,
@@ -5,13 +7,28 @@ from .triton_backend import (
     restore_autotune_backend,
     restore_jit_backend,
 )
-from .torch import (
-    get_active_torch_device,
-    get_grid_dim,
-    get_n_elements_with_grid,
-    get_pad_n_elements,
-    pad_2d_to_block_shape,
+
+# torch helpers stay importable but load on first use, so importing the
+# runner does not require torch
+_TORCH_HELPER_NAMES = (
+    "get_active_torch_device",
+    "get_grid_dim",
+    "get_n_elements_with_grid",
+    "get_pad_n_elements",
+    "pad_2d_to_block_shape",
 )
+
+
+def __getattr__(name):
+    if name == "torch" or name in _TORCH_HELPER_NAMES:
+        try:
+            module = importlib.import_module(".torch", __name__)
+        except ModuleNotFoundError as exc:
+            # AttributeError keeps hasattr()/getattr(default) probes working
+            raise AttributeError(f"{name} requires torch: {exc}") from exc
+        return module if name == "torch" else getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 if is_triton_geq_v3_4:
     from .autotune import Autotuner, autotune

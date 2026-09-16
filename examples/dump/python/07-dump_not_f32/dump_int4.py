@@ -1,6 +1,7 @@
 """
 Triton implementation by @jlebar: https://gist.github.com/jlebar/3435b2c00deea53258887ce37231e5e2
 """
+import sys
 
 import torch
 import triton
@@ -257,3 +258,4 @@ if torch.allclose(triton_output, torch_output, atol=1e-2, rtol=1e-2):
     print("✅ Triton and Torch match")
 else:
     print("❌ Triton and Torch differ")
+    sys.exit(1)

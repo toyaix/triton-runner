@@ -14,7 +14,9 @@ Triton Runner 是一个面向 [OpenAI/Triton](https://github.com/triton-lang/tri
 
 Triton Runner 兼容 Triton **v3.8.0(主要版本)**, v3.7.0, v3.6.0, v3.5.x, v3.4.0, v3.3.x, v3.2.0, v3.1.0 or v3.0.0。
 
-Triton Runner 还提供了在 Triton v3.8.0, v3.7.0, v3.6.0, v3.5.x, v3.4.0, v3.3.x 的1D/2D tensor dump。
+Triton Runner 还提供了在 Triton v3.8.0, v3.7.0, v3.6.0, v3.5.x, v3.4.0, v3.3.x 的 tensor dump：`dump()` 支持 1D/2D/3D 的 block 值；`dump_boundary()` 与 `dump_grids()` 目前仅支持 1D/2D（传入 3D 值会抛出 `ValueError`，请先 reshape）。
+
+Triton Runner 还支持 pass 管理（`start_pass`）：从 TTIR/TTGIR/LLIR pipeline 的指定 pass 重新编译 kernel，便于按 pass 定位编译问题。该能力目前在 Triton v3.4.0 上验证，其他版本传入该参数会抛出 `NotImplementedError`，详见 [examples/runner/pass_manage](./examples/runner/pass_manage)。
 
 ## 快速安装
 

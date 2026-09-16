@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import re
-import shutil
+import tempfile
 from pathlib import Path
 
 from triton.runtime import driver
@@ -15,6 +15,7 @@ from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
 from .checks import runner_check_triton
 from ..debug.console import print_triton_cache_dir
 from ..compat.triton import triton_key
+from .._cache_key import stable_cache_key_digest
 from .. import __version__
 from triton.compiler.compiler import CompiledKernel
 from .pass_pipeline import build_pipeline_for_stage
@@ -146,6 +147,11 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
         context = ir.context()
         src, module = _load_ir_source_module(src, context, backend)
 
+    if start_pass and _get_src_ext(src) not in ("ttir", "ttgir", "llir"):
+        raise ValueError(
+            f"start_pass restarts the ttir/ttgir/llir pass pipeline, but the input is "
+            f"'{_get_src_ext(src)}'; pass start_pass with an IR source instead")
+
     ast_extra_options = ast_src.parse_options()
     extra_options = src.parse_options() if isinstance(src, (ASTSource, IRSource)) else {}
     # merge dictionaries, with ast_extra_options(your python code) having higher priority
@@ -155,7 +161,8 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
     # create cache manager
     env_vars = get_cache_invalidating_env_vars()
     src_hash = _get_src_hash(src, module)
-    key = get_cache_key(src_hash, backend, options, env_vars=env_vars)
+    key = get_cache_key(src_hash, backend, options, env_vars=env_vars,
+                        start_pass=start_pass, metadata_json=metadata_json)
     hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
     fn_cache_manager = get_cache_manager(hash)
     # For dumping/overriding only hash the source as we want it to be independent of triton
@@ -255,49 +262,54 @@ def native_compile(src, ast_src, metadata_json=dict(), target=None, options=None
 
     if mlir_dump_path is None:
         mlir_dump_path = os.path.join(os.path.dirname(metadata_group[ir_filename]), "all.mlir")
+    # the pass pipeline reads MLIR_DUMP_PATH from the process environment
+    prior_mlir_dump_path = os.environ.get("MLIR_DUMP_PATH")
     os.environ["MLIR_DUMP_PATH"] = mlir_dump_path
+    try:
+        # --- Pass-level pipeline execution ---
+        if start_pass and src_ext in ("ttir", "ttgir", "llir"):
+            # LLIR sources loaded from text files are strings; parse as MLIR for the pass pipeline
+            if src_ext == "llir" and isinstance(module, str):
+                module = ir.parse_mlir_module(src, context)
+            pipeline = build_pipeline_for_stage(src_ext, capability, options, ptx_version)
+            pass_idx = pipeline.find_pass(start_pass)
+            pipeline.run_from(module, metadata, pass_idx + 1, context=context if src_ext == "llir" else None)
+            # Extract TTGIR metadata after pass pipeline
+            if src_ext == "ttgir":
+                metadata["tensordesc_meta"] = module.get_tensordesc_metadata()
+            # for LLIR, also run LLVM conversion + optimization
+            if src_ext == "llir":
+                module = _llvm_convert_and_optimize(module, metadata, options, capability, backend)
+            first_stage += 1
+            # save IR after pass pipeline execution
+            next_ext = list(stages.keys())[first_stage]
+            if next_ext == "ptx":
+                ir_filename = f"{file_name}.ptx_input"
+                metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
 
-    # --- Pass-level pipeline execution ---
-    if start_pass and src_ext in ("ttir", "ttgir", "llir"):
-        # LLIR sources loaded from text files are strings; parse as MLIR for the pass pipeline
-        if src_ext == "llir" and isinstance(module, str):
-            module = ir.parse_mlir_module(src, context)
-        pipeline = build_pipeline_for_stage(src_ext, capability, options, ptx_version)
-        pass_idx = pipeline.find_pass(start_pass)
-        pipeline.run_from(module, metadata, pass_idx + 1, context=context if src_ext == "llir" else None)
-        # Extract TTGIR metadata after pass pipeline
-        if src_ext == "ttgir":
-            metadata["tensordesc_meta"] = module.get_tensordesc_metadata()
-        # for LLIR, also run LLVM conversion + optimization
-        if src_ext == "llir":
-            module = _llvm_convert_and_optimize(module, metadata, options, capability, backend)
-        first_stage += 1
-        # save IR after pass pipeline execution
-        next_ext = list(stages.keys())[first_stage]
-        if next_ext == "ptx":
-            ir_filename = f"{file_name}.ptx_input"
-            metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
-
-    use_ir_loc = os.environ.get("USE_IR_LOC", None)
-    for ext, compile_ir in list(stages.items())[first_stage:]:
-        next_module = compile_ir(module, metadata)
-        ir_filename = f"{file_name}.{ext}"
-        if (fn_override_manager is not None and (full_name := fn_override_manager.get_file(ir_filename)) is not None):
-            print(f"\nOverriding kernel with file {full_name}")
-            next_module = parse(full_name, ext, context)
-        # If TRITON_STORE_BINARY_ONLY is 1, only store binary/json artifacts
-        if (not store_only_binary) or (ext in STORE_ONLY_BINARY_EXTS):
-            metadata_group[ir_filename] = fn_cache_manager.put(next_module, ir_filename)
-        if fn_dump_manager is not None:
-            fn_dump_manager.put(next_module, ir_filename)
-        # use an env variable to parse ir from file
-        if use_ir_loc == ext:
-            ir_full_name = fn_cache_manager.get_file(ir_filename)
-            next_module.create_location_snapshot(ir_full_name)
-            print(f"Creating new locations for {ir_full_name}")
-        module = next_module
-
-    os.environ.pop("MLIR_DUMP_PATH", None)
+        use_ir_loc = os.environ.get("USE_IR_LOC", None)
+        for ext, compile_ir in list(stages.items())[first_stage:]:
+            next_module = compile_ir(module, metadata)
+            ir_filename = f"{file_name}.{ext}"
+            if (fn_override_manager is not None and (full_name := fn_override_manager.get_file(ir_filename)) is not None):
+                print(f"\nOverriding kernel with file {full_name}")
+                next_module = parse(full_name, ext, context)
+            # If TRITON_STORE_BINARY_ONLY is 1, only store binary/json artifacts
+            if (not store_only_binary) or (ext in STORE_ONLY_BINARY_EXTS):
+                metadata_group[ir_filename] = fn_cache_manager.put(next_module, ir_filename)
+            if fn_dump_manager is not None:
+                fn_dump_manager.put(next_module, ir_filename)
+            # use an env variable to parse ir from file
+            if use_ir_loc == ext:
+                ir_full_name = fn_cache_manager.get_file(ir_filename)
+                next_module.create_location_snapshot(ir_full_name)
+                print(f"Creating new locations for {ir_full_name}")
+            module = next_module
+    finally:
+        if prior_mlir_dump_path is None:
+            os.environ.pop("MLIR_DUMP_PATH", None)
+        else:
+            os.environ["MLIR_DUMP_PATH"] = prior_mlir_dump_path
     parse_mlir_to_folder(mlir_dump_path)
 
     if metadata_json:
@@ -355,20 +367,91 @@ def get_source_ir(src, target=None, options=None):
     return module
 
 
-def get_cache_key(src_hash, backend, backend_options, env_vars):
+def get_cache_key(src_hash, backend, backend_options, env_vars, start_pass=None, metadata_json=None):
     runner_key = f'{__version__}'
     key = f"{triton_key()}-{runner_key}-{src_hash}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
+    if start_pass:
+        key = f"{key}-start_pass={start_pass}"
+    if metadata_json:
+        key = f"{key}-metadata={stable_cache_key_digest(metadata_json)}"
     return key
+
+
+# Only files recorded in the manifest are ever removed or overwritten.
+_MLIR_MANIFEST_NAME = ".triton-runner-mlir-manifest.json"
+_MLIR_DIR_LIMIT = 100  # mlir, mlir-1, ... mlir-99
+
+
+def _manifest_names(folder_path):
+    # entries must be plain file names inside the folder
+    manifest_path = os.path.join(folder_path, _MLIR_MANIFEST_NAME)
+    try:
+        manifest = json.loads(Path(manifest_path).read_text())
+    except (OSError, ValueError):
+        return []
+    files = manifest.get("files") if isinstance(manifest, dict) else None
+    if not isinstance(files, list):
+        return []
+    return [
+        name for name in files
+        if (isinstance(name, str) and name and name not in (os.curdir, os.pardir)
+            and not os.path.isabs(name) and os.path.basename(name) == name)
+    ]
+
+
+def _write_manifest(folder_path, file_names):
+    # mkstemp gives a fresh inode: a pre-existing file or symlink at any
+    # predictable temp name would be followed by a plain write
+    manifest_path = os.path.join(folder_path, _MLIR_MANIFEST_NAME)
+    fd, temp_path = tempfile.mkstemp(prefix=f"{_MLIR_MANIFEST_NAME}.", suffix=".tmp", dir=folder_path)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump({"files": sorted(file_names)}, f)
+        os.replace(temp_path, manifest_path)
+    except BaseException:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
+
+
+def _writable_name(folder, name, owned):
+    # writable when free, or a regular file we own; never a symlink
+    path = os.path.join(folder, name)
+    if not os.path.lexists(path):
+        return True
+    if os.path.islink(path):
+        return False
+    return name in owned and os.path.isfile(path)
+
+
+def _pick_output_folder(parent_dir, planned_names):
+    # prefer mlir; fall back to mlir-1, mlir-2, ... when a planned name is
+    # taken by anything we cannot prove we own
+    for idx in range(_MLIR_DIR_LIMIT):
+        name = "mlir" if idx == 0 else f"mlir-{idx}"
+        folder = os.path.join(parent_dir, name)
+        if os.path.islink(folder):
+            continue
+        if os.path.exists(folder):
+            if not os.path.isdir(folder):
+                continue
+            owned = set(_manifest_names(folder))
+            if not all(_writable_name(folder, n, owned) for n in planned_names):
+                continue
+        return folder
+    raise RuntimeError(
+        f"Could not find an mlir output folder under {parent_dir} whose files this tool owns; "
+        f"remove or rename the existing mlir* folders there.")
 
 
 def parse_mlir_to_folder(mlir_path):
     if not os.path.exists(mlir_path) or os.environ.get("MLIR_ENABLE_DUMP", "0") == "0":
         return
-    folder_path = os.path.join(os.path.dirname(mlir_path), "mlir")
-    shutil.rmtree(folder_path, ignore_errors=True)
-    os.makedirs(folder_path, exist_ok=True)
     content = Path(mlir_path).read_text()
 
+    # parse first, then pick a folder whose names we own
     # Upstream MLIR prints "Pass (key) (op)"; fbtriton prints "Pass: key{opts} (op)".
     pattern = re.compile(
         r'// -----// IR Dump Before (?P<pass_name>.*?) '
@@ -377,6 +460,7 @@ def parse_mlir_to_folder(mlir_path):
         r'(?P<body>.*?)(?=// -----// IR Dump Before|\Z)',
         re.DOTALL
     )
+    outputs = []
     item = 'source'
     title = 'Python ast_to_ttir'
     last_body = None
@@ -392,12 +476,39 @@ def parse_mlir_to_folder(mlir_path):
         body = match.group("body").strip()
         changed = "-changed" if last_body and last_body != body else ""
         changed_text = ", This Pass IR has changed!\n" if changed else "\n"
-        output_path = Path(folder_path) / f"{idx+1:02d}{changed}-{item}.mlir"
-        output_path.write_text(f"// IR Dump After {title}{changed_text}// Next run Pass --{pass_key}\n\n{body}")
+        name = f"{idx+1:02d}{changed}-{item}.mlir"
+        outputs.append((name, f"// IR Dump After {title}{changed_text}// Next run Pass --{pass_key}\n\n{body}"))
         item = f"{pass_name}"
         title = f"{item} ({operation})\n// Current Run Pass --{pass_key}"
         last_body = body
 
     if idx >= 0:
-        output_path = Path(folder_path) / f"{idx+2:02d}-{item}.mlir"
-        output_path.write_text(f"// IR Dump After {title}\n")
+        name = f"{idx+2:02d}-{item}.mlir"
+        outputs.append((name, f"// IR Dump After {title}\n"))
+
+    if not outputs:
+        # nothing parseable (e.g. a torn all.mlir or a crash-only dump):
+        # leave any previous dump and its manifest untouched
+        print(f"no IR dump passes found in {mlir_path}; leaving existing mlir folders untouched")
+        return
+
+    folder_path = _pick_output_folder(os.path.dirname(mlir_path), [name for name, _ in outputs])
+    if os.path.basename(folder_path) != "mlir":
+        print(f"mlir output folder 'mlir' is not usable (occupied by files not written by this tool, "
+              f"or not a plain directory); using {folder_path} instead")
+    os.makedirs(folder_path, exist_ok=True)
+    # claim old and new names before touching the disk, so a crash anywhere
+    # leaves a manifest that still owns whatever is (or was about to be) here;
+    # stale files from previous runs are removed via the ownership set read
+    # BEFORE the manifest changes, then the manifest is finalized to exactly
+    # the new set
+    planned = [name for name, _ in outputs]
+    old_owned = set(_manifest_names(folder_path))
+    _write_manifest(folder_path, sorted(old_owned.union(planned)))
+    for name in old_owned.difference(planned):
+        path = os.path.join(folder_path, name)
+        if os.path.isfile(path):
+            os.remove(path)
+    for name, text in outputs:
+        (Path(folder_path) / name).write_text(text)
+    _write_manifest(folder_path, planned)

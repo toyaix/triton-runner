@@ -18,7 +18,7 @@ Compatibility summary:
 - Supported Triton versions: `v3.0.0` through `v3.8.0`
 - Primary target: `v3.8.0`
 - Supported runner inputs: Python Triton, Gluon, TTIR, TTGIR, LLIR, PTX, cubin, AMDGCN, and hsaco
-- Dump support: Python, TTIR, and TTGIR
+- Dump support: Python, TTIR, and TTGIR (`dump()` handles 1D/2D/3D values; `dump_boundary()` and `dump_grids()` are limited to 1D/2D)
 - Optional CUDA bridge: TVM-FFI on Triton `v3.7.0` only
 - MLIR split output: set `MLIR_ENABLE_DUMP=1` to expand `all.mlir` into per-pass files in the cache directory
 
@@ -188,7 +188,13 @@ python examples/runner/amd/v3.6.0/hsaco/matmul.py
 
 If your GPU does not match one of the bundled examples, set `TRITON_CACHE_DIR=$PWD/.cache`, compile once on the target machine, and then reuse the generated kernel cache.
 
-### 7. Versioned Examples
+### 7. Pass Management (`start_pass`)
+
+Re-compile a kernel starting from a specific pass of the TTIR/TTGIR/LLIR pipelines, which is useful for bisecting pass-level miscompiles. Pass `start_pass="<pass name>"` together with the source input; LLIR inputs additionally require `metadata_json`.
+
+`start_pass` is currently wired into and verified on Triton `v3.4.0` only; every other supported version rejects the argument with `NotImplementedError`. See [examples/runner/pass_manage](./examples/runner/pass_manage) for the demo and prerequisites.
+
+### 8. Versioned Examples
 
 Use the example set that matches your Triton version:
 
@@ -229,7 +235,7 @@ The full dump guide lives in [examples/dump/README.md](./examples/dump/README.md
 
 ### 1. Python Dump
 
-Inside a Triton kernel, use `triton_runner.language.dump()` to inspect a block. You can also use `triton_runner.language.dump_boundary()` for boundary blocks and `triton_runner.language.dump_grids()` for grid inspection.
+Inside a Triton kernel, use `triton_runner.language.dump()` to inspect a block (1D/2D/3D values are supported). You can also use `triton_runner.language.dump_boundary()` for boundary blocks and `triton_runner.language.dump_grids()` for grid inspection; both are currently limited to 1D/2D values and raise a `ValueError` otherwise — reshape 3D values first.
 
 Representative examples:
 
@@ -295,6 +301,7 @@ Current documented cases include:
 |---|---|---|
 | `TRITON_RUNNER_PROD` | `0` | Enable Triton Runner production mode on CUDA with Triton `v3.7.0`; this switches `triton_runner.jit` to the production launcher path and requires `triton-runner[tvm-ffi]`. |
 | `TRITON_RUNNER_PROD_TEST` | `0` | Enable production mode and keep the extra production cache consistency checks used by the production JIT path. |
+| `TRITON_RUNNER_COLORED_WARNINGS` | `0` | Opt in to the colored one-line `warnings.showwarning` format (off by default; set `1` to restore the colored runner warnings). |
 
 Other environment variables such as `TRITON_CACHE_DIR`, `TRITON_ALWAYS_COMPILE`, `TRITON_KERNEL_OVERRIDE`,
 `TRITON_KERNEL_DUMP`, `TRITON_STORE_BINARY_ONLY`, `TRITON_DEBUG`, `MLIR_ENABLE_DUMP`, `MLIR_DUMP_PATH`,

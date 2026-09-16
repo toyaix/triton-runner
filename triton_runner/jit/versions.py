@@ -1,65 +1,33 @@
-import dataclasses
 import hashlib
-import json
 import os
+from pathlib import Path
 
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 
+from .._cache_key import stable_cache_key_digest
 from ..compiler.compile import native_compile
-from ..compiler.source_types import RUNNER_SOURCE_TYPES
+from ..compiler.source_types import DUMP_IR_DIR_TYPES, METADATA_DIR_TYPES, RUNNER_SOURCE_TYPES
 from ..compat.triton import get_triton_cache_dir
+from ..compat.version import triton_version
 from .dump import DumpMixin
 from .metadata import MetadataMixin
 
 
-def _normalize_cache_key_value(value):
-    if hasattr(value, "_asdict"):
-        return _normalize_cache_key_value(value._asdict())
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return _normalize_cache_key_value(dataclasses.asdict(value))
-    if isinstance(value, dict):
-        return {
-            str(key): _normalize_cache_key_value(value[key])
-            for key in sorted(value, key=lambda item: str(item))
-        }
-    if isinstance(value, (list, tuple)):
-        return [_normalize_cache_key_value(item) for item in value]
-    if isinstance(value, (set, frozenset)):
-        normalized_items = [_normalize_cache_key_value(item) for item in value]
-        return sorted(
-            normalized_items,
-            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
-        )
-    if isinstance(value, os.PathLike):
-        return os.fspath(value)
-    if isinstance(value, bytes):
-        return {"__bytes__": value.hex()}
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if hasattr(value, "__dict__"):
-        public_attrs = {
-            key: attr
-            for key, attr in vars(value).items()
-            if not key.startswith("_")
-        }
-        if public_attrs:
-            return _normalize_cache_key_value(public_attrs)
-    return repr(value)
-
-
-def _stable_cache_key_digest(value):
-    normalized = _normalize_cache_key_value(value)
-    payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
+
+    # start_pass only reaches the compiler on verified pipelines (3.4 only)
+    supports_start_pass = False
 
     def normalize_runner_kwargs(self, kwargs):
         metadata_json = kwargs.get("metadata_json")
         if hasattr(metadata_json, "_asdict"):
             kwargs["metadata_json"] = metadata_json._asdict()
+        if kwargs.get("start_pass") and not self.supports_start_pass:
+            raise NotImplementedError(
+                f"start_pass is not supported on Triton {triton_version} "
+                f"({self.__class__.__name__}); it is only wired into and verified on "
+                "the Triton 3.4 pipeline. Remove start_pass or use Triton 3.4.")
 
     def get_cache_key_with_runner_args(self, key, kwargs):
         if kwargs.get("dump_tensor") is not None:
@@ -68,12 +36,12 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
             key += f"|dump_value={kwargs['dump_value']}"
         if "dump_grid" in kwargs:
             key += f"|dump_grid={kwargs['dump_grid']}"
-        if "start_pass" in kwargs:
+        if kwargs.get("start_pass"):
             key += f"|start_pass={kwargs['start_pass']}"
         if (runner_source_key_suffix := self.get_runner_source_key_suffix(kwargs)):
             key += f"|runner_src={runner_source_key_suffix}"
         if "metadata_json" in kwargs:
-            key += f"|runner_metadata={_stable_cache_key_digest(kwargs['metadata_json'])}"
+            key += f"|runner_metadata={stable_cache_key_digest(kwargs['metadata_json'])}"
         return key
 
     def get_runner_args_set(self):
@@ -114,14 +82,64 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         return self._check_source_dir_type(
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
+    def _file_digest(self, path):
+        """sha256 of file content, memoized on (mtime_ns, size).
+
+        A warm launch costs one stat per file instead of a full read. A file
+        that disappears keeps serving its last digest so an already-compiled
+        kernel stays launchable; a never-seen missing file returns None so
+        the compile path reports the real error.
+        """
+        path = os.path.abspath(path)
+        cache = self.__dict__.setdefault("_runner_file_digests", {})
+        try:
+            st = os.stat(path)
+        except OSError:
+            cached = cache.get(path)
+            return cached[1] if cached is not None else None
+        stamp = (st.st_dev, st.st_ino, st.st_ctime_ns, st.st_mtime_ns, st.st_size)
+        cached = cache.get(path)
+        if cached is not None and cached[0] == stamp:
+            return cached[1]
+        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        cache[path] = (stamp, digest)
+        return digest
+
+    def _hash_file_digest(self, hasher, path):
+        digest = self._file_digest(path)
+        if digest is None:
+            # unreadable and never hashed: digest the path itself so the key
+            # stays computable and the compile path raises its real error
+            digest = "path:" + os.path.abspath(path)
+        hasher.update(digest.encode("utf-8"))
+
+    def _runner_source_digest(self, source_dir_type, kwargs):
+        # mirror what get_src_and_metadata_json reads, so editing a file in
+        # place changes the in-process cache key
+        value = kwargs[source_dir_type]
+        hasher = hashlib.sha256()
+        if source_dir_type.endswith("_src"):
+            if os.path.exists(value):
+                self._hash_file_digest(hasher, value)
+            else:
+                hasher.update(value.encode("utf-8"))
+        else:
+            src_path = os.path.join(value, f"{self.__name__}.{source_dir_type[:-4]}")
+            if not os.path.exists(src_path) and self.need_dump(kwargs) and source_dir_type in DUMP_IR_DIR_TYPES:
+                src_path = os.path.join(value, f"{self.__name__}.source")
+            self._hash_file_digest(hasher, src_path)
+            json_path = os.path.join(value, f"{self.__name__}.json")
+            # ttgir_dir reads an optional sidecar json (see get_src_and_metadata_json)
+            if source_dir_type in METADATA_DIR_TYPES or (source_dir_type == "ttgir_dir" and os.path.exists(json_path)):
+                hasher.update(b"\0metadata\0")
+                self._hash_file_digest(hasher, json_path)
+        return hasher.hexdigest()
+
     def get_runner_source_key_suffix(self, kwargs):
         runner_args_set = self.get_runner_args_set()
         for k in kwargs:
             if k in runner_args_set:
-                if k.endswith("_src"):
-                    src_hash = hashlib.sha256(kwargs[k].encode("utf-8")).hexdigest()
-                    return f"{k}:{src_hash}"
-                return kwargs[k] + f"/{self.__name__}.{k[:-4]}"
+                return f"{k}:{self._runner_source_digest(k, kwargs)}"
         return ""
 
     def _pack_args(self, backend, kwargs, bound_args, specialization, options):
@@ -210,6 +228,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
             options=options.__dict__,
             source_path=self.source_path,
             kernel_signature=kernel_signature,
+            start_pass=kwargs.get("start_pass"),
         )
         if kernel is None:
             return None
@@ -441,6 +460,8 @@ class RunnerJITFunctionV3_5_0(RunnerJITFunction[KernelInterface[T]]):
 
 class RunnerJITFunctionV3_4_0(RunnerJITFunction[KernelInterface[T]]):
 
+    supports_start_pass = True
+
     def run(self, *args, grid, warmup, **kwargs):
         from triton import knobs
         self.handle_autotune(kwargs)
@@ -575,7 +596,7 @@ class RunnerJITFunctionV3_3_0(RunnerJITFunction[KernelInterface[T]]):
             # [Triton Runner] dump after _call_hook
             src, metadata_json = self.get_src_and_metadata_json(kwargs, source_dir_type, src, ast_src)
             kernel_signature = tuple((key, arg_type, spec) for key, (arg_type, spec) in zip(bound_args.keys(), specialization))
-            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature)
+            kernel = native_compile(src, ast_src, metadata_json, target=target, options=options.__dict__, source_path=self.source_path, kernel_signature=kernel_signature, start_pass=kwargs.get("start_pass"))
             kernel_cache[key] = kernel
             self._call_hook(key, signature, device, constexprs, options, [attrs], warmup, before=False)
 
@@ -614,6 +635,7 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
         bound_args, sig_and_spec, constexpr_vals, non_constexpr_vals, excess_kwargs = self.binder(*args, **kwargs)
 
         key = ''.join(sig_and_spec) + str((constexpr_vals, excess_kwargs))
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = self.cache[device].get(key, None)
 
         if kernel is None:
@@ -686,6 +708,7 @@ class RunnerJITFunctionV3_1_0(RunnerJITFunction[KernelInterface[T]]):
         bound_args, sig_and_spec, constexpr_vals, non_constexpr_vals, excess_kwargs = self.binder(*args, **kwargs)
 
         key = ''.join(sig_and_spec) + str((constexpr_vals, excess_kwargs))
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = self.cache[device].get(key, None)
 
         if kernel is None:

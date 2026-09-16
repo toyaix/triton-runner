@@ -13,7 +13,7 @@ import dataclasses
 import os
 from collections.abc import Callable
 
-os.environ.setdefault("TRITON_RUNNER_ENABLE_TVM_FFI", "1")
+os.environ.setdefault("TRITON_RUNNER_PROD", "1")
 
 import pytest
 import torch
@@ -356,6 +356,9 @@ def main() -> None:
     print(f"kernel: sm{sm} python attn-tma")
     print(f"problem: bs={args.bs} n_ctx={args.n_ctx} n_kv_ctx={args.n_kv_ctx} n_heads={args.n_heads} head_dim={args.head_dim} grid=({grid_x}, {grid_y}, {grid_z})")
     print(f"measure: host launch latency, median over {args.repeats} repeats")
+    print(f"runner jit backend: {triton_runner.jit.__module__} "
+          f"(TRITON_RUNNER_PROD={os.environ.get('TRITON_RUNNER_PROD', '0')}, "
+          f"TRITON_RUNNER_PROD_TEST={os.environ.get('TRITON_RUNNER_PROD_TEST', '0')})")
     print(f"Triton: {triton_us:.3f} us")
     print(f"TVM-Triton (CompiledTVMFFIKernel.__getitem__/run): {tvm_us:.3f} us")
     print(f"direct launch: {direct_us:.3f} us")

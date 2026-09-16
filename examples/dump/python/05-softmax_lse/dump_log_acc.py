@@ -1,3 +1,4 @@
+import sys
 # softmax use log_sum_exp
 import torch
 import triton
@@ -78,3 +79,4 @@ if __name__ == "__main__":
         print("✅ Triton and Torch match")
     else:
         print("❌ Triton and Torch differ")
+        sys.exit(1)
