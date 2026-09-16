@@ -20,8 +20,13 @@ _TORCH_HELPER_NAMES = (
 
 
 def __getattr__(name):
-    if name in _TORCH_HELPER_NAMES:
-        return getattr(importlib.import_module(".torch", __name__), name)
+    if name == "torch" or name in _TORCH_HELPER_NAMES:
+        try:
+            module = importlib.import_module(".torch", __name__)
+        except ModuleNotFoundError as exc:
+            # AttributeError keeps hasattr()/getattr(default) probes working
+            raise AttributeError(f"{name} requires torch: {exc}") from exc
+        return module if name == "torch" else getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
