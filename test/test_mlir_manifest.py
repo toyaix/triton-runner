@@ -105,6 +105,52 @@ def test_crash_after_claim_still_reuses_folder():
         assert files == manifest == ["01-source.mlir", "02-passa.mlir"]
 
 
+def test_reserved_manifest_name_is_replaced():
+    # a regular file at the reserved hidden manifest name is treated as a
+    # stale/corrupt manifest of ours and replaced (self-healing); only a
+    # name collision on a planned dump file relocates (see below)
+    with tempfile.TemporaryDirectory() as cache:
+        folder = Path(cache) / "mlir"
+        folder.mkdir()
+        (folder / _MLIR_MANIFEST_NAME).write_text("precious user data")
+        _run_parse(cache, ["passa"])
+        files, manifest = _state(cache)
+        assert files == manifest == ["01-source.mlir", "02-passa.mlir"]
+        assert not os.path.exists(os.path.join(cache, "mlir-1"))
+
+
+def test_manifest_name_symlink_target_is_untouched():
+    # os.replace swaps the directory entry; the symlink target is never read
+    # or written through
+    with tempfile.TemporaryDirectory() as cache:
+        folder = Path(cache) / "mlir"
+        folder.mkdir()
+        victim = Path(cache) / "victim.txt"
+        victim.write_text("do not touch")
+        os.symlink(victim, folder / _MLIR_MANIFEST_NAME)
+        _run_parse(cache, ["passa"])
+        assert victim.read_text() == "do not touch"
+        assert not (folder / _MLIR_MANIFEST_NAME).is_symlink()
+        files, manifest = _state(cache)
+        assert files == manifest == ["01-source.mlir", "02-passa.mlir"]
+
+
+def test_user_planned_name_relocates_and_preserves_folder():
+    # a user file at a planned dump name must block the folder wholesale:
+    # output moves to mlir-1 and every original file survives untouched
+    with tempfile.TemporaryDirectory() as cache:
+        folder = Path(cache) / "mlir"
+        folder.mkdir()
+        (folder / _MLIR_MANIFEST_NAME).write_text("precious user data")
+        (folder / "01-source.mlir").write_text("user ir")
+        _run_parse(cache, ["passa"])
+        assert (folder / _MLIR_MANIFEST_NAME).read_text() == "precious user data"
+        assert (folder / "01-source.mlir").read_text() == "user ir"
+        relocated = Path(cache) / "mlir-1"
+        assert relocated.is_dir(), "output must relocate"
+        assert sorted(_manifest_names(str(relocated))) == ["01-source.mlir", "02-passa.mlir"]
+
+
 def main():
     tests = [value for name, value in globals().items() if name.startswith("test_")]
     for test in tests:
