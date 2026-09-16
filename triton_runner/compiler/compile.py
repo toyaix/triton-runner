@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
 
 from triton.runtime import driver
@@ -399,17 +400,20 @@ def _manifest_names(folder_path):
 
 
 def _write_manifest(folder_path, file_names):
+    # mkstemp gives a fresh inode: a pre-existing file or symlink at any
+    # predictable temp name would be followed by a plain write
     manifest_path = os.path.join(folder_path, _MLIR_MANIFEST_NAME)
-    temp_path = os.path.join(folder_path, f"{_MLIR_MANIFEST_NAME}.tmp")
-    Path(temp_path).write_text(json.dumps({"files": sorted(file_names)}))
-    os.replace(temp_path, manifest_path)
-
-
-def _remove_generated_mlir_files(folder_path):
-    for name in _manifest_names(folder_path):
-        path = os.path.join(folder_path, name)
-        if os.path.isfile(path):
-            os.remove(path)
+    fd, temp_path = tempfile.mkstemp(prefix=f"{_MLIR_MANIFEST_NAME}.", suffix=".tmp", dir=folder_path)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump({"files": sorted(file_names)}, f)
+        os.replace(temp_path, manifest_path)
+    except BaseException:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
 
 
 def _writable_name(folder, name, owned):
@@ -493,10 +497,18 @@ def parse_mlir_to_folder(mlir_path):
         print(f"mlir output folder 'mlir' is not usable (occupied by files not written by this tool, "
               f"or not a plain directory); using {folder_path} instead")
     os.makedirs(folder_path, exist_ok=True)
-    # record ownership before writing: a crash mid-loop then leaves a manifest
-    # claiming names that may be missing, which the next run tolerates and
-    # rewrites, instead of unowned files that permanently disqualify the folder
-    _write_manifest(folder_path, [name for name, _ in outputs])
-    _remove_generated_mlir_files(folder_path)
+    # claim old and new names before touching the disk, so a crash anywhere
+    # leaves a manifest that still owns whatever is (or was about to be) here;
+    # stale files from previous runs are removed via the ownership set read
+    # BEFORE the manifest changes, then the manifest is finalized to exactly
+    # the new set
+    planned = [name for name, _ in outputs]
+    old_owned = set(_manifest_names(folder_path))
+    _write_manifest(folder_path, sorted(old_owned.union(planned)))
+    for name in old_owned.difference(planned):
+        path = os.path.join(folder_path, name)
+        if os.path.isfile(path):
+            os.remove(path)
     for name, text in outputs:
         (Path(folder_path) / name).write_text(text)
+    _write_manifest(folder_path, planned)

@@ -97,7 +97,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         except OSError:
             cached = cache.get(path)
             return cached[1] if cached is not None else None
-        stamp = (st.st_mtime_ns, st.st_size)
+        stamp = (st.st_dev, st.st_ino, st.st_ctime_ns, st.st_mtime_ns, st.st_size)
         cached = cache.get(path)
         if cached is not None and cached[0] == stamp:
             return cached[1]
