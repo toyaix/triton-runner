@@ -400,7 +400,9 @@ def _manifest_names(folder_path):
 
 def _write_manifest(folder_path, file_names):
     manifest_path = os.path.join(folder_path, _MLIR_MANIFEST_NAME)
-    Path(manifest_path).write_text(json.dumps({"files": sorted(file_names)}))
+    temp_path = os.path.join(folder_path, f"{_MLIR_MANIFEST_NAME}.tmp")
+    Path(temp_path).write_text(json.dumps({"files": sorted(file_names)}))
+    os.replace(temp_path, manifest_path)
 
 
 def _remove_generated_mlir_files(folder_path):
@@ -480,12 +482,21 @@ def parse_mlir_to_folder(mlir_path):
         name = f"{idx+2:02d}-{item}.mlir"
         outputs.append((name, f"// IR Dump After {title}\n"))
 
+    if not outputs:
+        # nothing parseable (e.g. a torn all.mlir or a crash-only dump):
+        # leave any previous dump and its manifest untouched
+        print(f"no IR dump passes found in {mlir_path}; leaving existing mlir folders untouched")
+        return
+
     folder_path = _pick_output_folder(os.path.dirname(mlir_path), [name for name, _ in outputs])
     if os.path.basename(folder_path) != "mlir":
         print(f"mlir output folder 'mlir' is not usable (occupied by files not written by this tool, "
               f"or not a plain directory); using {folder_path} instead")
     os.makedirs(folder_path, exist_ok=True)
+    # record ownership before writing: a crash mid-loop then leaves a manifest
+    # claiming names that may be missing, which the next run tolerates and
+    # rewrites, instead of unowned files that permanently disqualify the folder
+    _write_manifest(folder_path, [name for name, _ in outputs])
     _remove_generated_mlir_files(folder_path)
     for name, text in outputs:
         (Path(folder_path) / name).write_text(text)
-    _write_manifest(folder_path, [name for name, _ in outputs])
