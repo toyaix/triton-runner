@@ -14,6 +14,7 @@ from triton._C.libtriton import get_cache_invalidating_env_vars, ir, llvm
 from .checks import runner_check_triton
 from ..debug.console import print_triton_cache_dir
 from ..compat.triton import triton_key
+from .._cache_key import stable_cache_key_digest
 from .. import __version__
 from triton.compiler.compiler import CompiledKernel
 from .pass_pipeline import build_pipeline_for_stage
@@ -366,9 +367,7 @@ def get_cache_key(src_hash, backend, backend_options, env_vars, start_pass=None,
     if start_pass:
         key = f"{key}-start_pass={start_pass}"
     if metadata_json:
-        metadata_digest = hashlib.sha256(
-            json.dumps(metadata_json, sort_keys=True, default=str).encode("utf-8")).hexdigest()
-        key = f"{key}-metadata={metadata_digest}"
+        key = f"{key}-metadata={stable_cache_key_digest(metadata_json)}"
     return key
 
 

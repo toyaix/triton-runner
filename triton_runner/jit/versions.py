@@ -1,59 +1,17 @@
-import dataclasses
 import hashlib
-import json
 import os
 from pathlib import Path
 
 from triton.runtime.driver import driver
 from triton.runtime.jit import JITFunction, KernelInterface, T
 
+from .._cache_key import stable_cache_key_digest
 from ..compiler.compile import native_compile
 from ..compiler.source_types import DUMP_IR_DIR_TYPES, METADATA_DIR_TYPES, RUNNER_SOURCE_TYPES
 from ..compat.triton import get_triton_cache_dir
 from ..compat.version import triton_version
 from .dump import DumpMixin
 from .metadata import MetadataMixin
-
-
-def _normalize_cache_key_value(value):
-    if hasattr(value, "_asdict"):
-        return _normalize_cache_key_value(value._asdict())
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return _normalize_cache_key_value(dataclasses.asdict(value))
-    if isinstance(value, dict):
-        return {
-            str(key): _normalize_cache_key_value(value[key])
-            for key in sorted(value, key=lambda item: str(item))
-        }
-    if isinstance(value, (list, tuple)):
-        return [_normalize_cache_key_value(item) for item in value]
-    if isinstance(value, (set, frozenset)):
-        normalized_items = [_normalize_cache_key_value(item) for item in value]
-        return sorted(
-            normalized_items,
-            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
-        )
-    if isinstance(value, os.PathLike):
-        return os.fspath(value)
-    if isinstance(value, bytes):
-        return {"__bytes__": value.hex()}
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if hasattr(value, "__dict__"):
-        public_attrs = {
-            key: attr
-            for key, attr in vars(value).items()
-            if not key.startswith("_")
-        }
-        if public_attrs:
-            return _normalize_cache_key_value(public_attrs)
-    return repr(value)
-
-
-def _stable_cache_key_digest(value):
-    normalized = _normalize_cache_key_value(value)
-    payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]]):
@@ -83,7 +41,7 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         if (runner_source_key_suffix := self.get_runner_source_key_suffix(kwargs)):
             key += f"|runner_src={runner_source_key_suffix}"
         if "metadata_json" in kwargs:
-            key += f"|runner_metadata={_stable_cache_key_digest(kwargs['metadata_json'])}"
+            key += f"|runner_metadata={stable_cache_key_digest(kwargs['metadata_json'])}"
         return key
 
     def get_runner_args_set(self):
@@ -124,6 +82,37 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         return self._check_source_dir_type(
             [k.lower() for k in kwargs if k not in options.__dict__ and k not in sigkeys])
 
+    def _file_digest(self, path):
+        """sha256 of file content, memoized on (mtime_ns, size).
+
+        A warm launch costs one stat per file instead of a full read. A file
+        that disappears keeps serving its last digest so an already-compiled
+        kernel stays launchable; a never-seen missing file returns None so
+        the compile path reports the real error.
+        """
+        path = os.path.abspath(path)
+        cache = self.__dict__.setdefault("_runner_file_digests", {})
+        try:
+            st = os.stat(path)
+        except OSError:
+            cached = cache.get(path)
+            return cached[1] if cached is not None else None
+        stamp = (st.st_mtime_ns, st.st_size)
+        cached = cache.get(path)
+        if cached is not None and cached[0] == stamp:
+            return cached[1]
+        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        cache[path] = (stamp, digest)
+        return digest
+
+    def _hash_file_digest(self, hasher, path):
+        digest = self._file_digest(path)
+        if digest is None:
+            # unreadable and never hashed: digest the path itself so the key
+            # stays computable and the compile path raises its real error
+            digest = "path:" + os.path.abspath(path)
+        hasher.update(digest.encode("utf-8"))
+
     def _runner_source_digest(self, source_dir_type, kwargs):
         # mirror what get_src_and_metadata_json reads, so editing a file in
         # place changes the in-process cache key
@@ -131,17 +120,19 @@ class RunnerJITFunction(DumpMixin, MetadataMixin, JITFunction[KernelInterface[T]
         hasher = hashlib.sha256()
         if source_dir_type.endswith("_src"):
             if os.path.exists(value):
-                hasher.update(Path(value).read_bytes())
+                self._hash_file_digest(hasher, value)
             else:
                 hasher.update(value.encode("utf-8"))
         else:
             src_path = os.path.join(value, f"{self.__name__}.{source_dir_type[:-4]}")
             if not os.path.exists(src_path) and self.need_dump(kwargs) and source_dir_type in DUMP_IR_DIR_TYPES:
                 src_path = os.path.join(value, f"{self.__name__}.source")
-            hasher.update(Path(src_path).read_bytes())
-            if source_dir_type in METADATA_DIR_TYPES:
+            self._hash_file_digest(hasher, src_path)
+            json_path = os.path.join(value, f"{self.__name__}.json")
+            # ttgir_dir reads an optional sidecar json (see get_src_and_metadata_json)
+            if source_dir_type in METADATA_DIR_TYPES or (source_dir_type == "ttgir_dir" and os.path.exists(json_path)):
                 hasher.update(b"\0metadata\0")
-                hasher.update(Path(os.path.join(value, f"{self.__name__}.json")).read_bytes())
+                self._hash_file_digest(hasher, json_path)
         return hasher.hexdigest()
 
     def get_runner_source_key_suffix(self, kwargs):
@@ -643,6 +634,7 @@ class RunnerJITFunctionV3_2_0(RunnerJITFunction[KernelInterface[T]]):
         bound_args, sig_and_spec, constexpr_vals, non_constexpr_vals, excess_kwargs = self.binder(*args, **kwargs)
 
         key = ''.join(sig_and_spec) + str((constexpr_vals, excess_kwargs))
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = self.cache[device].get(key, None)
 
         if kernel is None:
@@ -715,6 +707,7 @@ class RunnerJITFunctionV3_1_0(RunnerJITFunction[KernelInterface[T]]):
         bound_args, sig_and_spec, constexpr_vals, non_constexpr_vals, excess_kwargs = self.binder(*args, **kwargs)
 
         key = ''.join(sig_and_spec) + str((constexpr_vals, excess_kwargs))
+        key = self.get_cache_key_with_runner_args(key, kwargs)
         kernel = self.cache[device].get(key, None)
 
         if kernel is None:
